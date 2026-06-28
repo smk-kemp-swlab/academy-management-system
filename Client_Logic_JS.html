@@ -1,0 +1,637 @@
+<script>
+    const techAttributes = ["Dribbling", "Passing", "Receiving first touch", "Ball control", "Ball shielding", "Shooting / finishing", "Crossing / delivery", "Turning / body orientation", "1v1 attacking ability", "1v1 defending / tackling"];
+    const tacAttributes = ["Game awareness", "Decision-making", "Reading the game", "Tempo control", "Identification of key passes", "Positioning / spatial awareness", "Movement off the ball", "Transition reaction", "In-possession contribution", "Out-of-possession contribution"];
+    const physAttributes = ["Speed / acceleration", "Endurance / match fitness", "Repeated high-intensity actions", "Agility / change of direction", "Athleticism", "Stride mechanics", "Running with the ball", "Strength / balance in duels", "Reaction speed"];
+    const psychAttributes = ["Communication", "Competitiveness", "Work rate", "Coachability", "Confidence", "Composure"];
+
+    let masterContextPayload = null;
+    let localTransmissionQueue = JSON.parse(localStorage.getItem('kemp_suite_eval_queue')) || [];
+    let isGuidePanelExposed = false;
+    let syncEngineLockFlag = false;
+    let currentSystemIsDemoMode = false;
+    let nativeScriptDeploymentUrl = "";
+
+    function handleViewStateToggle() {
+        const consoleView = document.getElementById('evaluationConsolePanel');
+        const manualView = document.getElementById('operationalGuideManualPanel');
+        const toggleBtn = document.getElementById('globalViewToggler');
+
+        isGuidePanelExposed = !isGuidePanelExposed;
+        consoleView.style.display = isGuidePanelExposed ? 'none' : 'block';
+        manualView.style.display = isGuidePanelExposed ? 'block' : 'none';
+        toggleBtn.innerText = isGuidePanelExposed ? '← Return To Performance Matrix' : '📖 Open Operational User Guide';
+        window.scrollTo({top: 0});
+    }
+
+    function sanitizeKeyString(str) { return str.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+/************** Autheintication strategy switch 7th June 2026 
+    function initializeApplicationWorkspace() {
+      //alert("Entered initializeApplicationWorkspace");
+        document.getElementById('loadingSpinnerElement').style.display = "block";
+        document.getElementById('evaluationConsolePanel').style.opacity = "0.4";
+        document.getElementById('evaluationConsolePanel').style.pointerEvents = "none";
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          //alert("calling getIdentityVerificationPacket with success handler");
+            google.script.run
+                .withSuccessHandler(evaluateIdentityHandshakeState)
+                .withFailureHandler(handleIdentitySystemPanic)
+                .getIdentityVerificationPacket();
+          //alert("returned from getIdentityVerificationPacket");
+        } else {
+            evaluateIdentityHandshakeState({ isIdentityWarm: false, offlineModeForced: true });
+        }
+    }
+    */
+
+    function initializeApplicationWorkspace() {
+    // 1. SIMULATION STEP: Uncomment to test.
+    // Hardcode the target test coach profile directly into local storage cache
+    // 📝 TEST RUNNER SWITCH: Toggle between your admin ID and coach ID right here:
+    // localStorage.setItem('kemp_suite_verified_session_email', 'samir.kamerkar@gmail.com');
+    
+    // 2. READ STEP: Read the cached string back out (exactly how the production IAM handoff will work)
+    // const verifiedSessionEmail = localStorage.getItem('kemp_suite_verified_session_email');
+    
+    // 2. READ STEP: Read cached string back out stored by the production IAM handoff
+    const verifiedSessionEmail = localStorage.getItem('kemp_suite_verified_session_email');
+    // 3. UI RESET STEP: Instantly lower the gray screen block because authentication has passed
+    document.getElementById('loadingSpinnerElement').style.display = "none";
+    
+    // If the cache somehow fires empty, halt and throw a structural panic code
+    /* if (!verifiedSessionEmail) {
+        alert("Ecosystem Auth Panic: Memory stream cleared out unexpectedly.");
+        return;
+    }*/ 
+    
+    // 4. BIND STEP: Map the verified email string directly to your core UI element labels
+    document.getElementById('identityEmailLabel').innerText = verifiedSessionEmail;
+    
+    const syncBtn = document.getElementById('identityConfirmSyncBtn');
+    syncBtn.disabled = false;
+    syncBtn.style.display = "block";
+    syncBtn.className = "master-action-btn btn-commit";
+    
+    // Dynamically lock onto the specific email for the roster generation payload
+    syncBtn.innerHTML = `📥 Get Today's Roster for ${verifiedSessionEmail}`;
+    syncBtn.onclick = triggerExplicitDataSync;
+    
+    // 5. CLEAN UP STEP: Hide old authorization buttons cleanly
+    document.getElementById('identityStatusAlert').style.display = "none";
+    document.getElementById('identitySwitchAccountLink').style.display = "none";
+    document.getElementById('identityOfflineOverrideBtn').style.display = "none";
+}
+
+/************** Autheintication strategy switch 7th June 2026 
+    function evaluateIdentityHandshakeState(response) {
+      alert("Entered evaluateIdentityHandshakeState: Step 1");
+    document.getElementById('loadingSpinnerElement').style.display = "none";
+    alert("Entered evaluateIdentityHandshakeState: Step 2");
+    const emailLabel = document.getElementById('identityEmailLabel');
+    const statusAlert = document.getElementById('identityStatusAlert');
+    const syncBtn = document.getElementById('identityConfirmSyncBtn');
+    const switchLink = document.getElementById('identitySwitchAccountLink');
+    const offlineBtn = document.getElementById('identityOfflineOverrideBtn');
+    const cardWrapper = document.getElementById('identityBridgeCard');
+    alert("Entered evaluateIdentityHandshakeState: Step 3");
+
+    if (response.scriptWebAppUrl) {
+      alert("Entered evaluateIdentityHandshakeState: Step 4");
+        nativeScriptDeploymentUrl = response.scriptWebAppUrl;
+        switchLink.href = "https://accounts.google.com/AccountChooser?continue=" + encodeURIComponent(nativeScriptDeploymentUrl);
+    }
+
+    // 🎯 ROUTE 1: Background Trace Success (Unmasked Domain Match or Pre-Authorized Cache)
+    if (response.isIdentityWarm && response.isRegisteredStaffMatch) {
+      alert("Entered evaluateIdentityHandshakeState: Step 4.1");
+        cardWrapper.style.borderColor = "var(--success)";
+        cardWrapper.style.background = "#f0fdf4";
+        document.getElementById('identityIconMarker').innerText = "✅";
+        emailLabel.innerText = response.currentUserEmail;
+        
+        if (response.currentUserEmail) {
+            localStorage.setItem('kemp_suite_verified_session_email', response.currentUserEmail);
+        }
+        
+        statusAlert.innerText = "Success: Google account verified and staff access confirmed.";
+        statusAlert.style.background = "#dcfce7";
+        statusAlert.style.color = "#166534";
+        
+        syncBtn.disabled = false;
+        syncBtn.style.display = "block";
+        syncBtn.className = "master-action-btn btn-commit";
+        syncBtn.innerHTML = "📥 Get Today's Roster"; 
+        
+        // ⚡ MODIFICATION: Explicitly reset interactive click event back to standard data sync behavior
+        syncBtn.onclick = triggerExplicitDataSync;
+        
+        if(switchLink) switchLink.style.display = "block";
+        if(offlineBtn) offlineBtn.style.display = "none";
+        return;
+    }
+
+    // 🎯 ROUTE 2: Target Registry Mismatch (Identity is readable but explicitly rejected)
+    if (response.isIdentityWarm && !response.isRegisteredStaffMatch) {
+      alert("Entered evaluateIdentityHandshakeState: Step 4.2");
+        cardWrapper.style.borderColor = "var(--primary)";
+        cardWrapper.style.background = "#fef2f2";
+        document.getElementById('identityIconMarker').innerText = "❌";
+        emailLabel.innerText = response.currentUserEmail;
+        statusAlert.innerText = "ACCESS RESTRICTED: This Google account is not listed in the Kemp Staff Registry.";
+        statusAlert.style.background = "#fee2e2";
+        statusAlert.style.color = "#991b1b";
+        
+        syncBtn.style.display = "none";
+        if(switchLink) switchLink.style.display = "block";
+        if(offlineBtn) offlineBtn.style.display = "block";
+        return;
+    }
+
+    // 🎯 ROUTE 3: Google Identity Masking Guard Intercepted (Authorization Token Missing/Asleep)
+    // ⚡ HARDENED LOGIC RE-ALIGNMENT: Intercept unconditionally based on server mask state to block silent hangs
+    if (!response.isIdentityWarm) {
+      alert("Entered evaluateIdentityHandshakeState: Step 4.3");
+        cardWrapper.style.borderColor = "#f59e0b"; 
+        cardWrapper.style.background = "#fffbeb";
+        document.getElementById('identityIconMarker').innerText = "🔒";
+        emailLabel.innerText = "Identity Masked by Google Security";
+        
+        statusAlert.innerHTML = `
+            <div style="font-weight: 700; margin-bottom: 4px; color: #b45309;">Connection Token Inactive</div>
+            Google requires one-time permission confirmation to unlock your staff registry mapping identity. Click below to establish a secure link.
+        `;
+        statusAlert.style.background = "#fef3c7";
+        statusAlert.style.color = "#78350f";
+        statusAlert.style.display = "block";
+        
+        syncBtn.disabled = false;
+        syncBtn.style.display = "block";
+        syncBtn.className = "master-action-btn";
+        syncBtn.style.background = "#d97706";
+        syncBtn.style.color = "#ffffff";
+        syncBtn.innerHTML = "🔐 Link Staff Account Profile";
+        
+        syncBtn.onclick = function() {
+            window.open(response.googleAuthUrl, '_blank', 'width=600,height=650');
+            
+            syncBtn.innerHTML = "🔄 Complete Connection Setup";
+            syncBtn.style.background = "#2563eb"; 
+            
+            syncBtn.onclick = function() {
+                initializeApplicationWorkspace(); 
+            };
+        };
+        
+        if(switchLink) switchLink.style.display = "block";
+        if(offlineBtn) offlineBtn.style.display = "block";
+        return;
+    }
+}
+*/
+    function triggerExplicitDataSync() {
+        document.getElementById('identityConfirmSyncBtn').disabled = true;
+        
+        // 🌟 Patched Truncation Glitch Fix
+        document.getElementById('identityConfirmSyncBtn').innerText = "Syncing roster data...";
+        document.getElementById('loadingSpinnerElement').style.display = "block";
+        
+        google.script.run
+            .withSuccessHandler(function(context) {
+                masterContextPayload = context;
+                
+                populateAccountSelectors();
+                refreshActiveInstanceTabs();
+                
+                // 🌟 DAY 2 INITIALIZATION: Open Evaluations by default on sync success
+                switchActivePortalWorkspace('evals');
+                
+                // Dynamically build scoring grids when the database drops in
+                buildSupersetCardMatrix('technicalMetricsWrapper', techAttributes, 'tech', true);
+                buildSupersetCardMatrix('tacticalMetricsWrapper', tacAttributes, 'tac', false);
+                buildSupersetCardMatrix('physicalMetricsWrapper', physAttributes, 'phys', false);
+                buildSupersetCardMatrix('psychologicalMetricsWrapper', psychAttributes, 'psych', false);
+                
+                if (context.isAdmin) {
+                    document.getElementById("adminSandboxTray").style.display = "block";
+                }
+                
+                document.getElementById('evaluationConsolePanel').style.opacity = "1";
+                document.getElementById('evaluationConsolePanel').style.pointerEvents = "auto";
+                document.getElementById('loadingSpinnerElement').style.display = "none";
+                
+                document.getElementById('identityBridgeCard').style.padding = "8px 12px";
+                document.getElementById('identityActionDeck').style.display = "none";
+                document.getElementById('identityStatusAlert').style.display = "none";
+            })
+            .withFailureHandler(function() {
+                alert("Database Mapping Error: Connection failed. Bypassing to standalone offline mode.");
+                activateOfflineWorkspaceOverride();
+            })
+            .getPerformanceEngineContext(currentSystemIsDemoMode);
+    }
+
+    function activateOfflineWorkspaceOverride() {
+        document.getElementById('identityBridgeCard').style.display = "none";
+        document.getElementById('evaluationConsolePanel').style.opacity = "1";
+        document.getElementById('evaluationConsolePanel').style.pointerEvents = "auto";
+        document.getElementById('loadingSpinnerElement').style.display = "none";
+        updateBadgeTrackerDisplay();
+        alert("OFFLINE WORKSPACE ENGAGED: Operating strictly on local storage queue cache pipelines.");
+    }
+
+    function handleIdentitySystemPanic() {
+        document.getElementById('loadingSpinnerElement').style.display = "none";
+        alert("Connection Dropout. Please use browser refresh button.");
+    }
+
+    function populateAccountSelectors() {
+        if (!masterContextPayload) return;
+        
+        const coachSel = document.getElementById('evalCoachSelect');
+        const currentCoachVal = coachSel.value;
+        
+        // 1. Rebuild options array safely
+        coachSel.innerHTML = '<option value="">-- Choose Coach Identity --</option>';
+        masterContextPayload.coaches.forEach(email => { 
+            coachSel.innerHTML += `<option value="${email}">${email}</option>`; 
+        });
+        
+        // 🌟 HARDENED SMART DEFAULTING STATE MACHINE
+        if (currentCoachVal) {
+            // Keep whatever the coach manually selected if they are mid-session
+            coachSel.value = currentCoachVal;
+        } 
+        else {
+            // Read from either the live trace or our hardened handshake cache
+            const verifiedHandshakeEmail = localStorage.getItem('kemp_suite_verified_session_email');
+            const fallbackTraceEmail = masterContextPayload.currentUserEmailTrace;
+            const targetEmailToMatch = (verifiedHandshakeEmail || fallbackTraceEmail || "").trim().toLowerCase();
+
+            if (targetEmailToMatch) {
+                let matchedEmailInRegistry = "";
+
+                // Scan options to see if we have a case-insensitive match in your registry array
+                for (let i = 0; i < coachSel.options.length; i++) {
+                    if (coachSel.options[i].value.trim().toLowerCase() === targetEmailToMatch) {
+                        matchedEmailInRegistry = coachSel.options[i].value;
+                        break;
+                    }
+                }
+
+                // If found, explicitly lock onto the exact case-matched string
+                if (matchedEmailInRegistry) {
+                    coachSel.value = matchedEmailInRegistry;
+                    // Also update the local storage rememberer for continuity
+                    localStorage.setItem('kemp_suite_remembered_coach', matchedEmailInRegistry);
+                } else {
+                    const storedCoach = localStorage.getItem('kemp_suite_remembered_coach');
+                    if (storedCoach && !coachSel.value) coachSel.value = storedCoach;
+                }
+            } else {
+                const storedCoach = localStorage.getItem('kemp_suite_remembered_coach');
+                if (storedCoach && !coachSel.value) coachSel.value = storedCoach;
+            }
+        }
+
+        // 2. Rebuild facilities/centers selector safely
+        const centerSel = document.getElementById('filterCenter');
+        const currentCenterVal = centerSel.value;
+        centerSel.innerHTML = '<option value="">-- Select Center --</option>';
+        masterContextPayload.facilities.forEach(c => { centerSel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`; });
+        if (currentCenterVal) centerSel.value = currentCenterVal;
+    }
+    function refreshActiveInstanceTabs() {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(function(tabs) {
+                    const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '';
+                    tabs.forEach(tabName => { select.innerHTML += `<option value="${tabName}">${tabName}</option>`; });
+                    updateBadgeTrackerDisplay();
+                })
+                .getActiveEvaluationSessions(currentSystemIsDemoMode);
+        }
+    }
+
+    function handleFrameworkLayoutShift(selectedFramework) {
+        const cascadeContainer = document.getElementById('cascadingWrapperBox');
+        const identityCard = document.getElementById('playerIdentityInformationCard');
+
+      // 🛡️ Guard Condition: Handle your new placeholder cleanly
+        if (!selectedFramework || selectedFramework === "default") {
+            cascadeContainer.style.display = 'none';
+            identityCard.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #64748b; font-size: 13px; font-weight: 500; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc;">
+                    ℹ️ Please select an evaluation session framework above to inflate data fields.
+                </div>
+            `;
+            return; // Halt execution early
+        }      
+        if (selectedFramework === "Trial") {
+            cascadeContainer.style.display = 'none';
+            identityCard.innerHTML = `
+                <div class="form-group"><label>Player Full Name *</label><input type="text" id="p_macro_name" required></div>
+                <div class="form-group" style="margin-top:10px;"><label>Trial Number / Bib Target *</label><input type="text" id="p_macro_bib" required></div>
+                <div class="form-group" style="margin-top:10px;"><label>Date of Birth</label><input type="date" id="p_macro_dob"></div>
+                <div class="form-group" style="margin-top:10px;"><label>Preferred Position</label><input type="text" id="p_macro_pos1"></div>
+                <div class="form-group" style="margin-top:10px;"><label>Secondary Position</label><input type="text" id="p_macro_pos2"></div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Dominant Lateral Foot</label>
+                    <select id="p_macro_foot"><option value="">Select...</option><option value="Right">Right</option><option value="Left">Left</option><option value="Both">Both</option></select>
+                </div>
+                <div class="form-group" style="margin-top:10px;"><label>Previous Experience / Club History</label><input type="text" id="p_macro_exp"></div>
+                <div class="form-group" style="margin-top:10px;"><label>Parent Contact Mobile Number</label><input type="tel" id="p_macro_phone"></div>
+                <div class="form-group" style="margin-top:10px;"><label>Current Injury Constraints / Notes</label><input type="text" id="p_macro_injury"></div>
+            `;
+            toggleSectionVisibility('technicalMetricsWrapper', 'block');
+        } else {
+            cascadeContainer.style.display = 'block';
+            identityCard.innerHTML = `
+                <div class="form-group">
+                    <label>Select Target Roster Player Profile *</label>
+                    <select id="p_macro_student_lookup"><option value="">-- Select Center/Batch First --</option></select>
+                </div>
+                <div id="playerContextDataCard" style="margin-top:12px; font-size:13px; font-weight:500; display:none; background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></div>
+            `;
+            resetCascadingSelectors();
+            toggleSectionVisibility('technicalMetricsWrapper', selectedFramework === "Club" ? 'none' : 'block');
+        }
+    }
+
+    function toggleSectionVisibility(id, state) { document.getElementById(id).style.display = state; }
+    
+    function resetCascadingSelectors() { 
+        document.getElementById('filterCenter').value = ""; 
+        document.getElementById('filterBatch').innerHTML = '<option value="">-- Choose Center First --</option>'; 
+    }
+
+    function executeCascadingFilter() {
+        if (!masterContextPayload) return;
+
+        const centerVal = document.getElementById('filterCenter').value;
+        const batchSel = document.getElementById('filterBatch');
+        const playerLookup = document.getElementById('p_macro_student_lookup');
+
+        if (!centerVal) {
+            batchSel.innerHTML = '<option value="">-- Choose Center First --</option>';
+            if (playerLookup) playerLookup.innerHTML = '<option value="">-- Select Center/Batch First --</option>';
+            return;
+        }
+
+        const currentSelectedBatchVal = batchSel.value;
+        batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+        
+        masterContextPayload.batches.filter(b => b.Center_ID === centerVal).forEach(b => {
+            batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+        });
+
+        if (currentSelectedBatchVal) batchSel.value = currentSelectedBatchVal;
+        const finalBatchVal = batchSel.value;
+        
+        if (playerLookup) {
+            if (!finalBatchVal) {
+                playerLookup.innerHTML = '<option value="">-- Select Batch Next --</option>';
+            } else {
+                playerLookup.innerHTML = '<option value="">-- Choose Player --</option>';
+                
+                masterContextPayload.players.filter(p => p.Academy_Center_ID === centerVal && p.Academy_Batch_ID === finalBatchVal && p.Status === "Active").forEach(p => {
+                    playerLookup.innerHTML += `<option value="${p.Student_ID}">${p.First_Name} ${p.Last_Name} (${p.Student_ID})</option>`;
+                });
+            }
+        }
+    }
+
+    function buildSupersetCardMatrix(targetId, attributeList, prefix, hasPressureSplit) {
+        const container = document.getElementById(targetId); if (!container) return;
+        container.innerHTML = '';
+        
+        attributeList.forEach(attr => {
+            const cleanAttr = sanitizeKeyString(attr);
+            let htmlPayload = `<div class="attribute-card"><div class="attribute-title">${attr}</div>`;
+            
+            if (hasPressureSplit) {
+                htmlPayload += '\n' +
+                    '                    <div class="pressure-label">No Pressure Baseline</div>\n' +
+                    '                    <div class="rating-matrix-row" data-column-field="' + prefix + '_' + cleanAttr + '_NoPressure">\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 1)">1</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 2)">2</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 3)">3</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 4)">4</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 5)">5</div>\n' +
+                    '                    </div>\n' +
+                    '                    <div class="pressure-label">Under Pressure Execution</div>\n' +
+                    '                    <div class="rating-matrix-row" data-column-field="' + prefix + '_' + cleanAttr + '_UnderPressure">\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 1)">1</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 2)">2</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 3)">3</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 4)">4</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 5)">5</div>\n' +
+                    '                    </div>';
+            } else {
+                htmlPayload += '\n' +
+                    '                    <div class="rating-matrix-row" data-column-field="' + prefix + '_' + cleanAttr + '_Rating">\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 1)">1</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 2)">2</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 3)">3</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 4)">4</div>\n' +
+                    '                        <div class="rate-cell" onclick="handleCellMetricsSelection(this, 5)">5</div>\n' +
+                    '                    </div>';
+            }
+            htmlPayload += `<input type="text" placeholder="Add specific execution notes..." data-notes-field="${prefix}_${cleanAttr}_Notes"></div>`;
+            container.innerHTML += htmlPayload;
+        });
+    }
+
+    function handleCellMetricsSelection(cellElement, pointsValue) {
+        const row = cellElement.parentElement;
+        row.querySelectorAll('.rate-cell').forEach(c => c.classList.remove('selected'));
+        cellElement.classList.add('selected');
+        row.setAttribute('data-selected-score', pointsValue);
+    }
+
+    function triggerInstanceTabProvisioning() {
+        let name = prompt("Enter explicit name verification for the new Trial Sheet Tab:"); if (!name) return;
+        name = name.trim().replace(/[\/\\\?\*\[\]\:]/g, '_');
+        
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            document.getElementById('newTabCreationBtn').disabled = true;
+            google.script.run.withSuccessHandler(function(res) {
+                document.getElementById('newTabCreationBtn').disabled = false;
+                if(res.success) { alert("Trial Sheet deployed successfully."); refreshActiveInstanceTabs(); }
+                else { alert("Deployment Error: " + res.error); }
+            }).provisionNewEvaluationTab(name, currentSystemIsDemoMode);
+        }
+    }
+
+    function updateBadgeTrackerDisplay() {
+        const badge = document.getElementById('offlineSyncCounterBadge');
+        const manualBtn = document.getElementById('manualCloudSyncBtn');
+        if (badge) badge.innerText = `Unsynced offline records: ${localTransmissionQueue.length}`;
+        if (manualBtn) manualBtn.style.display = localTransmissionQueue.length > 0 ? 'block' : 'none';
+    }
+
+    function processPlayerEvaluationCapture() {
+        if (syncEngineLockFlag) return;
+
+        const coachSel = document.getElementById('evalCoachSelect');
+        const frameworkSel = document.getElementById('evalTypeFramework');
+        const sessionTabSel = document.getElementById('evalSessionTabSelect');
+
+        if(!coachSel.value) { alert("Please identify your Assessor Coach profile first."); return; }
+        if(!sessionTabSel.value) { alert("Please select or create an active trial session sheet."); return; }
+
+        let packet = {
+            "Logged_Coach_Email": coachSel.value, "Evaluation_Type": frameworkSel.value, "Evaluation_Cycle_Tag": sessionTabSel.value,
+            "TX_Signature_Token": "TX_EVAL_" + new Date().getTime() + "_" + Math.floor(Math.random() * 1000)
+        };
+
+        if(frameworkSel.value === "Trial") {
+            const nameEl = document.getElementById('p_macro_name'); const bibEl = document.getElementById('p_macro_bib');
+            if(!nameEl.value.trim() || !bibEl.value.trim()) { alert("Player Name and Bib markers are mandatory structural criteria."); return; }
+            packet["Player_Name"] = nameEl.value; packet["Trial_Number_Or_Bib"] = bibEl.value;
+            packet["Date_Of_Birth"] = document.getElementById('p_macro_dob').value;
+            packet["Preferred_Position"] = document.getElementById('p_macro_pos1').value;
+            packet["Secondary_Position"] = document.getElementById('p_macro_pos2').value;
+            packet["Dominant_Foot"] = document.getElementById('p_macro_foot').value;
+            packet["Previous_Club_Experience"] = document.getElementById('p_macro_exp').value;
+            packet["Contact_Number"] = document.getElementById('p_macro_phone').value;
+            packet["Injury_Notes"] = document.getElementById('p_macro_injury').value;
+        } else {
+            const lookupEl = document.getElementById('p_macro_student_lookup'); if(!lookupEl.value) { alert("Roster assignment is mandatory."); return; }
+            packet["Player_Name"] = lookupEl.options[lookupEl.selectedIndex].text; packet["Trial_Number_Or_Bib"] = lookupEl.value;
+        }
+
+        document.querySelectorAll('.rating-matrix-row').forEach(row => {
+            const field = row.getAttribute('data-column-field'); const score = row.getAttribute('data-selected-score');
+            if(row.parentElement.parentElement.style.display !== 'none') packet[field] = score ? parseInt(score, 10) : "";
+        });
+        document.querySelectorAll('input[data-notes-field]').forEach(input => {
+            if(input.parentElement.parentElement.style.display !== 'none') packet[input.getAttribute('data-notes-field')] = input.value;
+        });
+
+        packet["Overall_Score"] = document.getElementById('out_overall_score').value;
+        packet["Recommended_Action"] = document.getElementById('out_recommended_action').value;
+        packet["Assessor_Name"] = document.getElementById('out_assessor_name').value;
+        packet["Major_Strengths"] = document.getElementById('out_strengths').value;
+        packet["Improvement_Areas"] = document.getElementById('out_improvements').value;
+        packet["Final_Comments"] = document.getElementById('out_comments').value;
+        packet["Assessment_Date"] = document.getElementById('out_assessment_date').value;
+
+        localTransmissionQueue.push({ 
+            tab: sessionTabSel.value, 
+            payload: packet, 
+            txId: packet["TX_Signature_Token"],
+            isDemo: currentSystemIsDemoMode 
+        });
+        localStorage.setItem('kemp_suite_eval_queue', JSON.stringify(localTransmissionQueue));
+        updateBadgeTrackerDisplay();
+
+        clearFormLayoutInterface(frameworkSel.value);
+        executeNextQueueTransmission();
+    }
+
+    function clearFormLayoutInterface(currentFramework) {
+        if(currentFramework === "Trial") {
+            ["p_macro_name", "p_macro_bib", "p_macro_dob", "p_macro_pos1", "p_macro_pos2", "p_macro_foot", "p_macro_exp", "p_macro_phone", "p_macro_injury"].forEach(id => {
+                const el = document.getElementById(id); if (el) el.value = '';
+            });
+        } else {
+            const lookup = document.getElementById('p_macro_student_lookup'); if (lookup) lookup.value = '';
+            const card = document.getElementById('playerContextDataCard'); if (card) card.style.display = 'none';
+        }
+        document.querySelectorAll('.rating-matrix-row').forEach(row => {
+            row.removeAttribute('data-selected-score'); row.querySelectorAll('.rate-cell').forEach(c => c.classList.remove('selected'));
+        });
+        document.querySelectorAll('input[data-notes-field]').forEach(input => input.value = '');
+        ["out_overall_score", "out_recommended_action", "out_assessor_name", "out_strengths", "out_improvements", "out_comments"].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        // Auto-snap wizard view right back to step 1 upon data commitment
+        switchFormWizardStepView(1);
+    }
+
+    function executeNextQueueTransmission() {
+        if (localTransmissionQueue.length === 0) { syncEngineLockFlag = false; setFormFreezeLayoutState(false); return; }
+
+        syncEngineLockFlag = true; setFormFreezeLayoutState(true);
+        const targetPackage = localTransmissionQueue[0];
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    if (response.success) {
+                        if (localTransmissionQueue.length > 0 && localTransmissionQueue[0].txId === response.transactionId) {
+                            localTransmissionQueue.shift();
+                            localStorage.setItem('kemp_suite_eval_queue', JSON.stringify(localTransmissionQueue));
+                        }
+                        updateBadgeTrackerDisplay(); executeNextQueueTransmission();
+                    } else {
+                        handleFallbackFailureState();
+                    }
+                })
+                .withFailureHandler(function() { handleFallbackFailureState(); })
+                .streamEvaluationToSpoke(targetPackage.payload, targetPackage.tab, targetPackage.txId, targetPackage.isDemo || false);
+        } else {
+            handleFallbackFailureState();
+        }
+    }
+
+    function setFormFreezeLayoutState(freeze) {
+        const btn = document.getElementById('commitFormBtn'); const syncBtn = document.getElementById('manualCloudSyncBtn');
+        if(btn) { btn.innerText = freeze ? "Streaming To Cloud Ledger..." : "Save Player Evaluation"; btn.disabled = freeze; }
+        if(syncBtn) syncBtn.disabled = freeze;
+    }
+
+    function handleFallbackFailureState() {
+        syncEngineLockFlag = false; setFormFreezeLayoutState(false);
+        alert("Saved safely to phone storage! Network reception is weak. Data will stream to cloud ledger when reception clears.");
+    }
+
+    function forceOfflineQueueTransmission() { if (!syncEngineLockFlag) executeNextQueueTransmission(); }
+    // Day 5: Login simplification, this is not needed to be called on onload()
+    //window.onload = initializeApplicationWorkspace;
+
+    // 🌟 DAY 2 PORTAL SPA ROUTING CONTROLLER
+    function switchActivePortalWorkspace(targetPanelCode) {
+        // 1. Remove active color styling highlights from all grid shortcuts
+        document.querySelectorAll('.hub-card').forEach(card => card.classList.remove('active-hub'));
+        
+        // 2. Clear visible footprint of all sub-module wrapper panels
+        document.querySelectorAll('.workspace-panel').forEach(panel => panel.classList.remove('active-panel'));
+        
+        // 3. Mount current target selection visibility state
+        const targetCard = document.getElementById(`hub_${targetPanelCode}`);
+        const targetPanel = document.getElementById(`workspacePanel_${targetPanelCode}`);
+        
+        if (targetCard && targetPanel) {
+            targetCard.classList.add('active-hub');
+            targetPanel.classList.add('active-panel');
+            
+            // Safety lock check: Hide user guide if they switch modules mid-stream
+            if (isGuidePanelExposed) {
+                handleViewStateToggle();
+            }
+            window.scrollTo({top: targetCard.offsetTop - 10, behavior: 'smooth'});
+        }
+    }
+
+    // 🌟 DAY 2 WIZARD FORM PAGINATION CONTROLLER
+    function switchFormWizardStepView(targetStepNumber) {
+        // 1. Unmount active style classes from tab triggers
+        document.querySelectorAll('.wizard-tab-trigger').forEach(tab => tab.classList.remove('active-step'));
+        
+        // 2. Hide all form viewport panes
+        document.querySelectorAll('.wizard-step-pane').forEach(pane => pane.classList.remove('active-pane'));
+        
+        // 3. Mount current active selection
+        document.getElementById(`stepTrigger_${targetStepNumber}`).classList.add('active-step');
+        document.getElementById(`stepPane_${targetStepNumber}`).classList.add('active-pane');
+        
+        // Smooth scroll straight down to the wizard bar baseline for elite mobile UX
+        const navBar = document.querySelector('.wizard-navigation-bar');
+        if (navBar) {
+            window.scrollTo({top: navBar.offsetTop - 10, behavior: 'smooth'});
+        }
+    }
+</script>

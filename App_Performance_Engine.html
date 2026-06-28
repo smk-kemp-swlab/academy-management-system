@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kemp Performance Tracking Framework</title>
+    
+    <!-- 🌟 LINK THE MODULAR BRANDING COMPONENT -->
+    <?!= include('Styled_Branding_CSS'); ?>
+</head>
+<body>
+<!-- <?!= include('Shared_Auth_Modal'); ?> -->
+<!-- Start simple login UI block -->
+<div id="simpleAuthGate" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 999999; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); width: 100%; max-width: 380px; box-sizing: border-box; border: 1px solid #e2e8f0;">
+        
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; line-height: 1.4;">Login to Kemp FC Academy Portal</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
+        </div>
+
+        <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
+            <div style="border: 3px solid #f3f3f3; border-top: 3px solid #0f172a; border-radius: 50%; width: 24px; height: 24px; animation: spinIAM 1s linear infinite; margin: 0 auto 12px auto;"></div>
+            <style>@keyframes spinIAM { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <span style="font-size: 13px; color: #475569;">Contacting Secure Data Vault...</span>
+        </div>
+
+        <div id="authFormWrapper" style="display: none;">
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Select Your Staff Profile Handle</label>
+                <select id="authCoachDropdown" onchange="evaluateSelectedProfileSecurityState()" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; background: #f8fafc; color: #1e293b; box-sizing: border-box;">
+                    <option value="">Loading Our Approved Access Profiles...</option>
+                </select>
+            </div>
+
+            <div id="authInteractionBlock" style="display: none;">
+                
+                <div style="margin-bottom: 14px;">
+                    <label id="authPrimaryLabel" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Your Access Password</label>
+                    <input type="password" id="authPrimaryPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+
+                <div id="authRegistrationFieldsWrapper" style="display: none; margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm App Password</label>
+                    <input type="password" id="authConfirmPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+
+                <button type="button" id="authSubmitActionBtn" onclick="processIdentityVerificationSubmission()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Verify Identity Credentials</button>
+            </div>
+        </div>
+        
+        <div id="authErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
+    </div>
+</div>
+<!-- End simple login UI block -->
+<div id="loadingSpinnerElement" class="micro-status-indicator">🔄 Synchronizing Ecosystem Data...</div>
+
+<div class="container">
+    <div class="header-panel">
+        <h1>Kemp FC</h1>
+        <h2>Performance Workspace Engine</h2>
+    </div>
+
+    <div id="identityBridgeCard" class="section-box" style="background: #f8fafc; border: 2px solid var(--border); padding: 16px;">
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 24px; margin-right: 12px;" id="identityIconMarker">👤</div>
+            <div>
+                <label style="margin-bottom: 2px; color: #475569;">Coach Assessor Logged In</label>
+                <div id="identityEmailLabel" style="font-weight: 700; font-size: 16px; color: var(--dark);">Resolving Google Session Token...</div>
+            </div>
+        </div>
+        <div id="identityStatusAlert" style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px; background: #e2e8f0; color: #475569;">
+            🔄 Verifying coach profile credentials...
+        </div>
+        <div id="identityActionDeck" style="display: flex; flex-direction: column; gap: 10px;">
+            <button type="button" id="identityConfirmSyncBtn" class="master-action-btn btn-sync" style="margin-top:0; padding: 14px;" onclick="triggerExplicitDataSync()" disabled>
+                ⚡ Confirm Profile & Sync Data
+            </button>
+            <a id="identitySwitchAccountLink" href="#" target="_top" style="display: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; padding: 10px; border: 1px solid var(--primary); border-radius: 8px; background: #fef2f2;">
+                🔄 Switch Google Account
+            </a>
+            <button type="button" id="identityOfflineOverrideBtn" class="master-action-btn" style="display: none; margin-top:0; background: #64748b; color: white; padding: 10px; font-size: 13px; font-weight: 700;" onclick="activateOfflineWorkspaceOverride()">
+                📦 Work Offline (Use Device Cache Only)
+            </button>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="hub-card" id="hub_evals" onclick="switchActivePortalWorkspace('evals')">
+            <div class="icon">📊</div>
+            <div class="title">Evaluations</div>
+            <div class="badge-mini">Active Engine</div>
+        </div>
+        <div class="hub-card" id="hub_attendance" onclick="switchActivePortalWorkspace('attendance')">
+            <div class="icon">⏱️</div>
+            <div class="title">Attendance</div>
+            <div class="badge-mini" style="background:#fee2e2; color:#991b1b;">Locked</div>
+        </div>
+        <div class="hub-card" id="hub_payments" onclick="switchActivePortalWorkspace('payments')">
+            <div class="icon">💳</div>
+            <div class="title">Fee Tracker</div>
+            <div class="badge-mini" style="background:#fee2e2; color:#991b1b;">Locked</div>
+        </div>
+        <div class="hub-card" id="hub_onboarding" onclick="switchActivePortalWorkspace('onboarding')">
+            <div class="icon">👥</div>
+            <div class="title">Staff Board</div>
+            <div class="badge-mini" style="background:#fee2e2; color:#991b1b;">Locked</div>
+        </div>
+    </div>
+
+    <button type="button" id="globalViewToggler" class="toggle-guide-btn" onclick="handleViewStateToggle()">📖 Open Operational User Guide</button>
+
+    <div id="workspacePanel_evals" class="workspace-panel fade-element">
+        <div id="evaluationConsolePanel" style="opacity: 0.4; pointer-events: none;">
+            
+            <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+                <div class="form-group">
+                    <label style="color:#15803d">1. Assigned Coach Assessor *</label>
+                    <select id="evalCoachSelect"><option value="">Loading staff accounts...</option></select>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <div class="form-group">
+                    <label>2. Select Evaluation Session Type *</label>
+                    <select id="evalTypeFramework" onchange="handleFrameworkLayoutShift(this.value)">
+                        <option value="default">--- Choose Evaluation Session Type ---</option>
+                        <option value="Trial">Open Trials (External/Unverified Tracking)</option>
+                        <option value="Academy">Academy (Periodic Developmental Logs)</option>
+                        <option value="Club">Club Teams (Tournament/Squad Camp Logging)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-top:14px;">
+                    <label>3. Choose Existing Trial Session *</label>
+                    <select id="evalSessionTabSelect"><option value="">Loading spreadsheet headers...</option></select>
+                </div>
+                <button class="master-action-btn btn-create-session" id="newTabCreationBtn" onclick="triggerInstanceTabProvisioning()">+ Create New Trial Session </button>
+            </div>
+
+            <div class="wizard-navigation-bar">
+                <div class="wizard-tab-trigger active-step" id="stepTrigger_1" onclick="switchFormWizardStepView(1)">📋 Admin</div>
+                <div class="wizard-tab-trigger" id="stepTrigger_2" onclick="switchFormWizardStepView(2)">📊 Scoring Grid</div>
+                <div class="wizard-tab-trigger" id="stepTrigger_3" onclick="switchFormWizardStepView(3)">📝 Summary</div>
+            </div>
+
+            <div id="offlineSyncCounterBadge" class="badge-counter">Unsynced offline records (On your device): 0</div>
+
+
+            <div class="wizard-step-pane active-pane" id="stepPane_1">
+                <div class="section-box" id="cascadingWrapperBox" style="display: none; background: #fefce8; border: 1px solid #fef08a;">
+                    <div class="form-group">
+                        <label style="color:#a16207">Academy Center *</label>
+                        <select id="filterCenter" onchange="executeCascadingFilter()"><option value="">Select Center...</option></select>
+                    </div>
+                    <div class="form-group" style="margin-top:10px;">
+                        <label style="color:#a16207">Assigned Age Batch Group *</label>
+                        <select id="filterBatch" onchange="executeCascadingFilter()"><option value="">Select Batch...</option></select>
+                    </div>
+                </div>
+
+                <h3>Player Administrative Profile</h3>
+                <div class="section-box" id="playerIdentityInformationCard"></div>
+            </div>
+
+
+            <div class="wizard-step-pane" id="stepPane_2">
+                <div id="technicalMetricsWrapper"></div>
+                <div id="tacticalMetricsWrapper"></div>
+                <div id="physicalMetricsWrapper"></div>
+                <div id="psychologicalMetricsWrapper"></div>
+            </div>
+
+
+            <div class="wizard-step-pane" id="stepPane_3">
+                <h3>Final Summary Recommendation</h3>
+                <div class="section-box">
+                    <div class="form-group"><label>Overall Performance Score</label><input type="text" id="out_overall_score"></div>
+                    <div class="form-group">
+                        <label>Recommended Action Pipeline Decision</label>
+                        <select id="out_recommended_action">
+                            <option value="">Select Action...</option>
+                            <option value="Sign">Sign / Permanent Upgrade</option>
+                            <option value="Monitor">Monitor Progression</option>
+                            <option value="Invite back">Invite Back Next Cohort</option>
+                            <option value="Not selected">Release / Terminate File</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Assessor Signature Name</label><input type="text" id="out_assessor_name"></div>
+                    <div class="form-group"><label>Major Technical Strengths</label><textarea id="out_strengths" rows="2"></textarea></div>
+                    <div class="form-group"><label>Target Growth Development Focus Areas</label><textarea id="out_improvements" rows="2"></textarea></div>
+                    <div class="form-group"><label>Comprehensive Coaching Summary Notes</label><textarea id="out_comments" rows="3"></textarea></div>
+                    <div class="form-group"><label>Evaluation Date Target</label><input type="date" id="out_assessment_date"></div>
+                </div>
+
+                <div class="btn-container">
+                    <button class="master-action-btn btn-commit" id="commitFormBtn" onclick="processPlayerEvaluationCapture()">Save Player Evaluation</button>
+                    <button class="master-action-btn btn-sync" id="manualCloudSyncBtn" onclick="forceOfflineQueueTransmission()">Cloud Sync Offline Entries</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="workspacePanel_attendance" class="workspace-panel fade-element">
+        <div class="coming-soon-wrapper">
+            <span style="font-size:36px;">⏱️</span>
+            <h4 style="margin-top:10px; text-transform:uppercase; letter-spacing:0.5px;">Attendance Log Module</h4>
+            <p style="font-size:13px; color:#64748b; margin-top:6px;">This engine module is scheduled for Day 4 deployment staging.</p>
+        </div>
+    </div>
+
+    <div id="workspacePanel_payments" class="workspace-panel fade-element">
+        <div class="coming-soon-wrapper">
+            <span style="font-size:36px;">💳</span>
+            <h4 style="margin-top:10px; text-transform:uppercase; letter-spacing:0.5px;">Fee Tracking System</h4>
+            <p style="font-size:13px; color:#64748b; margin-top:6px;">This engine module is scheduled for future expansion staging.</p>
+        </div>
+    </div>
+
+    <div id="workspacePanel_onboarding" class="workspace-panel fade-element">
+        <div class="coming-soon-wrapper">
+            <span style="font-size:36px;">👥</span>
+            <h4 style="margin-top:10px; text-transform:uppercase; letter-spacing:0.5px;">Staff Registry Dashboard</h4>
+            <p style="font-size:13px; color:#64748b; margin-top:6px;">This engine module is scheduled for future expansion staging.</p>
+        </div>
+    </div>
+
+    <div id="operationalGuideManualPanel" style="display: none;" class="fade-element">
+        <div class="section-box">
+            <p style="font-size:14px; line-height:1.5; font-weight:500;"><strong>Ecosystem Operation Framework:</strong> This platform filters structural tracking metrics dynamically based on the active session context selected. If cellular network dropouts occur on the training field, data records lock safely inside the smartphone's storage memory.</p>
+        </div>
+        <button type="button" class="master-action-btn" style="background:#475569; color:white;" onclick="handleViewStateToggle()">← Return To Active Data Form</button>
+    </div>
+
+    <div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+        <button id="sandboxToggleBtn" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
+            🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
+        </button>
+    </div>
+</div>
+
+<!-- 🌟 LINK THE MODULAR LOGIC COMPONENT -->
+<?!= include('Client_Logic_JS'); ?>
+<!-- Start simple login UI block -->
+<script>
+// Global environment profile metadata matrix container tracking secure registry records
+let globalRosterCacheMatrix = [];
+
+/**
+ * Self-invoking execution engine pass triggered instantly on structural layout parsing loops
+ */
+(function() {
+    const TARGET_APPLICATION_SCOPE = "eval";
+    
+    google.script.run
+        .withSuccessHandler(handleInitialRosterLoadSuccess)
+        .withFailureHandler(handleMasterSystemFaultException)
+        .fetchAuthorizedApplicationProfiles(TARGET_APPLICATION_SCOPE);
+})();
+
+function handleInitialRosterLoadSuccess(authorizedUsersArray) {
+    // Drop the network loader and display primary interface controls wrapper
+    document.getElementById('authLocalSpinner').style.display = "none";
+    document.getElementById('authFormWrapper').style.display = "block";
+    
+    globalRosterCacheMatrix = authorizedUsersArray || [];
+    const dropdown = document.getElementById('authCoachDropdown');
+    dropdown.innerHTML = '<option value="">-- Select Your Registered Email --</option>';
+    
+    globalRosterCacheMatrix.forEach(function(user) {
+        if (user.email) {
+            let opt = document.createElement('option');
+            opt.value = user.email;
+            opt.textContent = user.email;
+            dropdown.appendChild(opt);
+        }
+    });
+}
+
+function evaluateSelectedProfileSecurityState() {
+    const selectedEmail = document.getElementById('authCoachDropdown').value;
+    const actionBlock = document.getElementById('authInteractionBlock');
+    const registrationWrapper = document.getElementById('authRegistrationFieldsWrapper');
+    const primaryLabel = document.getElementById('authPrimaryLabel');
+    const submitBtn = document.getElementById('authSubmitActionBtn');
+    
+    document.getElementById('authErrorAlert').style.display = "none";
+    
+    // State 1: Reset Selection
+    if (!selectedEmail) {
+      alert("selectedEmail is null");
+        actionBlock.style.display = "none";
+        return;
+    }
+    
+    const userRecord = globalRosterCacheMatrix.find(u => u.email === selectedEmail);
+    if (!userRecord) {
+      alert("userRecord is null");
+        actionBlock.style.display = "none";
+        showAuthenticationError("Exception: Profile record missing from secure memory cache.");
+        return;
+    }
+    
+    actionBlock.style.display = "block";
+    
+    if (userRecord.hasPassword === false) {
+        // State 3: Account Onboarding Setup Framework Required
+        primaryLabel.textContent = "Create Account Password";
+        registrationWrapper.style.display = "block";
+        submitBtn.textContent = "🔐 Register My Coach Profile";
+    } else {
+        // State 2: Standard Cryptographic Challenge Verification Frame Active
+        primaryLabel.textContent = "Enter Your Access Password";
+        registrationWrapper.style.display = "none";
+        submitBtn.textContent = "🔓 Verify Credentials";
+    }
+}
+
+function processIdentityVerificationSubmission() {
+    const selectedEmail = document.getElementById('authCoachDropdown').value;
+    const primaryPass = document.getElementById('authPrimaryPassword').value.trim();
+    document.getElementById('authErrorAlert').style.display = "none";
+    
+    if (!selectedEmail) return;
+    
+    const userRecord = globalRosterCacheMatrix.find(u => u.email === selectedEmail);
+    if (!userRecord) return;
+    
+    if (userRecord.hasPassword === false) {
+        // Handle First-Time User Registration Logic Route
+        const confirmPass = document.getElementById('authConfirmPassword').value.trim();
+        
+        if (!primaryPass || !confirmPass) {
+            showAuthenticationError("Password allocation fields cannot be left blank.");
+            return;
+        }
+        if (primaryPass !== confirmPass) {
+            showAuthenticationError("Validation Error: Configuration fields do not match.");
+            return;
+        }
+        
+        toggleSubmittingUiState(true, "Registering profile keys...");
+        google.script.run
+            .withSuccessHandler(handleAuthenticationResponsePacket)
+            .withFailureHandler(handleMasterSystemFaultException)
+            .commitNewUserPasswordCredential(selectedEmail, primaryPass);
+            
+    } else {
+        // Handle Standard Password Validation Route
+        if (!primaryPass) {
+            showAuthenticationError("Please type your profile access credentials.");
+            return;
+        }
+        
+        toggleSubmittingUiState(true, "Verifying vault credentials...");
+        google.script.run
+            .withSuccessHandler(handleAuthenticationResponsePacket)
+            .withFailureHandler(handleMasterSystemFaultException)
+            .validateExistingUserCredentials(selectedEmail, primaryPass);
+    }
+}
+
+function handleAuthenticationResponsePacket(outcomePacket) {
+    toggleSubmittingUiState(false);
+    
+    if (outcomePacket && outcomePacket.isAuthenticated === true) {
+        // Lock secure session handle into local tracking storage matrix
+        localStorage.setItem('kemp_suite_verified_session_email', outcomePacket.verifiedEmail);
+        
+        // Vaporize the locking layout sheet element from the display DOM entirely
+        document.getElementById('simpleAuthGate').remove();
+        
+        // Wake up downstream single page framework processes
+        if (typeof initializeApplicationWorkspace === "function") {
+            initializeApplicationWorkspace();
+        }
+    } else {
+        showAuthenticationError(outcomePacket ? outcomePacket.errorMessage : "Access Denied: Server verification rejected credentials.");
+    }
+}
+
+function toggleSubmittingUiState(isProcessing, statusPhrase = "") {
+    const btn = document.getElementById('authSubmitActionBtn');
+    if (isProcessing) {
+        btn.disabled = true;
+        btn.style.opacity = "0.6";
+        btn.textContent = statusPhrase;
+    } else {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        // Let evaluateSelectedProfileSecurityState restore correct text state organically
+        evaluateSelectedProfileSecurityState();
+    }
+}
+
+function showAuthenticationError(messageString) {
+    const alertBox = document.getElementById('authErrorAlert');
+    alertBox.innerText = messageString;
+    alertBox.style.display = "block";
+}
+
+function handleMasterSystemFaultException(serverError) {
+    toggleSubmittingUiState(false);
+    showAuthenticationError("Network Vault Connection Dropped: " + serverError.toString());
+}
+</script>
+<!-- End simple login script block -->
+</body>
+</html>

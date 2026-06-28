@@ -1,0 +1,113 @@
+<div id="kempSharedIamOverlay" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #f8fafc;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+">
+    <div style="
+        background: white;
+        padding: 32px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+        box-sizing: border-box;
+        border: 1px solid #e2e8f0;
+    ">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; line-height: 1.4;">Login to Kemp FC Academy Management Portal</h2>
+            <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;">Ecosystem Identity Gate</p>
+        </div>
+
+        <div id="iamLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
+            <div style="
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #0f172a;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                animation: spinIAM 1s linear infinite;
+                margin: 0 auto 12px auto;
+            "></div>
+            <style>@keyframes spinIAM { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <span id="iamSpinnerMessage" style="font-size: 14px; color: #475569;">Synchronizing Ecosystem Registry...</span>
+        </div>
+
+        <div id="iamFormWrapper" style="display: none;">
+            
+            <div id="iamDropdownContainer" style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Select Your Staff Profile Handle</label>
+                <select id="iamUserDropdown" onchange="evaluateSelectedUserPasswordState()" style="
+                    display: block;
+                    width: 100%;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border: 1px solid #cbd5e1;
+                    font-size: 14px;
+                    background: #f8fafc;
+                    color: #1e293b;
+                    box-sizing: border-box;
+                ">
+                    <option value="">Loading Approved Access Profiles...</option>
+                </select>
+            </div>
+
+            <div id="iamInputStateContainer" style="display: none;">
+                
+                <div id="iamChallengeView" style="display: none; margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Your Access Password</label>
+                    <input type="password" id="iamChallengePassword" style="
+                        display: block;
+                        width: 100%;
+                        padding: 10px;
+                        border-radius: 8px;
+                        border: 1px solid #cbd5e1;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                    ">
+                </div>
+
+                <div id="iamRegistrationView" style="display: none;">
+                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #1e40af; line-height: 1.4;">
+                        ✨ <strong>New Profile Detected!</strong> Create a master password for this device and all subsequent ecosystem authentication passes.
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Create App Password</label>
+                        <input type="password" id="iamRegPasswordA" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm App Password</label>
+                        <input type="password" id="iamRegPasswordB" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                    </div>
+                </div>
+
+                <button type="button" id="iamSubmitActionBtn" onclick="processIdentityFormSubmission()" style="
+                    display: block;
+                    width: 100%;
+                    background: #0f172a;
+                    color: white;
+                    border: none;
+                    padding: 12px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                    box-sizing: border-box;
+                ">Verify Identity Credentials</button>
+            </div>
+        </div>
+        
+        <div id="iamErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
+    </div>
+</div>
+
+<?!= include('Shared_Auth_Logic_JS'); ?>

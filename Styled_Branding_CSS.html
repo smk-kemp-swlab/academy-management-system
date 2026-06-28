@@ -1,0 +1,72 @@
+<style>
+    :root { --primary: #cc0000; --dark: #1e293b; --light: #f8fafc; --border: #cbd5e1; --blue: #0288d1; --success: #16a34a; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: var(--light); color: var(--dark); padding: 12px; -webkit-tap-highlight-color: transparent; transition: border-top 0.2s ease; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    
+    .header-panel { text-align: center; border-bottom: 3px solid var(--primary); padding-bottom: 12px; margin-bottom: 16px; }
+    .header-panel h1 { font-size: 26px; text-transform: uppercase; color: var(--primary); letter-spacing: 0.5px; }
+    .header-panel h2 { font-size: 13px; color: #64748b; font-weight: 500; margin-top: 2px; text-transform: uppercase; }
+    
+    .toggle-guide-btn { width: 100%; font-weight: bold; color: var(--blue); background: #e0f2fe; border: 1px solid #bae6fd; padding: 10px; border-radius: 8px; cursor: pointer; font-family: inherit; margin-bottom: 16px; }
+    .section-box { background: #f1f5f9; border: 1px solid var(--border); padding: 14px; border-radius: 12px; margin-bottom: 16px; }
+    .form-group { display: flex; flex-direction: column; margin-bottom: 14px; }
+    label { font-weight: 700; font-size: 13px; margin-bottom: 6px; text-transform: uppercase; color: #475569; }
+    input, select, textarea { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; width: 100%; background: white; appearance: none; -webkit-appearance: none; font-family: inherit; }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; }
+    
+    h3 { background: var(--dark); color: white; padding: 10px 12px; margin: 24px 0 14px 0; font-size: 14px; border-left: 5px solid var(--primary); border-radius: 0 6px 6px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .attribute-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .attribute-title { font-weight: 700; font-size: 15px; margin-bottom: 10px; color: #0f172a; }
+    .pressure-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+    
+    .rating-matrix-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
+    .rate-cell { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px 0; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer; text-align: center; color: #334155; transition: all 0.15s ease; }
+    .rate-cell.selected { background-color: var(--primary); color: white; border-color: var(--primary); transform: scale(1.03); }
+    
+    .badge-counter { background: #e0f2fe; color: #0369a1; padding: 12px; border-radius: 8px; font-weight: 700; margin-bottom: 16px; text-align: center; font-size: 13px; border: 1px dashed #7dd3fc; }
+    button.master-action-btn { padding: 16px; font-size: 16px; font-weight: 800; border: none; border-radius: 10px; cursor: pointer; text-transform: uppercase; width: 100%; margin-top: 12px; }
+    .btn-commit { background-color: var(--success); color: white; }
+    .btn-sync { background-color: var(--blue); color: white; }
+    .btn-create-session { background-color: #64748b; color: white; padding: 8px; font-size: 12px; border-radius: 6px; margin-top: 8px; font-weight: 700; }
+    button:disabled { background-color: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed !important; transform: none !important; }
+    
+    .fade-element { animation: viewFade 0.35s ease; }
+    @keyframes viewFade { from { opacity: 0; } to { opacity: 1; } }
+
+    .micro-status-indicator {
+        position: fixed; top: auto; left: 20px; bottom: 20px; right: auto; width: auto; height: auto;
+        padding: 10px 15px; background: rgba(15, 23, 42, 0.9); color: #ffffff; border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); z-index: 999999; pointer-events: none; display: none !important; 
+    }
+
+    /* 🎛️ DAY 2 DASHBOARD MATRIX STYLES */
+    .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+    .hub-card { 
+        background: white; border: 1px solid var(--border); padding: 18px 12px; border-radius: 14px; 
+        text-align: center; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; 
+        align-items: center; justify-content: center; min-height: 110px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    .hub-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.06); }
+    .hub-card.active-hub { border-color: var(--primary); background: #fef2f2; }
+    .hub-card .icon { font-size: 28px; margin-bottom: 8px; }
+    .hub-card .title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: #334155; letter-spacing: 0.3px; }
+    .hub-card .badge-mini { font-size: 10px; font-weight: 700; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-top: 6px; }
+    
+    /* SPA Workspace Router Views */
+    .workspace-panel { display: none; }
+    .workspace-panel.active-panel { display: block; }
+    
+    .coming-soon-wrapper { text-align: center; padding: 40px 20px; background: #f8fafc; border: 1px dashed var(--border); border-radius: 12px; margin-top: 10px; }
+
+    /* 🧙‍♂️ DAY 2 WIZARD STEP-PAGINATION ENGINE STYLES */
+    .wizard-navigation-bar { display: flex; background: #e2e8f0; border-radius: 10px; padding: 4px; margin: 16px 0; gap: 4px; }
+    .wizard-tab-trigger { 
+        flex: 1; text-align: center; padding: 10px 4px; font-size: 11px; font-weight: 800; 
+        text-transform: uppercase; color: #475569; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+    }
+    .wizard-tab-trigger.active-step { background: white; color: var(--primary); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+    
+    .wizard-step-pane { display: none; }
+    .wizard-step-pane.active-pane { display: block; }
+</style>

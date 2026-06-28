@@ -1,0 +1,163 @@
+<script>
+// Global cache storage engine matrix array tracking profile handles retrieved from the secure vault
+let globalIamRegistryCache = [];
+const DEPLOYED_APPLICATION_SCOPE = "eval"; // Target application designator key variable
+
+/**
+ * Fires automatically on script parsing loop pass to bypass cross-origin restrictions
+ */
+function autoTriggerEcosystemRegistrySync() {
+    document.getElementById('iamErrorAlert').style.display = "none";
+    toggleIamLoadingState(true, "Synchronizing Ecosystem Registry...");
+    
+    google.script.run
+        .withSuccessHandler(handleRegistryDownloadSuccess)
+        .withFailureHandler(handleIamSystemFailure)
+        .fetchAuthorizedApplicationProfiles(DEPLOYED_APPLICATION_SCOPE);
+}
+
+function handleRegistryDownloadSuccess(authorizedUsersArray) {
+    toggleIamLoadingState(false);
+    globalIamRegistryCache = authorizedUsersArray || [];
+    
+    const dropdownContainer = document.getElementById('iamDropdownContainer');
+    dropdownContainer.style.display = "block";
+    
+    const dropdown = document.getElementById('iamUserDropdown');
+    dropdown.innerHTML = '<option value="">-- Select Your Registered Email --</option>';
+    
+    globalIamRegistryCache.forEach(user => {
+        let opt = document.createElement('option');
+        opt.value = user.email;
+        opt.textContent = user.email;
+        dropdown.appendChild(opt);
+    });
+}
+
+function evaluateSelectedUserPasswordState() {
+    const selectedEmail = document.getElementById('iamUserDropdown').value;
+    const stateContainer = document.getElementById('iamInputStateContainer');
+    const challengeView = document.getElementById('iamChallengeView');
+    const regView = document.getElementById('iamRegistrationView');
+    const actionBtn = document.getElementById('iamSubmitActionBtn');
+    
+    document.getElementById('iamErrorAlert').style.display = "none";
+    
+    if (!selectedEmail) {
+        stateContainer.style.display = "none";
+        return;
+    }
+    
+    const userRecord = globalIamRegistryCache.find(u => u.email === selectedEmail);
+    if (!userRecord) {
+        stateContainer.style.display = "none";
+        showIamError("Selected profile handle not found in local registry cache.");
+        return;
+    }
+    
+    stateContainer.style.display = "block";
+    
+    if (userRecord.hasPassword === false) {
+        challengeView.style.display = "none";
+        regView.style.display = "block";
+        actionBtn.textContent = "🔐 Register My Coach Profile";
+    } else {
+        regView.style.display = "none";
+        challengeView.style.display = "block";
+        actionBtn.textContent = "🔓 Verify Credentials";
+    }
+}
+
+function processIdentityFormSubmission() {
+    const selectedEmail = document.getElementById('iamUserDropdown').value;
+    const errorBox = document.getElementById('iamErrorAlert');
+    errorBox.style.display = "none";
+    
+    if (!selectedEmail) {
+        showIamError("Please select a registered profile handle first.");
+        return;
+    }
+
+    const userRecord = globalIamRegistryCache.find(u => u.email === selectedEmail);
+    if (!userRecord) {
+        showIamError("Critical Exception: Selected profile handle mismatch.");
+        return;
+    }
+    
+    if (userRecord.hasPassword === false) {
+        const passA = document.getElementById('iamRegPasswordA').value.trim();
+        const passB = document.getElementById('iamRegPasswordB').value.trim();
+        
+        if (!passA || !passB) {
+            showIamError("Password input strings cannot be left empty.");
+            return;
+        }
+        if (passA !== passB) {
+            showIamError("Confirmation mismatch error. Fields must align exactly.");
+            return;
+        }
+        
+        toggleIamLoadingState(true, "Registering secure profile configuration records...");
+        google.script.run
+            .withSuccessHandler(handleAuthenticationClearancePass)
+            .withFailureHandler(handleIamSystemFailure)
+            .commitNewUserPasswordCredential(selectedEmail, passA);
+            
+    } else {
+        const typedPassword = document.getElementById('iamChallengePassword').value.trim();
+        if (!typedPassword) {
+            showIamError("Please input your account password string.");
+            return;
+        }
+        
+        toggleIamLoadingState(true, "Authenticating identity credentials...");
+        google.script.run
+            .withSuccessHandler(handleAuthenticationClearancePass)
+            .withFailureHandler(handleIamSystemFailure)
+            .validateExistingUserCredentials(selectedEmail, typedPassword);
+    }
+}
+
+function handleAuthenticationClearancePass(outcomePacket) {
+    if (outcomePacket && outcomePacket.isAuthenticated === true) {
+        localStorage.setItem('kemp_suite_verified_session_email', outcomePacket.verifiedEmail);
+        
+        const overlayNode = document.getElementById('kempSharedIamOverlay');
+        if (overlayNode) {
+            overlayNode.remove();
+        }
+        
+        if (typeof initializeApplicationWorkspace === "function") {
+            initializeApplicationWorkspace();
+        } else {
+            toggleIamLoadingState(false);
+            showIamError("Structural Ecosystem Exception: Target application workspace engine failed to initialize.");
+        }
+    } else {
+        toggleIamLoadingState(false);
+        showIamError(outcomePacket ? outcomePacket.errorMessage : "Invalid access security credential verification string.");
+    }
+}
+
+function toggleIamLoadingState(isLoading, phrase = "") {
+    document.getElementById('iamLocalSpinner').style.display = isLoading ? "block" : "none";
+    document.getElementById('iamFormWrapper').style.display = isLoading ? "none" : "block";
+    if (phrase) document.getElementById('iamSpinnerMessage').innerText = phrase;
+}
+
+// Global runtime diagnostic fallback methods
+function showIamError(msg) {
+    const box = document.getElementById('iamErrorAlert');
+    box.innerText = msg;
+    box.style.display = "block";
+}
+
+function handleIamSystemFailure(err) {
+    toggleIamLoadingState(false);
+    showIamError("Fatal Master Vault Connection Exception: " + err.toString());
+}
+
+// ⚡ AUTO-INITIALIZATION INVOCATION
+// Bypasses sandbox constraints by execution during direct module compilation
+autoTriggerEcosystemRegistrySync();
+</script>
