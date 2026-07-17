@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kemp FC — New Player Registration</title>
+    <?!= include('Styled_Branding_CSS'); ?>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-panel">
+        <h1>Kemp FC</h1>
+        <h2>New Player Registration</h2>
+    </div>
+
+    <div id="registrationFormWrapper">
+        <div class="section-box">
+            <h3 style="margin-top:0;">Player Details</h3>
+            <div class="form-group">
+                <label>First Name *</label>
+                <input type="text" id="firstName">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Last Name *</label>
+                <input type="text" id="lastName">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Date of Birth *</label>
+                <input type="date" id="playerDob">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Target Academy Center *</label>
+                <select id="centerSelect" onchange="loadBatchesForCenter()">
+                    <option value="">-- Select Center --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Target Batch *</label>
+                <select id="batchSelect">
+                    <option value="">-- Select Center First --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Kit Shirt Size *</label>
+                <select id="kitShirt">
+                    <option value="">-- Select Size --</option>
+                    <option value="XS">XS</option>
+                    <option value="S">S</option>
+                    <option value="M">M</option>
+                    <option value="L">L</option>
+                    <option value="XL">XL</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Kit Shorts Size *</label>
+                <select id="kitShorts">
+                    <option value="">-- Select Size --</option>
+                    <option value="XS">XS</option>
+                    <option value="S">S</option>
+                    <option value="M">M</option>
+                    <option value="L">L</option>
+                    <option value="XL">XL</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Medical Alerts / Allergies (if any)</label>
+                <textarea id="medicalAlerts" rows="2" placeholder="e.g. Asthma, nut allergy — leave blank if none"></textarea>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h3 style="margin-top:0;">Parent / Guardian Details</h3>
+            <div class="form-group">
+                <label>Parent / Guardian Name *</label>
+                <input type="text" id="parentName">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Parent Email *</label>
+                <input type="email" id="parentEmail">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Parent Phone *</label>
+                <input type="tel" id="parentPhone">
+            </div>
+        </div>
+
+        <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+            <h3 style="margin-top:0; color:#15803d;">Payment Preference</h3>
+            <div class="form-group">
+                <label style="display:flex; align-items:center; margin-bottom:10px; cursor:pointer;">
+                    <input type="radio" name="paymentStrategy" value="Pay_Now" style="width:auto; margin-right:10px;" checked>
+                    <span><strong>Pay Now</strong> — Complete payment immediately via UPI / Gateway</span>
+                </label>
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="radio" name="paymentStrategy" value="Pay_Later" style="width:auto; margin-right:10px;">
+                    <span><strong>Pay Later</strong> — We'll email a secure payment link to complete later</span>
+                </label>
+            </div>
+            <div style="font-size:12px; color:#64748b; margin-top:10px;">
+                Note: Online payment checkout isn't live yet — for now this just records your preference. Our team will follow up directly.
+            </div>
+        </div>
+        <div class="section-box">
+            <h3 style="margin-top:0;">Upload Documents</h3>
+            <div class="form-group">
+              <label>Birth Certificate (optional)</label>
+              <input type="file" id="docBirthCert" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+             <div class="form-group" style="margin-top:12px;">
+                <label>Medical Certificate (optional)</label>
+                <input type="file" id="docMedical" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Signed Waiver (optional)</label>
+                <input type="file" id="docWaiver" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+        </div>
+        <div class="btn-container" style="margin-top: 16px;">
+            <button class="master-action-btn btn-commit" id="submitBtn" onclick="submitApplication()">✅ Submit Registration</button>
+        </div>
+    </div>
+
+    <div id="confirmationBox" style="display:none;" class="section-box">
+        <div style="text-align:center; padding: 20px;">
+            <div style="font-size: 40px; margin-bottom: 12px;">🎉</div>
+            <h3>Registration Submitted!</h3>
+            <p style="font-size:13px; color:#64748b;">Thank you for registering with Kemp FC. Our team will review your application shortly.</p>
+            <p style="font-size:12px; color:#94a3b8; margin-top:10px;">Reference: <span id="confirmedAppId"></span></p>
+        </div>
+    </div>
+</div>
+
+<script>
+let contextPayload = null;
+
+(function() {
+    google.script.run
+        .withSuccessHandler(function(ctx) {
+            if (!ctx.success) {
+                alert("Failed to load registration data: " + ctx.error);
+                return;
+            }
+            contextPayload = ctx;
+            populateCenters();
+        })
+        .withFailureHandler(function() {
+            alert("Failed to connect. Please refresh the page.");
+        })
+        .getPublicOnboardingContext();
+})();
+
+function populateCenters() {
+    const sel = document.getElementById('centerSelect');
+    sel.innerHTML = '<option value="">-- Select Center --</option>';
+    (contextPayload.facilities || []).forEach(c => {
+        sel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
+    });
+}
+
+function loadBatchesForCenter() {
+    const centerVal = document.getElementById('centerSelect').value;
+    const batchSel = document.getElementById('batchSelect');
+    batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+    if (!centerVal || !contextPayload) return;
+    contextPayload.batches.filter(b => b.Center_ID === centerVal).forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+    });
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function submitApplication() {
+    const firstName = document.getElementById('firstName').value.trim();
+    const lastName = document.getElementById('lastName').value.trim();
+    const dob = document.getElementById('playerDob').value;
+    const centerId = document.getElementById('centerSelect').value;
+    const batchId = document.getElementById('batchSelect').value;
+    const kitShirt = document.getElementById('kitShirt').value;
+    const kitShorts = document.getElementById('kitShorts').value;
+    const medicalAlerts = document.getElementById('medicalAlerts').value.trim();
+    const parentName = document.getElementById('parentName').value.trim();
+    const parentEmail = document.getElementById('parentEmail').value.trim();
+    const parentPhone = document.getElementById('parentPhone').value.trim();
+    const paymentStrategy = document.querySelector('input[name="paymentStrategy"]:checked').value;
+    const birthCertFile = document.getElementById('docBirthCert').files[0];
+    const medicalFile = document.getElementById('docMedical').files[0];
+    const waiverFile = document.getElementById('docWaiver').files[0];
+
+    if (!firstName || !lastName || !dob || !centerId || !batchId || !kitShirt || !kitShorts || !parentName || !parentEmail || !parentPhone) {
+        alert("Please fill in all required fields marked with *.");
+        return;
+    }
+  
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerText = "Submitting Registration...";
+
+    google.script.run
+        .withSuccessHandler(async function(result) {
+            if (!result.success) {
+                btn.disabled = false;
+                btn.innerText = "✅ Submit Registration";
+                alert("Error: " + result.error);
+                return;
+            }
+
+            const applicationId = result.applicationId;
+            btn.innerText = "Uploading Documents...";
+
+            try {
+                const uploadTasks = [];
+
+                const centerObj = contextPayload.facilities.find(f => f.Center_ID === centerId);
+                const centerName = centerObj ? centerObj.Center_Name : centerId;
+                const fullPlayerName = firstName + "_" + lastName;
+
+                if (birthCertFile) {
+                    const b64 = await readFileAsBase64(birthCertFile);
+                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Birth_Certificate", b64, birthCertFile.type, birthCertFile.name));
+                }
+                if (medicalFile) {
+                    const b64 = await readFileAsBase64(medicalFile);
+                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Medical", b64, medicalFile.type, medicalFile.name));
+                }
+                if (waiverFile) {
+                    const b64 = await readFileAsBase64(waiverFile);
+                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Waiver", b64, waiverFile.type, waiverFile.name));
+                }
+
+                await Promise.all(uploadTasks);
+
+                document.getElementById('registrationFormWrapper').style.display = 'none';
+                document.getElementById('confirmationBox').style.display = 'block';
+                document.getElementById('confirmedAppId').innerText = applicationId;
+            } catch (err) {
+                alert("Registration saved, but document upload failed: " + err + "\nPlease contact the academy to re-upload documents.");
+                document.getElementById('registrationFormWrapper').style.display = 'none';
+                document.getElementById('confirmationBox').style.display = 'block';
+                document.getElementById('confirmedAppId').innerText = applicationId;
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Submit Registration";
+            alert("Connection failed. Please try again.");
+        })
+        .submitOnboardingApplication({
+            centerId: centerId,
+            batchId: batchId,
+            firstName: firstName,
+            lastName: lastName,
+            dob: dob,
+            parentName: parentName,
+            parentEmail: parentEmail,
+            parentPhone: parentPhone,
+            kitShirt: kitShirt,
+            kitShorts: kitShorts,
+            medicalAlerts: medicalAlerts || "None",
+            paymentStrategy: paymentStrategy
+        });
+}
+
+function uploadDocPromise(entityId, playerName, centerName, documentType, base64Data, mimeType, fileName) {
+    return new Promise((resolve, reject) => {
+        google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .uploadEntityDocument({
+                entityId: entityId,
+                playerName: playerName,
+                centerName: centerName,
+                documentType: documentType,
+                base64Data: base64Data,
+                mimeType: mimeType,
+                fileName: fileName
+            });
+    });
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kemp Financial Dashboard</title>
+    <?!= include('Styled_Branding_CSS'); ?>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div id="simpleAuthGate" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 999999; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; box-sizing: border-box; border: 1px solid #e2e8f0;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Financial Portal</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
+        </div>
+        <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
+            <div style="border: 3px solid #f3f3f3; border-top: 3px solid #0f172a; border-radius: 50%; width: 24px; height: 24px; animation: spinIAM 1s linear infinite; margin: 0 auto 12px auto;"></div>
+            <style>@keyframes spinIAM { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <span style="font-size: 13px; color: #475569;">Contacting Secure Data Vault...</span>
+        </div>
+        <div id="authFormWrapper" style="display: none;">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Select Your Staff Profile</label>
+                <select id="authCoachDropdown" onchange="evaluateSelectedProfileSecurityState()" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; background: #f8fafc; color: #1e293b; box-sizing: border-box;">
+                    <option value="">Loading Profiles...</option>
+                </select>
+            </div>
+            <div id="authInteractionBlock" style="display: none;">
+                <div style="margin-bottom: 14px;">
+                    <label id="authPrimaryLabel" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Your Access Password</label>
+                    <input type="password" id="authPrimaryPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div id="authRegistrationFieldsWrapper" style="display: none; margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm App Password</label>
+                    <input type="password" id="authConfirmPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <button type="button" id="authSubmitActionBtn" onclick="processIdentityVerificationSubmission()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Verify Identity</button>
+            </div>
+        </div>
+        <div id="authErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
+    </div>
+</div>
+
+<!-- Main App -->
+<div id="loadingSpinnerElement" class="micro-status-indicator">🔄 Loading...</div>
+
+<div class="container">
+    <div class="header-panel">
+        <h1>Kemp FC</h1>
+        <h2>Financial Dashboard</h2>
+    </div>
+
+    <!-- Module Selector -->
+    <div class="dashboard-grid" style="margin-bottom: 16px; grid-template-columns: repeat(2, 1fr);">
+    <div class="hub-card active-hub" id="hub_generate" onclick="switchModule('generate')">
+        <div class="icon">🧾</div>
+        <div class="title">Generate Invoice</div>
+        <div class="badge-mini">Active</div>
+    </div>
+    <div class="hub-card" id="hub_ledger" onclick="switchModule('ledger')">
+        <div class="icon">💰</div>
+        <div class="title">Invoices & Payments</div>
+        <div class="badge-mini">Active</div>
+    </div>
+    <div class="hub-card" id="hub_applications" onclick="switchModule('applications')">
+    <div class="icon">📋</div>
+    <div class="title">Applications</div>
+    <div class="badge-mini">Active</div>
+</div>
+<div class="hub-card" id="hub_feeconfig" onclick="switchModule('feeconfig')" style="display:none;">
+    <div class="icon">⚙️</div>
+    <div class="title">Fee Config</div>
+    <div class="badge-mini">Admin Only</div>
+</div>
+</div> <!-- closes dashboard-grid -->
+
+<div class="hub-card" id="hub_leave" onclick="switchModule('leave')" style="margin-bottom: 16px;">
+    <div class="icon">🏖️</div>
+    <div class="title">Leave Requests</div>
+    <div class="badge-mini">Active</div>
+</div>
+
+
+    <!-- ============= GENERATE INVOICE MODULE ============= -->
+    <div id="module_generate">
+        <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+            <div class="form-group">
+                <label style="color:#15803d">Logged In As</label>
+                <div id="loggedInStaff" style="font-weight: 700; font-size: 15px; color: #1e293b;">--</div>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <div class="form-group">
+    <label>CENTER *</label>
+    <select id="invoiceCenterSelect" onchange="filterInvoiceBatches()">
+        <option value="">-- Select Center --</option>
+    </select>
+        </div>
+        <div class="form-group">
+            <label>BATCH *</label>
+            <select id="invoiceBatchSelect" onchange="filterInvoiceStudents()">
+                <option value="">-- Select Batch --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>SELECT STUDENT *</label>
+            <select id="studentSelect">
+                <option value="">-- Select Student --</option>
+            </select>
+        </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Select Fee Configuration *</label>
+                <select id="feeConfigSelect">
+                    <option value="">-- Select Fee Config --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Apply Discount (optional)</label>
+                <select id="discountSelect">
+                    <option value="">-- No Discount --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Billing Cycle Start Date *</label>
+                <input type="date" id="cycleStartDate">
+            </div>
+        </div>
+
+        <div id="invoicePreviewBox" style="display: none;" class="section-box">
+            <h3 style="margin-top:0;">Invoice Preview</h3>
+            <div id="invoicePreviewContent" style="font-size: 13px; color: #334155; line-height: 1.6;"></div>
+        </div>
+
+        <div class="btn-container" style="margin-top: 16px;">
+            <button class="master-action-btn btn-sync" onclick="previewInvoice()">🔍 Preview Calculation</button>
+            <button class="master-action-btn btn-commit" onclick="generateInvoice()">✅ Generate Invoice</button>
+        </div>
+    </div>
+
+    <!-- ============= INVOICE LEDGER MODULE ============= -->
+    <div id="module_ledger" style="display: none;">
+        <div class="section-box">
+            <div class="form-group">
+                <label>Filter By Status</label>
+                <select id="statusFilter" onchange="renderInvoiceList()">
+                    <option value="">All Statuses</option>
+                    <option value="Unpaid">Unpaid</option>
+                    <option value="Partially_Paid">Partially Paid</option>
+                    <option value="Fully_Paid">Fully Paid</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="invoiceListContainer"></div>
+        <div id="ledgerLoadingMsg" style="display: none; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
+            Loading invoices...
+        </div>
+
+    </div>
+    <!-- ============= APPLICATIONS MODULE ============= -->
+<div id="module_applications" style="display: none;">
+    <div class="section-box">
+        <div class="form-group">
+            <label>Filter By Status</label>
+            <select id="appStatusFilter" onchange="renderApplicationsList()">
+                <option value="Pending_Review">Pending Review</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Waitlisted">Waitlisted</option>
+                <option value="">All</option>
+            </select>
+        </div>
+    </div>
+    <div id="applicationsListContainer"></div>
+   <div id="appsLoadingMsg" style="display: none; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
+        Loading applications...
+    </div>
+</div>
+
+<!-- ============= LEAVE REQUESTS MODULE ============= -->
+<div id="module_leave" style="display: none;">
+    <div class="section-box">
+        <h3 style="margin-top:0;">Submit New Leave Request</h3>
+        <div class="form-group">
+            <label>CENTER *</label>
+            <select id="leaveCenterSelect" onchange="filterLeaveBatches()">
+                <option value="">-- Select Center --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>BATCH *</label>
+            <select id="leaveBatchSelect" onchange="filterLeaveStudents()">
+                <option value="">-- Select Batch --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>STUDENT *</label>
+            <select id="leaveStudentSelect">
+                <option value="">-- Select Student --</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Break Start Date *</label>
+            <input type="date" id="leaveStartDate">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Break End Date *</label>
+            <input type="date" id="leaveEndDate">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Reason *</label>
+            <textarea id="leaveReasonInput" rows="2" placeholder="e.g. Family trip, injury recovery"></textarea>
+        </div>
+        <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewLeave()">✅ Submit Leave Request</button>
+    </div>
+
+    <div class="section-box">
+        <div class="form-group">
+            <label>Filter By Status</label>
+            <select id="leaveStatusFilter" onchange="renderLeaveList()">
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="">All</option>
+            </select>
+        </div>
+    </div>
+
+    <h3>Leave Requests</h3>
+    <div id="leaveListContainer"></div>
+</div>
+
+<!-- ============= FEE CONFIG MODULE ============= -->
+<!-- ============= FEE CONFIG MODULE ============= -->
+<div id="module_feeconfig" style="display: none;">
+    <div class="section-box" style="background:#fefce8; border:1px solid #fef08a;">
+        <div style="font-weight:700; color:#92400e; font-size:13px;">⚙️ Admin Only — Fee Configuration</div>
+    </div>
+
+    <!-- Add New Fee Config Form -->
+    <div class="section-box">
+        <h3 style="margin-top:0;">Add New Fee Configuration</h3>
+        <div class="form-group">
+            <label>Center *</label>
+            <select id="fcCenterSelect">
+                <option value="">-- Select Center --</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Age Group *</label>
+            <input type="text" id="fcAgeGroup" placeholder="e.g. U12, U14, U17">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Program Type *</label>
+            <select id="fcProgramType">
+                <option value="Standard">Standard</option>
+                <option value="AfterSchool">AfterSchool</option>
+                <option value="Elite">Elite</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Billing Interval (Days) *</label>
+            <select id="fcBillingInterval">
+                <option value="30">30 Days (Monthly)</option>
+                <option value="90">90 Days (Quarterly)</option>
+                <option value="180">180 Days (Half Yearly)</option>
+                <option value="365">365 Days (Annual)</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Base Fee Amount (₹) *</label>
+            <input type="number" id="fcBaseFee" placeholder="e.g. 3000">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Kit Fee Amount (₹)</label>
+            <input type="number" id="fcKitFee" placeholder="e.g. 500">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Registration Fee Amount (₹)</label>
+            <input type="number" id="fcRegFee" placeholder="e.g. 1000">
+        </div>
+        <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="saveFeeConfig()">✅ Save Fee Configuration</button>
+    </div>
+
+    <!-- Existing Fee Configs List -->
+    <h3>Existing Fee Configurations</h3>
+    <div id="feeConfigListContainer"></div>
+
+    <!-- Discount Management -->
+    <div class="section-box" style="margin-top:16px;">
+        <h3 style="margin-top:0;">Add New Discount</h3>
+        <div class="form-group">
+            <label>Discount Name *</label>
+            <input type="text" id="discountNameInput" placeholder="e.g. Sibling Discount, Early Bird">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Discount Percentage (%) *</label>
+            <input type="number" id="discountPctInput" placeholder="e.g. 10" min="0" max="100">
+        </div>
+        <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="saveDiscount()">✅ Save Discount</button>
+    </div>
+
+    <!-- Existing Discounts List -->
+    <h3>Existing Discounts</h3>
+    <div id="discountListContainer"></div>
+</div>
+    <!-- ============= PAYMENT MODAL ============= -->
+    <div id="paymentModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+            <h3 style="margin-top:0;">Record Payment</h3>
+            <div style="font-size:13px; color:#64748b; margin-bottom:14px;" id="paymentModalInvoiceInfo"></div>
+            <div class="form-group">
+                <label>Amount Being Paid Now (₹) *</label>
+                <input type="number" id="paymentAmountInput" step="0.01">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Payment Mode *</label>
+                <select id="paymentModeSelect">
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Gateway">Gateway</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Transaction Reference No.</label>
+                <input type="text" id="paymentTxRefInput" placeholder="Optional">
+            </div>
+            <div class="btn-container" style="margin-top: 18px;">
+                <button class="master-action-btn" style="background:#475569; color:white;" onclick="closePaymentModal()">Cancel</button>
+                <button class="master-action-btn btn-commit" onclick="submitPayment()">Confirm Payment</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+let contextPayload = null;
+let verifiedStaffEmail = "";
+let activeInvoiceIdForPayment = null;
+
+// ========== AUTH (reuses cached session from Performance Engine / Attendance) ==========
+(function() {
+    const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
+    if (cachedEmail) {
+        verifiedStaffEmail = cachedEmail;
+        document.getElementById('simpleAuthGate').remove();
+        initFinancialApp();
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(handleRosterLoad)
+        .withFailureHandler(handleFault)
+        .fetchAuthorizedApplicationProfiles("billing");
+})();
+
+let globalRosterCache = [];
+
+function handleRosterLoad(users) {
+    document.getElementById('authLocalSpinner').style.display = "none";
+    document.getElementById('authFormWrapper').style.display = "block";
+    globalRosterCache = users || [];
+    const dropdown = document.getElementById('authCoachDropdown');
+    dropdown.innerHTML = '<option value="">-- Select Your Email --</option>';
+    globalRosterCache.forEach(function(u) {
+        if (u.email) {
+            const opt = document.createElement('option');
+            opt.value = u.email;
+            opt.textContent = u.email;
+            dropdown.appendChild(opt);
+        }
+    });
+}
+
+function evaluateSelectedProfileSecurityState() {
+    const email = document.getElementById('authCoachDropdown').value;
+    const block = document.getElementById('authInteractionBlock');
+    const regWrapper = document.getElementById('authRegistrationFieldsWrapper');
+    const label = document.getElementById('authPrimaryLabel');
+    const btn = document.getElementById('authSubmitActionBtn');
+    document.getElementById('authErrorAlert').style.display = "none";
+    if (!email) { block.style.display = "none"; return; }
+    const user = globalRosterCache.find(u => u.email === email);
+    if (!user) { block.style.display = "none"; return; }
+    block.style.display = "block";
+    if (user.hasPassword === false) {
+        label.textContent = "Create Access Password";
+        regWrapper.style.display = "block";
+        btn.textContent = "🔐 Register Profile";
+    } else {
+        label.textContent = "Enter Your Password";
+        regWrapper.style.display = "none";
+        btn.textContent = "🔓 Verify";
+    }
+}
+
+function processIdentityVerificationSubmission() {
+    const email = document.getElementById('authCoachDropdown').value;
+    const pass = document.getElementById('authPrimaryPassword').value.trim();
+    document.getElementById('authErrorAlert').style.display = "none";
+    if (!email) return;
+    const user = globalRosterCache.find(u => u.email === email);
+    if (!user) return;
+    if (user.hasPassword === false) {
+        const confirm = document.getElementById('authConfirmPassword').value.trim();
+        if (!pass || !confirm) { showError("Password fields cannot be blank."); return; }
+        if (pass !== confirm) { showError("Passwords do not match."); return; }
+        toggleBtn(true, "Registering...");
+        google.script.run.withSuccessHandler(handleAuthResponse).withFailureHandler(handleFault).commitNewUserPasswordCredential(email, pass);
+    } else {
+        if (!pass) { showError("Please enter your password."); return; }
+        toggleBtn(true, "Verifying...");
+        google.script.run.withSuccessHandler(handleAuthResponse).withFailureHandler(handleFault).validateExistingUserCredentials(email, pass);
+    }
+}
+
+function handleAuthResponse(result) {
+    toggleBtn(false);
+    if (result && result.isAuthenticated) {
+        verifiedStaffEmail = result.verifiedEmail;
+        localStorage.setItem('kemp_suite_verified_session_email', verifiedStaffEmail);
+        document.getElementById('simpleAuthGate').remove();
+        initFinancialApp();
+    } else {
+        showError(result ? result.errorMessage : "Access denied.");
+    }
+}
+
+function toggleBtn(loading, text = "") {
+    const btn = document.getElementById('authSubmitActionBtn');
+    btn.disabled = loading;
+    btn.style.opacity = loading ? "0.6" : "1";
+    if (text) btn.textContent = text;
+    else evaluateSelectedProfileSecurityState();
+}
+
+function showError(msg) {
+    const el = document.getElementById('authErrorAlert');
+    el.innerText = msg;
+    el.style.display = "block";
+}
+
+function handleFault(err) {
+    toggleBtn(false);
+    showError("Connection error: " + err.toString());
+}
+
+// ========== APP INIT ==========
+function initFinancialApp() {
+    document.getElementById('loggedInStaff').innerText = verifiedStaffEmail;
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('cycleStartDate').value = today;
+
+    loadDashboardContext();
+}
+
+function loadDashboardContext() {
+    google.script.run
+        .withSuccessHandler(function(ctx) {
+            if (!ctx.success) {
+                alert("Failed to load financial data: " + ctx.error);
+                return;
+            }
+            contextPayload = ctx;
+            populateStudentDropdown();
+            populateFeeConfigDropdown();
+            populateDiscountDropdown();
+            renderInvoiceList();
+
+            // Show Fee Config card only for admins
+            if (ctx.isAdmin) {
+                document.getElementById('hub_feeconfig').style.display = 'block';
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Failed to load data. Please refresh.");
+        })
+        .getBillingDashboardContext(false, verifiedStaffEmail);
+}
+
+// ========== MODULE SWITCH ==========
+function switchModule(module) {
+    document.querySelectorAll('.hub-card').forEach(c => c.classList.remove('active-hub'));
+    document.getElementById('hub_' + module).classList.add('active-hub');
+    document.getElementById('module_generate').style.display = module === 'generate' ? 'block' : 'none';
+    document.getElementById('module_ledger').style.display = module === 'ledger' ? 'block' : 'none';
+    document.getElementById('module_applications').style.display = module === 'applications' ? 'block' : 'none';
+    document.getElementById('module_feeconfig').style.display = module === 'feeconfig' ? 'block' : 'none';
+    document.getElementById('module_leave').style.display = module === 'leave' ? 'block' : 'none';
+    if (module === 'applications') renderApplicationsList();
+    if (module === 'feeconfig') { renderFeeConfigList(); renderDiscountList(); }
+    if (module === 'leave') { populateLeaveStudentDropdown(); renderLeaveList(); }
+}
+// ========== DROPDOWNS ==========
+function populateStudentDropdown() {
+    if (!contextPayload) return;
+    const centerSel = document.getElementById('invoiceCenterSelect');
+    centerSel.innerHTML = '<option value="">-- Select Center --</option>';
+    (contextPayload.facilities || []).forEach(f => {
+        centerSel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+    });
+    document.getElementById('invoiceBatchSelect').innerHTML = '<option value="">-- Select Batch --</option>';
+    document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+}
+
+function filterInvoiceBatches() {
+    const centerId = document.getElementById('invoiceCenterSelect').value;
+    const batchSel = document.getElementById('invoiceBatchSelect');
+    batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+    document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+    if (!centerId) return;
+    (contextPayload.batches || []).filter(b => b.Center_ID === centerId).forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+    });
+}
+
+function filterInvoiceStudents() {
+    const batchId = document.getElementById('invoiceBatchSelect').value;
+    const studentSel = document.getElementById('studentSelect');
+    studentSel.innerHTML = '<option value="">-- Select Student --</option>';
+    if (!batchId) return;
+    (contextPayload.students || []).filter(s => s.Academy_Batch_ID === batchId && s.Status === 'Active').forEach(s => {
+        studentSel.innerHTML += `<option value="${s.Student_ID}">${s.First_Name} ${s.Last_Name} (${s.Student_ID})</option>`;
+    });
+}
+
+function populateFeeConfigDropdown() {
+    const sel = document.getElementById('feeConfigSelect');
+    sel.innerHTML = '<option value="">-- Select Fee Config --</option>';
+    const facilities = contextPayload.facilities || [];
+    (contextPayload.feeConfigs || []).forEach(c => {
+        const center = facilities.find(f => f.Center_ID === c.Center_ID);
+        const centerName = center ? center.Center_Name : c.Center_ID;
+        const label = `${centerName} | ${c.Age_Group} | ${c.Program_Type} | ₹${c.Base_Fee_Amount} / ${c.Billing_Interval_Days} days`;
+        sel.innerHTML += `<option value="${c.Config_ID}">${label}</option>`;
+    });
+}
+
+function populateDiscountDropdown() {
+    const sel = document.getElementById('discountSelect');
+    sel.innerHTML = '<option value="">-- No Discount --</option>';
+    (contextPayload.discounts || []).forEach(d => {
+        sel.innerHTML += `<option value="${d.Discount_ID}">${d.Discount_Name} (${d.Discount_Percentage}%)</option>`;
+    });
+}
+
+// ========== GENERATE INVOICE ==========
+function previewInvoice() {
+    const studentId = document.getElementById('studentSelect').value;
+    const configId = document.getElementById('feeConfigSelect').value;
+    const discountId = document.getElementById('discountSelect').value;
+    const startDate = document.getElementById('cycleStartDate').value;
+
+    if (!studentId || !configId || !startDate) {
+        alert("Please select Student, Fee Config, and Start Date.");
+        return;
+    }
+
+    const config = contextPayload.feeConfigs.find(c => c.Config_ID === configId);
+    const discount = discountId ? contextPayload.discounts.find(d => d.Discount_ID === discountId) : null;
+
+    const baseAmount = Number(config.Base_Fee_Amount) || 0;
+    const discountPct = discount ? Number(discount.Discount_Percentage) : 0;
+    const netAmount = Math.round((baseAmount * (1 - discountPct / 100)) * 100) / 100;
+
+    const leaves = (contextPayload.leaves || []).filter(l => l.Student_ID === studentId && l.Approval_Status === "Approved");
+    const totalBreakDays = leaves.reduce((sum, l) => sum + (Number(l.Total_Break_Days) || 0), 0);
+
+    const start = new Date(startDate);
+    const baseEnd = new Date(start.getTime());
+    baseEnd.setDate(baseEnd.getDate() + Number(config.Billing_Interval_Days));
+    const adjustedEnd = new Date(baseEnd.getTime());
+    adjustedEnd.setDate(adjustedEnd.getDate() + totalBreakDays);
+
+    document.getElementById('invoicePreviewBox').style.display = 'block';
+    document.getElementById('invoicePreviewContent').innerHTML = `
+        <div>Base Amount: <strong>₹${baseAmount.toFixed(2)}</strong></div>
+        <div>Discount Applied: <strong>${discount ? discount.Discount_Name + ' (' + discountPct + '%)' : 'None'}</strong></div>
+        <div>Net Amount Due: <strong>₹${netAmount.toFixed(2)}</strong></div>
+        <div style="margin-top:8px;">Base Due Date: <strong>${baseEnd.toISOString().split('T')[0]}</strong></div>
+        <div>Approved Leave Days Applied: <strong>${totalBreakDays}</strong></div>
+        <div>Adjusted Due Date: <strong>${adjustedEnd.toISOString().split('T')[0]}</strong></div>
+    `;
+}
+
+function generateInvoice() {
+    const studentId = document.getElementById('studentSelect').value;
+    const configId = document.getElementById('feeConfigSelect').value;
+    const discountId = document.getElementById('discountSelect').value;
+    const startDate = document.getElementById('cycleStartDate').value;
+
+    if (!studentId || !configId || !startDate) {
+        alert("Please select Student, Fee Config, and Start Date.");
+        return;
+    }
+
+    const btn = document.querySelector('#module_generate .btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Generating...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Generate Invoice";
+            if (result.success) {
+                alert("Invoice generated!\nDue: " + result.adjustedDueDate + "\nAmount: ₹" + result.netAmount);
+                document.getElementById('invoicePreviewBox').style.display = 'none';
+                document.getElementById('studentSelect').value = '';
+                document.getElementById('feeConfigSelect').value = '';
+                document.getElementById('discountSelect').value = '';
+                loadDashboardContext();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Generate Invoice";
+            alert("Connection failed. Please try again.");
+        })
+        .generateNewInvoice({
+            studentId: studentId,
+            configId: configId,
+            discountId: discountId,
+            billingCycleStartDate: startDate,
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: false
+        });
+}
+
+// ========== INVOICE LEDGER ==========
+function renderInvoiceList() {
+    if (!contextPayload) return;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const container = document.getElementById('invoiceListContainer');
+    const students = contextPayload.students || [];
+
+    let invoices = (contextPayload.invoices || []).slice().reverse();
+    if (statusFilter) {
+        invoices = invoices.filter(inv => inv.Payment_Status === statusFilter);
+    }
+
+    if (invoices.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No invoices found.</div>';
+        return;
+    }
+
+    const statusColors = {
+        'Unpaid': { bg: '#fef2f2', color: '#991b1b' },
+        'Partially_Paid': { bg: '#fffbeb', color: '#92400e' },
+        'Fully_Paid': { bg: '#f0fdf4', color: '#166534' }
+    };
+
+    let html = '';
+    invoices.forEach(inv => {
+        const student = students.find(s => s.Student_ID === inv.Student_ID);
+        const studentName = student ? `${student.First_Name} ${student.Last_Name}` : inv.Student_ID;
+        const colors = statusColors[inv.Payment_Status] || { bg: '#f1f5f9', color: '#475569' };
+        const balance = (Number(inv.Total_Due) || 0) - (Number(inv.Amount_Paid) || 0);
+
+        html += `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${studentName}</div>
+                    <div style="font-size:12px; color:#64748b;">${inv.Invoice_ID}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${inv.Billing_Cycle_Start_Date} → ${inv.Billing_Cycle_End_Date}</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                      ${(inv.Payment_Status || '').replace('_', ' ')}
+                  </div>
+    ${contextPayload.isAdmin ? `
+    <div style="position:relative;">
+        <button onclick="toggleInvoiceMenu('${inv.Invoice_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+       <div id="menu_${inv.Invoice_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:140px;">
+    <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📄 Download</div>
+    <div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+
+        </div>
+    </div>` : ''}
+</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:13px;">
+                <div>Total Due: <strong>₹${Number(inv.Total_Due).toFixed(2)}</strong></div>
+                <div>Paid: <strong>₹${Number(inv.Amount_Paid).toFixed(2)}</strong></div>
+                <div>Balance: <strong>₹${balance.toFixed(2)}</strong></div>
+            </div>
+    ${inv.Payment_Status !== 'Fully_Paid' ? `<button class="master-action-btn btn-sync" style="margin-top:10px; padding:8px; font-size:12px;" onclick="openPaymentModal('${inv.Invoice_ID}', ${balance})">💳 Record Payment</button>` : ''}
+</div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+// ========== PAYMENT MODAL ==========
+function openPaymentModal(invoiceId, balance) {
+    activeInvoiceIdForPayment = invoiceId;
+    document.getElementById('paymentModalInvoiceInfo').innerText = `Invoice: ${invoiceId} | Balance Due: ₹${balance.toFixed(2)}`;
+    document.getElementById('paymentAmountInput').value = balance.toFixed(2);
+    document.getElementById('paymentTxRefInput').value = '';
+    document.getElementById('paymentModalOverlay').style.display = 'flex';
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModalOverlay').style.display = 'none';
+    activeInvoiceIdForPayment = null;
+}
+
+function submitPayment() {
+    const amount = parseFloat(document.getElementById('paymentAmountInput').value);
+    const mode = document.getElementById('paymentModeSelect').value;
+    const txRef = document.getElementById('paymentTxRefInput').value.trim();
+
+    if (!amount || amount <= 0) { alert("Please enter a valid payment amount."); return; }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                alert("Payment recorded! New status: " + result.newStatus.replace('_', ' '));
+                closePaymentModal();
+                loadDashboardContext();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed. Please try again.");
+        })
+        .markInvoicePayment({
+            invoiceId: activeInvoiceIdForPayment,
+            amountPaid: amount,
+            paymentMode: mode,
+            transactionRef: txRef,
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: false
+        });
+}
+// ========== APPLICATIONS PANEL ==========
+function renderApplicationsList() {
+    if (!contextPayload) return;
+    const statusFilter = document.getElementById('appStatusFilter').value;
+    const container = document.getElementById('applicationsListContainer');
+    container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Loading...</div>';
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#991b1b;">Error: ' + result.error + '</div>';
+                return;
+            }
+
+            let apps = result.applications || [];
+            if (statusFilter) apps = apps.filter(a => a.Review_Status === statusFilter);
+
+            if (apps.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No applications found.</div>';
+                return;
+            }
+
+            const statusColors = {
+                'Pending_Review': { bg: '#fffbeb', color: '#92400e' },
+                'Approved': { bg: '#f0fdf4', color: '#166534' },
+                'Rejected': { bg: '#fef2f2', color: '#991b1b' },
+                'Waitlisted': { bg: '#f1f5f9', color: '#475569' }
+            };
+
+            let html = '';
+            apps.forEach(app => {
+                const colors = statusColors[app.Review_Status] || { bg: '#f1f5f9', color: '#475569' };
+                html += `
+                <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="font-weight:700; font-size:14px; color:#1e293b;">${app.Player_First_Name} ${app.Player_Last_Name}</div>
+                            <div style="font-size:12px; color:#64748b;">${app.Application_ID}</div>
+                            <div style="font-size:12px; color:#64748b; margin-top:2px;">Submitted: ${app.Submission_Timestamp}</div>
+                        </div>
+                        <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                            ${(app.Review_Status || '').replace('_', ' ')}
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; font-size:12px; color:#475569; line-height:1.6;">
+                        <div>DOB: ${app.Player_DOB} | Center: ${app.Target_Center_ID} | Batch: ${app.Target_Batch_ID}</div>
+                        <div>Parent: ${app.Parent_Name} | ${app.Parent_Email} | ${app.Parent_Phone}</div>
+                        <div>Kit: ${app.Kit_Shirt}/${app.Kit_Shorts} | Payment Preference: ${app.Selected_Payment_Strategy}</div>
+                        ${app.Medical_Alert_Flags && app.Medical_Alert_Flags !== 'None' ? `<div style="color:#dc2626;">⚠️ Medical: ${app.Medical_Alert_Flags}</div>` : ''}
+                    </div>
+                    <button class="master-action-btn btn-sync" style="margin-top:10px; padding:8px; font-size:12px;" onclick="toggleDocumentsPanel('${app.Application_ID}')">📁 View Documents</button>
+                    <div id="docsPanel_${app.Application_ID}" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border-radius:8px;"></div>
+                    ${app.Review_Status === 'Pending_Review' ? `
+                    <div style="display:flex; gap:8px; margin-top:12px;">
+                        <button class="master-action-btn btn-commit" style="flex:1; padding:8px; font-size:12px;" onclick="updateAppStatus('${app.Application_ID}', 'Approved')">✅ Approve</button>
+                        <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#f59e0b; color:white;" onclick="updateAppStatus('${app.Application_ID}', 'Waitlisted')">⏳ Waitlist</button>
+                        <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#dc2626; color:white;" onclick="updateAppStatus('${app.Application_ID}', 'Rejected')">❌ Reject</button>
+                    </div>` : ''}
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        })
+        .withFailureHandler(function() {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#991b1b;">Connection failed.</div>';
+        })
+        .getOnboardingApplications();
+}
+
+function updateAppStatus(applicationId, newStatus) {
+    if (!confirm(`Are you sure you want to mark this application as ${newStatus}?`)) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                if (result.newStudentId) {
+                    alert(`Application Approved!\nNew Student ID created: ${result.newStudentId}\nThey now appear in Academy Roster.`);
+                } else if (result.warning) {
+                    alert(result.warning);
+                } else {
+                    alert(`Application ${newStatus} successfully.`);
+                }
+                renderApplicationsList();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed. Please try again.");
+        })
+        .updateApplicationStatus(applicationId, newStatus, verifiedStaffEmail);
+}
+// ========== DOCUMENT VIEWER ==========
+function toggleDocumentsPanel(applicationId) {
+    const panel = document.getElementById('docsPanel_' + applicationId);
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        return;
+    }
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="font-size:12px; color:#64748b;">Loading documents...</div>';
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) {
+                panel.innerHTML = '<div style="font-size:12px; color:#991b1b;">Error: ' + result.error + '</div>';
+                return;
+            }
+            if (result.documents.length === 0) {
+                panel.innerHTML = '<div style="font-size:12px; color:#64748b;">No documents uploaded yet.</div>';
+                return;
+            }
+            let html = '';
+            result.documents.forEach(doc => {
+                html += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e2e8f0;">
+                    <div style="font-size:12px;">
+                        <strong>${doc.Document_Type.replace('_', ' ')}</strong>
+                        <span style="color:#94a3b8;"> — ${doc.Verification_Status}</span>
+                    </div>
+                    <button class="master-action-btn btn-commit" style="padding:6px 10px; font-size:11px; margin-top:0;" onclick="viewSecureDocument('${doc.Google_Drive_File_ID}', '${doc.Document_Type}')">👁️ View</button>
+                </div>`;
+            });
+            panel.innerHTML = html;
+        })
+        .withFailureHandler(function() {
+            panel.innerHTML = '<div style="font-size:12px; color:#991b1b;">Connection failed.</div>';
+        })
+        .getDocumentsForEntity(applicationId);
+}
+
+function viewSecureDocument(fileId, docType) {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:999999; display:flex; align-items:center; justify-content:center;';
+    modal.innerHTML = '<div style="background:white; padding:20px; border-radius:12px; text-align:center;">Loading document...</div>';
+    document.body.appendChild(modal);
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) {
+                modal.innerHTML = '<div style="background:white; padding:20px; border-radius:12px; color:#991b1b;">Error: ' + result.error + '</div>';
+                return;
+            }
+
+            // Convert base64 -> Blob -> blob: URL (data: URIs get blocked by Chrome inside nested sandboxed iframes)
+            const byteCharacters = atob(result.base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: result.mimeType || 'application/octet-stream' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            let contentHtml = '';
+            const mime = result.mimeType || '';
+
+            if (mime.startsWith('image/')) {
+                contentHtml = `<img src="${blobUrl}" style="max-width:90vw; max-height:80vh; border-radius:8px;">`;
+            } else if (mime === 'application/pdf') {
+                    contentHtml = `
+                        <div style="text-align:center; padding:30px;">
+                            <div style="font-size:40px; margin-bottom:12px;">📄</div>
+                            <div style="font-size:14px; color:#334155; margin-bottom:16px;">${result.fileName}</div>
+                            <a href="${blobUrl}" target="_blank" 
+                              style="background:#0f172a; color:white; padding:12px 24px; border-radius:8px; font-weight:700; font-size:14px; text-decoration:none;">
+                              Open PDF in New Tab
+                            </a>
+                        </div>`;
+                } else {
+                contentHtml = `<a href="${blobUrl}" download="${result.fileName}" style="color:#0f172a; font-weight:700;">Download ${result.fileName}</a>`;
+            }
+
+            modal.innerHTML = `
+                <div style="background:white; padding:16px; border-radius:12px; max-width:95vw; max-height:90vh; overflow:auto; position:relative;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <strong style="font-size:14px;">${docType.replace('_', ' ')}</strong>
+                        <button style="background:#475569; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px;">Close</button>
+                    </div>
+                    ${contentHtml}
+                </div>`;
+
+            modal.querySelector('button').onclick = function() {
+                URL.revokeObjectURL(blobUrl);
+                document.body.removeChild(modal);
+            };
+        })
+        .withFailureHandler(function() {
+            modal.innerHTML = '<div style="background:white; padding:20px; border-radius:12px; color:#991b1b;">Connection failed.</div>';
+        })
+        .getSecureDocumentView({
+            fileId: fileId,
+            requestingStaffEmail: verifiedStaffEmail
+        });
+}
+// ========== FEE CONFIG ==========
+function populateFcCenterDropdown() {
+    const sel = document.getElementById('fcCenterSelect');
+    sel.innerHTML = '<option value="">-- Select Center --</option>';
+    (contextPayload.facilities || []).forEach(f => {
+        sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+    });
+}
+
+function renderFeeConfigList() {
+    populateFcCenterDropdown();
+    const container = document.getElementById('feeConfigListContainer');
+    const configs = contextPayload.feeConfigs || [];
+
+    if (configs.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No fee configurations found.</div>';
+        return;
+    }
+
+    const facilities = contextPayload.facilities || [];
+    let html = '';
+    configs.forEach((c, idx) => {
+        const center = facilities.find(f => f.Center_ID === c.Center_ID);
+        const centerName = center ? center.Center_Name : c.Center_ID;
+        html += `
+        <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${centerName} — ${c.Age_Group} — ${c.Program_Type}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:4px;">Billing: Every ${c.Billing_Interval_Days} days</div>
+                    <div style="display:flex; gap:16px; margin-top:8px; font-size:13px;">
+                        <div>Base: <strong>₹${c.Base_Fee_Amount}</strong></div>
+                        <div>Kit: <strong>₹${c.Kit_Fee_Amount || 0}</strong></div>
+                        <div>Reg: <strong>₹${c.Registration_Fee_Amount || 0}</strong></div>
+                    </div>
+                </div>
+                ${contextPayload.isAdmin ? `
+                <div style="position:relative;">
+                    <button onclick="toggleMenu('feeMenu_${idx}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                    <div id="feeMenu_${idx}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
+                        <div onclick="deleteFeeConfig('${c.Fee_Config_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+function saveFeeConfig() {
+    const centerId = document.getElementById('fcCenterSelect').value;
+    const ageGroup = document.getElementById('fcAgeGroup').value.trim();
+    const programType = document.getElementById('fcProgramType').value;
+    const billingInterval = document.getElementById('fcBillingInterval').value;
+    const baseFee = document.getElementById('fcBaseFee').value;
+    const kitFee = document.getElementById('fcKitFee').value || 0;
+    const regFee = document.getElementById('fcRegFee').value || 0;
+
+    if (!centerId || !ageGroup || !baseFee) {
+        alert("Please fill Center, Age Group and Base Fee Amount.");
+        return;
+    }
+
+    const btn = document.querySelector('#module_feeconfig .btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Saving...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Save Fee Configuration";
+            if (result.success) {
+                alert("Fee configuration saved successfully!");
+                document.getElementById('fcCenterSelect').value = '';
+                document.getElementById('fcAgeGroup').value = '';
+                document.getElementById('fcBaseFee').value = '';
+                document.getElementById('fcKitFee').value = '';
+                document.getElementById('fcRegFee').value = '';
+                loadDashboardContext();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Save Fee Configuration";
+            alert("Connection failed. Please try again.");
+        })
+        .saveFeeConfiguration({
+            centerId: centerId,
+            ageGroup: ageGroup,
+            programType: programType,
+            billingIntervalDays: billingInterval,
+            baseFeeAmount: baseFee,
+            kitFeeAmount: kitFee,
+            registrationFeeAmount: regFee,
+            staffEmail: verifiedStaffEmail
+        });
+}
+function renderDiscountList() {
+    const container = document.getElementById('discountListContainer');
+    const discounts = contextPayload.discounts || [];
+
+    if (discounts.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No discounts found.</div>';
+        return;
+    }
+
+    let html = '';
+    discounts.forEach(d => {
+        html += `
+        <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-weight:700; font-size:14px; color:#1e293b;">${d.Discount_Name}</div>
+                <div style="font-size:12px; color:#64748b; margin-top:4px;">Discount: ${d.Discount_Percentage}%</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="background:#f0fdf4; color:#166534; font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px;">
+                    ${d.Discount_ID}
+                </div>
+                ${contextPayload.isAdmin ? `
+                <div style="position:relative;">
+                    <button onclick="toggleMenu('discMenu_${d.Discount_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                    <div id="discMenu_${d.Discount_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
+                        <div onclick="deleteDiscount('${d.Discount_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function saveDiscount() {
+    const name = document.getElementById('discountNameInput').value.trim();
+    const pct = document.getElementById('discountPctInput').value;
+
+    if (!name || !pct) { alert("Please fill Discount Name and Percentage."); return; }
+    if (Number(pct) < 0 || Number(pct) > 100) { alert("Percentage must be between 0 and 100."); return; }
+
+    const btn = document.querySelector('#module_feeconfig .btn-commit:last-of-type');
+    btn.disabled = true;
+    btn.innerText = "Saving...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Save Discount";
+            if (result.success) {
+                alert("Discount saved successfully!");
+                document.getElementById('discountNameInput').value = '';
+                document.getElementById('discountPctInput').value = '';
+                loadDashboardContext();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Save Discount";
+            alert("Connection failed.");
+        })
+        .saveDiscountConfiguration({ name: name, percentage: pct });
+}
+// ========== LEAVE REQUESTS ==========
+function populateLeaveStudentDropdown() {
+    if (!contextPayload) {
+        setTimeout(populateLeaveStudentDropdown, 500);
+        return;
+    }
+    // Populate centers
+    const centerSel = document.getElementById('leaveCenterSelect');
+    centerSel.innerHTML = '<option value="">-- Select Center --</option>';
+    const centers = contextPayload.facilities || [];
+    centers.forEach(f => {
+    centerSel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+});
+    // Reset batch and student
+    document.getElementById('leaveBatchSelect').innerHTML = '<option value="">-- Select Batch --</option>';
+    document.getElementById('leaveStudentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+}
+
+function filterLeaveBatches() {
+    const centerId = document.getElementById('leaveCenterSelect').value;
+    const batchSel = document.getElementById('leaveBatchSelect');
+    batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+    document.getElementById('leaveStudentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+    if (!centerId) return;
+    const batches = (contextPayload.batches || []).filter(b => b.Center_ID === centerId);
+    batches.forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name} (${b.Batch_ID})</option>`;
+    });
+}
+
+function filterLeaveStudents() {
+    const batchId = document.getElementById('leaveBatchSelect').value;
+    const studentSel = document.getElementById('leaveStudentSelect');
+    studentSel.innerHTML = '<option value="">-- Select Student --</option>';
+    if (!batchId) return;
+    const students = (contextPayload.students || []).filter(s => s.Academy_Batch_ID === batchId && s.Status === 'Active');
+    students.forEach(s => {
+        studentSel.innerHTML += `<option value="${s.Student_ID}">${s.First_Name} ${s.Last_Name} (${s.Student_ID})</option>`;
+    });
+}
+function submitNewLeave() {
+    const studentId = document.getElementById('leaveStudentSelect').value;
+    const startDate = document.getElementById('leaveStartDate').value;
+    const endDate = document.getElementById('leaveEndDate').value;
+    const reason = document.getElementById('leaveReasonInput').value.trim();
+
+    if (!studentId || !startDate || !endDate || !reason) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    const btn = document.querySelector('#module_leave .btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Submitting...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Submit Leave Request";
+            if (result.success) {
+                alert(`Leave request submitted (${result.totalDays} days). Awaiting approval.`);
+                document.getElementById('leaveStudentSelect').value = '';
+                document.getElementById('leaveStartDate').value = '';
+                document.getElementById('leaveEndDate').value = '';
+                document.getElementById('leaveReasonInput').value = '';
+                renderLeaveList();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Submit Leave Request";
+            alert("Connection failed. Please try again.");
+        })
+        .submitLeaveRequest({
+            studentId: studentId,
+            breakStartDate: startDate,
+            breakEndDate: endDate,
+            leaveReason: reason,
+            staffEmail: verifiedStaffEmail
+        });
+}
+
+function renderLeaveList() {
+    const statusFilter = document.getElementById('leaveStatusFilter').value;
+    const container = document.getElementById('leaveListContainer');
+    container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Loading...</div>';
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#991b1b;">Error: ' + result.error + '</div>';
+                return;
+            }
+
+            let leaves = result.leaves || [];
+            if (statusFilter) leaves = leaves.filter(l => l.Approval_Status === statusFilter);
+
+            if (leaves.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No leave requests found.</div>';
+                return;
+            }
+
+            const students = (contextPayload.students || []);
+            const statusColors = {
+                'Pending': { bg: '#fffbeb', color: '#92400e' },
+                'Approved': { bg: '#f0fdf4', color: '#166534' },
+                'Rejected': { bg: '#fef2f2', color: '#991b1b' }
+            };
+
+            let html = '';
+            leaves.forEach(lv => {
+                const student = students.find(s => s.Student_ID === lv.Student_ID);
+                const studentName = student ? `${student.First_Name} ${student.Last_Name}` : lv.Student_ID;
+                const colors = statusColors[lv.Approval_Status] || { bg: '#f1f5f9', color: '#475569' };
+
+                html += `
+                <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="font-weight:700; font-size:14px; color:#1e293b;">${studentName}</div>
+                            <div style="font-size:12px; color:#64748b;">${lv.Break_Start_Date} → ${lv.Break_End_Date} (${lv.Total_Break_Days} days)</div>
+                        </div>
+                        <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                            ${lv.Approval_Status}
+                        </div>
+                    </div>
+                    <div style="margin-top:8px; font-size:12px; color:#475569;">Reason: ${lv.Leave_Reason}</div>
+                    ${lv.Approval_Status === 'Pending' ? `
+                    <div style="display:flex; gap:8px; margin-top:12px;">
+                        <button class="master-action-btn btn-commit" style="flex:1; padding:8px; font-size:12px;" onclick="updateLeave('${lv.Leave_ID}', 'Approved')">✅ Approve</button>
+                        <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#dc2626; color:white;" onclick="updateLeave('${lv.Leave_ID}', 'Rejected')">❌ Reject</button>
+                    </div>` : ''}
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        })
+        .withFailureHandler(function() {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#991b1b;">Connection failed.</div>';
+        })
+        .getLeaveRequests();
+}
+
+function updateLeave(leaveId, newStatus) {
+    if (!confirm(`Mark this leave request as ${newStatus}?`)) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                alert(`Leave request ${newStatus}.`);
+                renderLeaveList();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed. Please try again.");
+        })
+        .updateLeaveStatus(leaveId, newStatus, verifiedStaffEmail);
+}
+function toggleMenu(menuId) {
+    document.querySelectorAll('[id^="feeMenu_"], [id^="discMenu_"]').forEach(m => {
+        if (m.id !== menuId) m.style.display = 'none';
+    });
+    const menu = document.getElementById(menuId);
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function deleteFeeConfig(feeConfigId) {
+    if (!confirm('Delete this fee configuration? This cannot be undone.')) return;
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) { alert('Fee configuration deleted.'); loadDashboardContext(); }
+            else { alert('Error: ' + result.error); }
+        })
+        .withFailureHandler(function() { alert('Connection failed.'); })
+        .deleteFeeConfig(feeConfigId, verifiedStaffEmail);
+}
+
+function deleteDiscount(discountId) {
+    if (!confirm('Delete this discount? This cannot be undone.')) return;
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) { alert('Discount deleted.'); loadDashboardContext(); }
+            else { alert('Error: ' + result.error); }
+        })
+        .withFailureHandler(function() { alert('Connection failed.'); })
+        .deleteDiscount(discountId, verifiedStaffEmail);
+}
+
+function toggleInvoiceMenu(invoiceId) {
+    document.querySelectorAll('[id^="menu_"]').forEach(m => {
+        if (m.id !== 'menu_' + invoiceId) m.style.display = 'none';
+    });
+    const menu = document.getElementById('menu_' + invoiceId);
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+function deleteInvoice(invoiceId) {
+    if (!confirm('Are you sure you want to delete invoice ' + invoiceId + '? This cannot be undone.')) return;
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                alert('Invoice deleted successfully.');
+                loadDashboardContext();
+            } else {
+                alert('Error: ' + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert('Connection failed. Please try again.');
+        })
+        .deleteInvoice(invoiceId, verifiedStaffEmail);
+}
+
+
+function downloadInvoice(invoiceId) {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                const win = window.open('', '_blank');
+                win.document.write(result.html);
+                win.document.close();
+            } else {
+                alert('Error: ' + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert('Connection failed.');
+        })
+        .generateInvoicePDF(invoiceId);
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="menu_"]') && e.target.textContent !== '⋮') {
+        document.querySelectorAll('[id^="menu_"]').forEach(m => m.style.display = 'none');
+    }
+});
+
+</script>
+
+</body>
+</html>

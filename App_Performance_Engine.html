@@ -92,15 +92,15 @@
             <div class="title">Evaluations</div>
             <div class="badge-mini">Active Engine</div>
         </div>
-        <div class="hub-card" id="hub_attendance" onclick="switchActivePortalWorkspace('attendance')">
-            <div class="icon">⏱️</div>
-            <div class="title">Attendance</div>
-            <div class="badge-mini" style="background:#fee2e2; color:#991b1b;">Locked</div>
+        <div class="hub-card" id="hub_attendance" onclick="window.open('https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=attendance', '_blank')">
+          <div class="icon">⏱️</div>
+          <div class="title">Attendance</div>
+          <div class="badge-mini">Active</div>
         </div>
-        <div class="hub-card" id="hub_payments" onclick="switchActivePortalWorkspace('payments')">
+        <div class="hub-card" id="hub_payments" onclick="window.open('https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=billing', '_blank')">
             <div class="icon">💳</div>
             <div class="title">Fee Tracker</div>
-            <div class="badge-mini" style="background:#fee2e2; color:#991b1b;">Locked</div>
+            <div class="badge-mini">Active</div>
         </div>
         <div class="hub-card" id="hub_onboarding" onclick="switchActivePortalWorkspace('onboarding')">
             <div class="icon">👥</div>
@@ -136,6 +136,31 @@
                     <select id="evalSessionTabSelect"><option value="">Loading spreadsheet headers...</option></select>
                 </div>
                 <button class="master-action-btn btn-create-session" id="newTabCreationBtn" onclick="triggerInstanceTabProvisioning()">+ Create New Trial Session </button>
+
+                <!-- --- UNIQUE TRIAL DATA ENTRY SWITCH (Moved to correct session home context) --- -->
+                <div id="trialDataEntryContainer" style="margin-top: 15px; border-top: 1px solid #cbd5e1; padding-top: 15px; display: none;">
+                    <div class="entry-method-selector" style="margin-bottom: 12px;">
+                        <label style="font-weight: 500; margin-right: 15px; cursor: pointer;">
+                            <input type="radio" name="trialEntryMethod" value="csv" checked onclick="toggleEntryMethod('csv_trial')"> Upload Roster CSV
+                        </label>
+                        <label style="font-weight: 500; cursor: pointer;">
+                            <input type="radio" name="trialEntryMethod" value="manual" onclick="toggleEntryMethod('manual_trial')"> Manual Entry Mode
+                        </label>
+                    </div>
+
+                    <!-- CSV Stream Section (Unique ID: csvEntryStream_trial) -->
+                    <div id="csvEntryStream_trial" style="display: block; padding: 10px; border: 1px dashed #bbf7d0; background: #f0fdf4; border-radius: 6px;">
+                        <label for="csvFileInput_trial" style="font-size: 13px; color: #166534;"><strong>Select Player CSV File:</strong></label>
+                        <input type="file" id="csvFileInput_trial" accept=".csv" onchange="processSelectedCSV(this)" style="margin-top: 5px; width: 100%;">
+                    </div>
+
+                    <!-- Manual Entry Stream Section (Unique ID: manualEntryStream_trial) -->
+                    <div id="manualEntryStream_trial" style="display: none; padding: 10px; border: 1px dashed #e5e7eb; background: #f9fafb; border-radius: 6px;">
+                        <label style="font-size: 13px; color: #374151;"><strong>Manual Roster Input:</strong></label>
+                        <textarea id="manualPlayerInputs_trial" rows="3" placeholder="Enter player names (one per line)..." style="margin-top: 5px; width: 100%; border-radius: 4px; border: 1px solid #d1d5db; padding: 6px; font-family: inherit;"></textarea>
+                    </div>
+                </div>
+                <!-- -------------------------------------------- -->
             </div>
 
             <div class="wizard-navigation-bar">
@@ -145,7 +170,6 @@
             </div>
 
             <div id="offlineSyncCounterBadge" class="badge-counter">Unsynced offline records (On your device): 0</div>
-
 
             <div class="wizard-step-pane active-pane" id="stepPane_1">
                 <div class="section-box" id="cascadingWrapperBox" style="display: none; background: #fefce8; border: 1px solid #fef08a;">
@@ -160,9 +184,12 @@
                 </div>
 
                 <h3>Player Administrative Profile</h3>
-                <div class="section-box" id="playerIdentityInformationCard"></div>
+                <div id="playerIdentityInformationCard">
+                    <div style="text-align: center; padding: 20px; color: #64748b; font-size: 13px; font-weight: 500; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc;">
+                        ℹ️ Please select an evaluation session framework above to inflate data fields.
+                    </div>
+                </div>
             </div>
-
 
             <div class="wizard-step-pane" id="stepPane_2">
                 <div id="technicalMetricsWrapper"></div>
@@ -170,7 +197,6 @@
                 <div id="physicalMetricsWrapper"></div>
                 <div id="psychologicalMetricsWrapper"></div>
             </div>
-
 
             <div class="wizard-step-pane" id="stepPane_3">
                 <h3>Final Summary Recommendation</h3>
@@ -181,7 +207,7 @@
                         <select id="out_recommended_action">
                             <option value="">Select Action...</option>
                             <option value="Sign">Sign / Permanent Upgrade</option>
-                            <option value="Monitor">Monitor Progression</option>
+                            <option value="Monitor Progression">Monitor Progression</option>
                             <option value="Invite back">Invite Back Next Cohort</option>
                             <option value="Not selected">Release / Terminate File</option>
                         </select>
@@ -244,12 +270,8 @@
 <?!= include('Client_Logic_JS'); ?>
 <!-- Start simple login UI block -->
 <script>
-// Global environment profile metadata matrix container tracking secure registry records
 let globalRosterCacheMatrix = [];
 
-/**
- * Self-invoking execution engine pass triggered instantly on structural layout parsing loops
- */
 (function() {
     const TARGET_APPLICATION_SCOPE = "eval";
     
@@ -260,7 +282,6 @@ let globalRosterCacheMatrix = [];
 })();
 
 function handleInitialRosterLoadSuccess(authorizedUsersArray) {
-    // Drop the network loader and display primary interface controls wrapper
     document.getElementById('authLocalSpinner').style.display = "none";
     document.getElementById('authFormWrapper').style.display = "block";
     
@@ -287,16 +308,13 @@ function evaluateSelectedProfileSecurityState() {
     
     document.getElementById('authErrorAlert').style.display = "none";
     
-    // State 1: Reset Selection
     if (!selectedEmail) {
-      alert("selectedEmail is null");
         actionBlock.style.display = "none";
         return;
     }
     
     const userRecord = globalRosterCacheMatrix.find(u => u.email === selectedEmail);
     if (!userRecord) {
-      alert("userRecord is null");
         actionBlock.style.display = "none";
         showAuthenticationError("Exception: Profile record missing from secure memory cache.");
         return;
@@ -305,12 +323,10 @@ function evaluateSelectedProfileSecurityState() {
     actionBlock.style.display = "block";
     
     if (userRecord.hasPassword === false) {
-        // State 3: Account Onboarding Setup Framework Required
         primaryLabel.textContent = "Create Account Password";
         registrationWrapper.style.display = "block";
         submitBtn.textContent = "🔐 Register My Coach Profile";
     } else {
-        // State 2: Standard Cryptographic Challenge Verification Frame Active
         primaryLabel.textContent = "Enter Your Access Password";
         registrationWrapper.style.display = "none";
         submitBtn.textContent = "🔓 Verify Credentials";
@@ -328,7 +344,6 @@ function processIdentityVerificationSubmission() {
     if (!userRecord) return;
     
     if (userRecord.hasPassword === false) {
-        // Handle First-Time User Registration Logic Route
         const confirmPass = document.getElementById('authConfirmPassword').value.trim();
         
         if (!primaryPass || !confirmPass) {
@@ -347,7 +362,6 @@ function processIdentityVerificationSubmission() {
             .commitNewUserPasswordCredential(selectedEmail, primaryPass);
             
     } else {
-        // Handle Standard Password Validation Route
         if (!primaryPass) {
             showAuthenticationError("Please type your profile access credentials.");
             return;
@@ -365,13 +379,9 @@ function handleAuthenticationResponsePacket(outcomePacket) {
     toggleSubmittingUiState(false);
     
     if (outcomePacket && outcomePacket.isAuthenticated === true) {
-        // Lock secure session handle into local tracking storage matrix
         localStorage.setItem('kemp_suite_verified_session_email', outcomePacket.verifiedEmail);
-        
-        // Vaporize the locking layout sheet element from the display DOM entirely
         document.getElementById('simpleAuthGate').remove();
         
-        // Wake up downstream single page framework processes
         if (typeof initializeApplicationWorkspace === "function") {
             initializeApplicationWorkspace();
         }
@@ -389,7 +399,6 @@ function toggleSubmittingUiState(isProcessing, statusPhrase = "") {
     } else {
         btn.disabled = false;
         btn.style.opacity = "1";
-        // Let evaluateSelectedProfileSecurityState restore correct text state organically
         evaluateSelectedProfileSecurityState();
     }
 }
@@ -405,6 +414,5 @@ function handleMasterSystemFaultException(serverError) {
     showAuthenticationError("Network Vault Connection Dropped: " + serverError.toString());
 }
 </script>
-<!-- End simple login script block -->
 </body>
 </html>

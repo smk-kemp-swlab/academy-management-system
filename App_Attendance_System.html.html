@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kemp Attendance System</title>
+    <?!= include('Styled_Branding_CSS'); ?>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div id="simpleAuthGate" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 999999; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; box-sizing: border-box; border: 1px solid #e2e8f0;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Attendance Portal</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
+        </div>
+        <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
+            <div style="border: 3px solid #f3f3f3; border-top: 3px solid #0f172a; border-radius: 50%; width: 24px; height: 24px; animation: spinIAM 1s linear infinite; margin: 0 auto 12px auto;"></div>
+            <style>@keyframes spinIAM { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <span style="font-size: 13px; color: #475569;">Contacting Secure Data Vault...</span>
+        </div>
+        <div id="authFormWrapper" style="display: none;">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Select Your Staff Profile</label>
+                <select id="authCoachDropdown" onchange="evaluateSelectedProfileSecurityState()" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; background: #f8fafc; color: #1e293b; box-sizing: border-box;">
+                    <option value="">Loading Profiles...</option>
+                </select>
+            </div>
+            <div id="authInteractionBlock" style="display: none;">
+                <div style="margin-bottom: 14px;">
+                    <label id="authPrimaryLabel" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Your Access Password</label>
+                    <input type="password" id="authPrimaryPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div id="authRegistrationFieldsWrapper" style="display: none; margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm App Password</label>
+                    <input type="password" id="authConfirmPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <button type="button" id="authSubmitActionBtn" onclick="processIdentityVerificationSubmission()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Verify Identity</button>
+            </div>
+        </div>
+        <div id="authErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
+    </div>
+</div>
+
+<!-- Main App -->
+<div id="loadingSpinnerElement" class="micro-status-indicator">🔄 Loading...</div>
+
+<div class="container">
+    <div class="header-panel">
+        <h1>Kemp FC</h1>
+        <h2>Attendance Management System</h2>
+    </div>
+
+    <!-- Module Selector -->
+    <div class="dashboard-grid" style="margin-bottom: 16px;">
+        <div class="hub-card active-hub" id="hub_student" onclick="switchModule('student')">
+            <div class="icon">👥</div>
+            <div class="title">Student Attendance</div>
+            <div class="badge-mini">Active</div>
+        </div>
+        <div class="hub-card" id="hub_staff" onclick="switchModule('staff')">
+            <div class="icon">🧑‍💼</div>
+            <div class="title">Staff Attendance</div>
+            <div class="badge-mini">Active</div>
+        </div>
+    </div>
+
+    <!-- Student Attendance Module -->
+    <div id="module_student">
+        <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+            <div class="form-group">
+                <label style="color:#15803d">Logged In As</label>
+                <div id="loggedInStaff" style="font-weight: 700; font-size: 15px; color: #1e293b;">--</div>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <div class="form-group">
+                <label>Select Academy Center *</label>
+                <select id="centerSelect" onchange="loadBatches()">
+                    <option value="">-- Select Center --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Select Batch *</label>
+                <select id="batchSelect" onchange="loadStudentRoster()">
+                    <option value="">-- Select Center First --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label>Attendance Date *</label>
+                <input type="date" id="attendanceDate">
+            </div>
+        </div>
+
+        <!-- Roster Grid -->
+        <div id="rosterGridContainer" style="display: none;">
+            <h3>Student Attendance Roster</h3>
+            <div id="rosterGrid"></div>
+            <div class="btn-container" style="margin-top: 16px;">
+                <button class="master-action-btn btn-commit" onclick="submitAttendance()">✅ Submit Attendance</button>
+            </div>
+        </div>
+
+        <div id="rosterLoadingMsg" style="display: none; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
+            Loading students...
+        </div>
+    </div>
+
+    <!-- Staff Attendance Module -->
+    <div id="module_staff" style="display: none;">
+        <div class="section-box">
+            <div class="form-group">
+                <label>Logged In As</label>
+                <div id="loggedInStaffModule" style="font-weight: 700; font-size: 15px; color: #1e293b;">--</div>
+            </div>
+        </div>
+       <div style="display: flex; gap: 10px; margin-top: 16px;">
+    <button class="master-action-btn btn-commit" style="flex: 1; padding: 10px 8px; font-size: 12px;" onclick="markStaffAttendanceNow()">📍 Mark Attendance Now</button>
+    <button class="master-action-btn btn-sync" style="flex: 1; padding: 10px 8px; font-size: 12px;" onclick="showRetroAttendance()">📅 Mark Previous Attendance</button>
+</div>
+        <div id="retroDatePicker" style="display: none; margin-top: 16px;">
+            <div class="section-box">
+                <div class="form-group">
+                    <label>Select Previous Date</label>
+                    <input type="date" id="retroDate">
+                </div>
+                <button class="master-action-btn" style="background: #475569; color: white; margin-top: 8px;" onclick="submitRetroAttendance()">Submit Retroactive Entry</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let globalRosterCache = [];
+let contextPayload = null;
+let verifiedStaffEmail = "";
+
+// ========== AUTH ==========
+(function() {
+    // Check if already authenticated via Performance Engine cache
+    const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
+    if (cachedEmail) {
+        verifiedStaffEmail = cachedEmail;
+        document.getElementById('simpleAuthGate').remove();
+        initAttendanceApp();
+        return;
+    }
+    
+    // No cache — show login
+    google.script.run
+        .withSuccessHandler(handleRosterLoad)
+        .withFailureHandler(handleFault)
+        .fetchAuthorizedApplicationProfiles("attendance");
+})();
+function handleRosterLoad(users) {
+    document.getElementById('authLocalSpinner').style.display = "none";
+    document.getElementById('authFormWrapper').style.display = "block";
+    globalRosterCache = users || [];
+    const dropdown = document.getElementById('authCoachDropdown');
+    dropdown.innerHTML = '<option value="">-- Select Your Email --</option>';
+    globalRosterCache.forEach(function(u) {
+        if (u.email) {
+            const opt = document.createElement('option');
+            opt.value = u.email;
+            opt.textContent = u.email;
+            dropdown.appendChild(opt);
+        }
+    });
+}
+
+function evaluateSelectedProfileSecurityState() {
+    const email = document.getElementById('authCoachDropdown').value;
+    const block = document.getElementById('authInteractionBlock');
+    const regWrapper = document.getElementById('authRegistrationFieldsWrapper');
+    const label = document.getElementById('authPrimaryLabel');
+    const btn = document.getElementById('authSubmitActionBtn');
+    document.getElementById('authErrorAlert').style.display = "none";
+    if (!email) { block.style.display = "none"; return; }
+    const user = globalRosterCache.find(u => u.email === email);
+    if (!user) { block.style.display = "none"; return; }
+    block.style.display = "block";
+    if (user.hasPassword === false) {
+        label.textContent = "Create Access Password";
+        regWrapper.style.display = "block";
+        btn.textContent = "🔐 Register Profile";
+    } else {
+        label.textContent = "Enter Your Password";
+        regWrapper.style.display = "none";
+        btn.textContent = "🔓 Verify";
+    }
+}
+
+function processIdentityVerificationSubmission() {
+    const email = document.getElementById('authCoachDropdown').value;
+    const pass = document.getElementById('authPrimaryPassword').value.trim();
+    document.getElementById('authErrorAlert').style.display = "none";
+    if (!email) return;
+    const user = globalRosterCache.find(u => u.email === email);
+    if (!user) return;
+    if (user.hasPassword === false) {
+        const confirm = document.getElementById('authConfirmPassword').value.trim();
+        if (!pass || !confirm) { showError("Password fields cannot be blank."); return; }
+        if (pass !== confirm) { showError("Passwords do not match."); return; }
+        toggleBtn(true, "Registering...");
+        google.script.run.withSuccessHandler(handleAuthResponse).withFailureHandler(handleFault).commitNewUserPasswordCredential(email, pass);
+    } else {
+        if (!pass) { showError("Please enter your password."); return; }
+        toggleBtn(true, "Verifying...");
+        google.script.run.withSuccessHandler(handleAuthResponse).withFailureHandler(handleFault).validateExistingUserCredentials(email, pass);
+    }
+}
+
+function handleAuthResponse(result) {
+    toggleBtn(false);
+    if (result && result.isAuthenticated) {
+        verifiedStaffEmail = result.verifiedEmail;
+        localStorage.setItem('kemp_suite_verified_session_email', verifiedStaffEmail);
+        document.getElementById('simpleAuthGate').remove();
+        initAttendanceApp();
+    } else {
+        showError(result ? result.errorMessage : "Access denied.");
+    }
+}
+
+function toggleBtn(loading, text = "") {
+    const btn = document.getElementById('authSubmitActionBtn');
+    btn.disabled = loading;
+    btn.style.opacity = loading ? "0.6" : "1";
+    if (text) btn.textContent = text;
+    else evaluateSelectedProfileSecurityState();
+}
+
+function showError(msg) {
+    const el = document.getElementById('authErrorAlert');
+    el.innerText = msg;
+    el.style.display = "block";
+}
+
+function handleFault(err) {
+    toggleBtn(false);
+    showError("Connection error: " + err.toString());
+}
+
+// ========== APP INIT ==========
+function initAttendanceApp() {
+    document.getElementById('loggedInStaff').innerText = verifiedStaffEmail;
+    document.getElementById('loggedInStaffModule').innerText = verifiedStaffEmail;
+
+    // Set today's date
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('attendanceDate').value = today;
+
+    // Load context
+    google.script.run
+        .withSuccessHandler(function(ctx) {
+            contextPayload = ctx;
+            populateCenters();
+        })
+        .withFailureHandler(function() {
+            alert("Failed to load data. Please refresh.");
+        })
+        .getPerformanceEngineContext(false);
+}
+
+// ========== MODULE SWITCH ==========
+function switchModule(module) {
+    document.querySelectorAll('.hub-card').forEach(c => c.classList.remove('active-hub'));
+    document.getElementById('hub_' + module).classList.add('active-hub');
+    document.getElementById('module_student').style.display = module === 'student' ? 'block' : 'none';
+    document.getElementById('module_staff').style.display = module === 'staff' ? 'block' : 'none';
+}
+
+// ========== STUDENT ATTENDANCE ==========
+function populateCenters() {
+    const sel = document.getElementById('centerSelect');
+    sel.innerHTML = '<option value="">-- Select Center --</option>';
+    if (contextPayload && contextPayload.facilities) {
+        contextPayload.facilities.forEach(c => {
+            sel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
+        });
+    }
+}
+
+function loadBatches() {
+    const centerVal = document.getElementById('centerSelect').value;
+    const batchSel = document.getElementById('batchSelect');
+    batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+    document.getElementById('rosterGridContainer').style.display = 'none';
+    if (!centerVal || !contextPayload) return;
+    contextPayload.batches.filter(b => b.Center_ID === centerVal).forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+    });
+}
+
+function loadStudentRoster() {
+    const centerVal = document.getElementById('centerSelect').value;
+    const batchVal = document.getElementById('batchSelect').value;
+    if (!centerVal || !batchVal || !contextPayload) return;
+
+    document.getElementById('rosterLoadingMsg').style.display = 'block';
+    document.getElementById('rosterGridContainer').style.display = 'none';
+
+    const students = contextPayload.players.filter(p =>
+        p.Academy_Center_ID === centerVal &&
+        p.Academy_Batch_ID === batchVal &&
+        p.Status === "Active"
+    );
+
+    buildRosterGrid(students);
+}
+
+function buildRosterGrid(students) {
+    document.getElementById('rosterLoadingMsg').style.display = 'none';
+
+    if (students.length === 0) {
+        document.getElementById('rosterGrid').innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No active students found for this batch.</div>';
+        document.getElementById('rosterGridContainer').style.display = 'block';
+        return;
+    }
+
+    let html = '';
+    students.forEach(s => {
+        html += `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 8px;">
+            <div>
+                <div style="font-weight: 700; font-size: 14px; color: #1e293b;">${s.First_Name} ${s.Last_Name}</div>
+                <div style="font-size: 12px; color: #64748b;">${s.Student_ID}</div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+                <button onclick="setStatus('${s.Student_ID}', 'Present', this)" 
+                    style="padding: 8px 12px; border-radius: 8px; border: 2px solid #16a34a; background: #16a34a; color: white; font-weight: 700; font-size: 13px; cursor: pointer;">P</button>
+                <button onclick="setStatus('${s.Student_ID}', 'Absent', this)" 
+                    style="padding: 8px 12px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer;">A</button>
+                <button onclick="setStatus('${s.Student_ID}', 'Injured', this)" 
+                    style="padding: 8px 12px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer;">I</button>
+            </div>
+        </div>`;
+    });
+
+    document.getElementById('rosterGrid').innerHTML = html;
+    document.getElementById('rosterGridContainer').style.display = 'block';
+}
+
+function setStatus(studentId, status, clickedBtn) {
+    const row = clickedBtn.parentElement;
+    const buttons = row.querySelectorAll('button');
+    
+    // Reset all buttons
+    buttons.forEach(btn => {
+        btn.style.background = 'white';
+        btn.style.color = '#64748b';
+        btn.style.borderColor = '#cbd5e1';
+    });
+
+    // Highlight selected
+    const colors = { 'Present': '#16a34a', 'Absent': '#cc0000', 'Injured': '#d97706' };
+    clickedBtn.style.background = colors[status];
+    clickedBtn.style.color = 'white';
+    clickedBtn.style.borderColor = colors[status];
+
+    // Store status on parent row
+    row.setAttribute('data-student-id', studentId);
+    row.setAttribute('data-status', status);
+}
+
+function submitAttendance() {
+    const centerVal = document.getElementById('centerSelect').value;
+    const batchVal = document.getElementById('batchSelect').value;
+    const dateVal = document.getElementById('attendanceDate').value;
+
+    if (!centerVal || !batchVal) { alert("Please select Center and Batch first."); return; }
+    if (!dateVal) { alert("Please select an attendance date."); return; }
+
+    const rows = document.querySelectorAll('#rosterGrid > div');
+    const attendanceRecords = [];
+
+    rows.forEach(row => {
+        const studentId = row.querySelector('[data-student-id]') ? 
+            row.querySelector('[data-student-id]').getAttribute('data-student-id') : 
+            row.getAttribute('data-student-id');
+        const status = row.getAttribute('data-status') || 'Present'; // Default Present
+        if (studentId) {
+            attendanceRecords.push({
+                studentId: studentId,
+                status: status,
+                centerId: centerVal,
+                batchId: batchVal,
+                date: dateVal,
+                loggedBy: verifiedStaffEmail
+            });
+        }
+    });
+
+    if (attendanceRecords.length === 0) { alert("No students found to submit."); return; }
+
+    // Collect all from roster regardless of whether tapped
+    const allStudents = contextPayload.players.filter(p =>
+        p.Academy_Center_ID === centerVal &&
+        p.Academy_Batch_ID === batchVal &&
+        p.Status === "Active"
+    );
+
+    const finalRecords = allStudents.map(s => {
+        const row = document.querySelector(`#rosterGrid > div [data-student-id="${s.Student_ID}"]`);
+        let status = 'Present'; // default
+        if (row) {
+            const parentRow = row.closest('div[data-status]');
+            if (parentRow) status = parentRow.getAttribute('data-status') || 'Present';
+        }
+        return {
+            studentId: s.Student_ID,
+            status: status,
+            centerId: centerVal,
+            batchId: batchVal,
+            date: dateVal,
+            loggedBy: verifiedStaffEmail
+        };
+    });
+
+    document.querySelector('.master-action-btn.btn-commit').disabled = true;
+    document.querySelector('.master-action-btn.btn-commit').innerText = "Submitting...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            document.querySelector('.master-action-btn.btn-commit').disabled = false;
+            document.querySelector('.master-action-btn.btn-commit').innerText = "✅ Submit Attendance";
+            if (result.success) {
+                alert("Attendance submitted successfully!");
+                document.getElementById('rosterGridContainer').style.display = 'none';
+                document.getElementById('batchSelect').value = '';
+                document.getElementById('centerSelect').value = '';
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            document.querySelector('.master-action-btn.btn-commit').disabled = false;
+            document.querySelector('.master-action-btn.btn-commit').innerText = "✅ Submit Attendance";
+            alert("Connection failed. Please try again.");
+        })
+        .submitStudentAttendance(finalRecords);
+}
+
+// ========== STAFF ATTENDANCE ==========
+function markStaffAttendanceNow() {
+    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = true;
+    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "Logging...";
+
+    fetch('https://ipapi.co/json/')
+        .then(r => r.json())
+        .then(data => {
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
+                    if (result.success) {
+                        alert("Staff attendance marked successfully!\nLocation: " + data.city + ", " + data.region);
+                    } else {
+                        alert("Error: " + result.error);
+                    }
+                })
+                .withFailureHandler(function() {
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
+                    alert("Connection failed.");
+                })
+               .submitStaffAttendance({
+                  email: verifiedStaffEmail,
+                  ip: data.ip,
+                  city: data.city,
+                  region: data.region,
+                  isp: data.org || '',
+                  actionType: 'Live_Net'
+                });
+        })
+        .catch(function() {
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
+                    alert(result.success ? "Attendance marked (location unavailable)." : "Error: " + result.error);
+                })
+                .withFailureHandler(function() {
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
+                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
+                })
+                .submitStaffAttendance({
+                  email: verifiedStaffEmail,
+                  ip: 'Unknown',
+                  city: 'Unknown',
+                  region: 'Unknown',
+                  isp: '',
+                  actionType: 'Live_Net'
+              });
+        });
+}
+
+function showRetroAttendance() {
+    const picker = document.getElementById('retroDatePicker');
+    picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+}
+
+function submitRetroAttendance() {
+    const dateVal = document.getElementById('retroDate').value;
+    if (!dateVal) { alert("Please select a date."); return; }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                alert("Retroactive attendance logged successfully.");
+                document.getElementById('retroDatePicker').style.display = 'none';
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed.");
+        })
+        .submitStaffAttendance({
+            email: verifiedStaffEmail,
+            ip: '0.0.0.0',
+            city: 'Manual_entry',
+            region: '',
+            actionType: 'Manual_Retro',
+            retroDate: dateVal
+        });
+}
+</script>
+
+</body>
+</html>

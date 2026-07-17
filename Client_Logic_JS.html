@@ -317,7 +317,7 @@
         const cascadeContainer = document.getElementById('cascadingWrapperBox');
         const identityCard = document.getElementById('playerIdentityInformationCard');
 
-      // 🛡️ Guard Condition: Handle your new placeholder cleanly
+        // 🛡️ Guard Condition: Handle your new placeholder cleanly
         if (!selectedFramework || selectedFramework === "default") {
             cascadeContainer.style.display = 'none';
             identityCard.innerHTML = `
@@ -327,36 +327,121 @@
             `;
             return; // Halt execution early
         }      
+        
         if (selectedFramework === "Trial") {
             cascadeContainer.style.display = 'none';
+            // 🌟 Keep your main switch box visible, and only render the sub-profile fields here!
             identityCard.innerHTML = `
-                <div class="form-group"><label>Player Full Name *</label><input type="text" id="p_macro_name" required></div>
-                <div class="form-group" style="margin-top:10px;"><label>Trial Number / Bib Target *</label><input type="text" id="p_macro_bib" required></div>
-                <div class="form-group" style="margin-top:10px;"><label>Date of Birth</label><input type="date" id="p_macro_dob"></div>
-                <div class="form-group" style="margin-top:10px;"><label>Preferred Position</label><input type="text" id="p_macro_pos1"></div>
-                <div class="form-group" style="margin-top:10px;"><label>Secondary Position</label><input type="text" id="p_macro_pos2"></div>
-                <div class="form-group" style="margin-top:10px;">
-                    <label>Dominant Lateral Foot</label>
-                    <select id="p_macro_foot"><option value="">Select...</option><option value="Right">Right</option><option value="Left">Left</option><option value="Both">Both</option></select>
-                </div>
-                <div class="form-group" style="margin-top:10px;"><label>Previous Experience / Club History</label><input type="text" id="p_macro_exp"></div>
-                <div class="form-group" style="margin-top:10px;"><label>Parent Contact Mobile Number</label><input type="tel" id="p_macro_phone"></div>
-                <div class="form-group" style="margin-top:10px;"><label>Current Injury Constraints / Notes</label><input type="text" id="p_macro_injury"></div>
-            `;
+    <div class="section-box" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px;">
+        <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+            <label onclick="toggleEntryMethod('csv')" id="csvMethodCard" style="flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border: 2px solid var(--primary); border-radius: 8px; cursor: pointer; background: #fef2f2; font-weight: 700; font-size: 12px; text-transform: uppercase; color: var(--primary); text-align: center;">
+                <input type="radio" name="entryMethod" value="csv" checked style="width:auto;display:inline;height:auto;padding:0;border:none;background:none;margin:0;">
+                <span style="font-size: 16px;">📄</span>
+                Upload CSV
+            </label>
+            <label onclick="toggleEntryMethod('manual')" id="manualMethodCard" style="flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border: 2px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: white; font-weight: 700; font-size: 12px; text-transform: uppercase; color: #64748b; text-align: center;">
+                <input type="radio" name="entryMethod" value="manual" style="width:auto;display:inline;height:auto;padding:0;border:none;background:none;margin:0;">
+                <span style="font-size: 16px;">✍️</span>
+                Manual Entry
+            </label>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 12px 0;">
+
+        <div id="csvEntryStream" style="display: block;">
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label style="font-weight: 700; color: #334155;">Upload Player Roster CSV *</label>
+                <input type="file" id="csvFileInput" accept=".csv" style="display: block; margin-top: 6px; font-size: 13px;">
+            </div>
+            <div id="dynamicPlayerDropdownContainer" class="form-group" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                <label style="color: #0f172a; font-weight: 600;">Select Player from CSV *</label>
+                <select id="dynamicPlayerSelector" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; background: white;">
+                    <option value="">-- Select a Player --</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="manualEntryStream" style="display: none;">
+            <div class="form-group" style="margin-top:10px;"><label>Player Full Name *</label><input type="text" id="manualPlayerName" placeholder="Enter full name"></div>
+            <div class="form-group" style="margin-top:10px;"><label>Trial Number / Bib Target *</label><input type="text" id="p_macro_bib"></div>
+            <div class="form-group" style="margin-top:10px;"><label>Date of Birth</label><input type="date" id="p_macro_dob"></div>
+            <div class="form-group" style="margin-top:10px;"><label>Preferred Position</label><input type="text" id="p_macro_pos1"></div>
+            <div class="form-group" style="margin-top:10px;"><label>Secondary Position</label><input type="text" id="p_macro_pos2"></div>
+            <div class="form-group" style="margin-top:10px;">
+                <label>Dominant Lateral Foot</label>
+                <select id="p_macro_foot"><option value="">Select...</option><option value="Right">Right</option><option value="Left">Left</option><option value="Both">Both</option></select>
+            </div>
+            <div class="form-group" style="margin-top:10px;"><label>Previous Experience / Club History</label><input type="text" id="p_macro_exp"></div>
+            <div class="form-group" style="margin-top:10px;"><label>Parent Contact Mobile Number</label><input type="tel" id="p_macro_phone"></div>
+            <div class="form-group" style="margin-top:10px;"><label>Current Injury Constraints / Notes</label><input type="text" id="p_macro_injury"></div>
+        </div>
+    </div>
+`;
+
+            
+
+        // Re-attach CSV listener because innerHTML rebuild destroys old listeners
+        document.getElementById('csvFileInput').addEventListener('change', handleCsvUpload);
             toggleSectionVisibility('technicalMetricsWrapper', 'block');
-        } else {
-            cascadeContainer.style.display = 'block';
-            identityCard.innerHTML = `
-                <div class="form-group">
-                    <label>Select Target Roster Player Profile *</label>
-                    <select id="p_macro_student_lookup"><option value="">-- Select Center/Batch First --</option></select>
+       } else {
+    cascadeContainer.style.display = 'block';
+
+    const isClub = selectedFramework === "Club";
+
+    identityCard.innerHTML = `
+        <div class="section-box" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px;">
+
+            ${isClub ? `
+            <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+                <label onclick="toggleEntryMethod('csv')" id="csvMethodCard" style="flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border: 2px solid var(--primary); border-radius: 8px; cursor: pointer; background: #fef2f2; font-weight: 700; font-size: 12px; text-transform: uppercase; color: var(--primary); text-align: center;">
+                    <input type="radio" name="entryMethod" value="csv" checked style="width:auto;display:inline;height:auto;padding:0;border:none;background:none;margin:0;">
+                    <span style="font-size: 16px;">📄</span>
+                    Upload CSV
+                </label>
+                <label onclick="toggleEntryMethod('manual')" id="manualMethodCard" style="flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border: 2px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: white; font-weight: 700; font-size: 12px; text-transform: uppercase; color: #64748b; text-align: center;">
+                    <input type="radio" name="entryMethod" value="manual" style="width:auto;display:inline;height:auto;padding:0;border:none;background:none;margin:0;">
+                    <span style="font-size: 16px;">✍️</span>
+                    Manual Entry
+                </label>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 12px 0;">
+
+            <div id="csvEntryStream" style="display: block;">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label style="font-weight: 700; color: #334155;">Upload Player Roster CSV *</label>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display: block; margin-top: 6px; font-size: 13px;">
                 </div>
-                <div id="playerContextDataCard" style="margin-top:12px; font-size:13px; font-weight:500; display:none; background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></div>
-            `;
-            resetCascadingSelectors();
-            toggleSectionVisibility('technicalMetricsWrapper', selectedFramework === "Club" ? 'none' : 'block');
-        }
+                <div id="dynamicPlayerDropdownContainer" class="form-group" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                    <label style="color: #0f172a; font-weight: 600;">Select Player from CSV *</label>
+                    <select id="dynamicPlayerSelector" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; background: white;">
+                        <option value="">-- Select a Player --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="manualEntryStream" style="display: none;">
+                <div class="form-group" style="margin-top:10px;"><label>Player Full Name *</label><input type="text" id="manualPlayerName" placeholder="Enter full name"></div>
+                <div class="form-group" style="margin-top:10px;"><label>Trial Number / Bib Target *</label><input type="text" id="p_macro_bib"></div>
+            </div>
+            ` : `
+            <div class="form-group">
+                <label>Select Target Roster Player Profile *</label>
+                <select id="p_macro_student_lookup"><option value="">-- Select Center/Batch First --</option></select>
+            </div>
+            <div id="playerContextDataCard" style="margin-top:12px; font-size:13px; font-weight:500; display:none; background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></div>
+            `}
+        </div>
+    `;
+
+    if (isClub) {
+        document.getElementById('csvFileInput').addEventListener('change', handleCsvUpload);
     }
+
+    resetCascadingSelectors();
+    toggleSectionVisibility('technicalMetricsWrapper', 'none');
+}
+}
 
     function toggleSectionVisibility(id, state) { document.getElementById(id).style.display = state; }
     
@@ -450,18 +535,27 @@
     }
 
     function triggerInstanceTabProvisioning() {
-        let name = prompt("Enter explicit name verification for the new Trial Sheet Tab:"); if (!name) return;
-        name = name.trim().replace(/[\/\\\?\*\[\]\:]/g, '_');
-        
-        if (typeof google !== 'undefined' && google.script && google.script.run) {
-            document.getElementById('newTabCreationBtn').disabled = true;
-            google.script.run.withSuccessHandler(function(res) {
-                document.getElementById('newTabCreationBtn').disabled = false;
-                if(res.success) { alert("Trial Sheet deployed successfully."); refreshActiveInstanceTabs(); }
-                else { alert("Deployment Error: " + res.error); }
-            }).provisionNewEvaluationTab(name, currentSystemIsDemoMode);
-        }
+    let name = prompt("Enter explicit name verification for the new Session Tab:"); if (!name) return;
+    name = name.trim().replace(/[\/\\\?\*\[\]\:]/g, '_');
+
+    // 🌟 Use the currently selected framework dropdown — not text guessing from the name
+    const frameworkSel = document.getElementById('evalTypeFramework');
+    const selectedType = frameworkSel ? frameworkSel.value : "";
+
+    if (!selectedType || selectedType === "default") {
+        alert("Please select a Framework Type (Trial / Academy / Club) above before creating a new session tab.");
+        return;
     }
+    
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        document.getElementById('newTabCreationBtn').disabled = true;
+        google.script.run.withSuccessHandler(function(res) {
+            document.getElementById('newTabCreationBtn').disabled = false;
+            if(res.success) { alert("Session sheet deployed successfully."); refreshActiveInstanceTabs(); }
+            else { alert("Deployment Error: " + res.error); }
+        }).provisionNewEvaluationTab(name, selectedType, currentSystemIsDemoMode);
+    }
+}
 
     function updateBadgeTrackerDisplay() {
         const badge = document.getElementById('offlineSyncCounterBadge');
@@ -486,19 +580,63 @@
         };
 
         if(frameworkSel.value === "Trial") {
-            const nameEl = document.getElementById('p_macro_name'); const bibEl = document.getElementById('p_macro_bib');
-            if(!nameEl.value.trim() || !bibEl.value.trim()) { alert("Player Name and Bib markers are mandatory structural criteria."); return; }
-            packet["Player_Name"] = nameEl.value; packet["Trial_Number_Or_Bib"] = bibEl.value;
-            packet["Date_Of_Birth"] = document.getElementById('p_macro_dob').value;
-            packet["Preferred_Position"] = document.getElementById('p_macro_pos1').value;
-            packet["Secondary_Position"] = document.getElementById('p_macro_pos2').value;
-            packet["Dominant_Foot"] = document.getElementById('p_macro_foot').value;
-            packet["Previous_Club_Experience"] = document.getElementById('p_macro_exp').value;
-            packet["Contact_Number"] = document.getElementById('p_macro_phone').value;
-            packet["Injury_Notes"] = document.getElementById('p_macro_injury').value;
+            // 🎛️ Check which data entry stream is currently selected
+            const activeMethod = document.querySelector('input[name="entryMethod"]:checked').value;
+            let playerName = "";
+            let playerBib = "";
+
+           if (activeMethod === "csv") {
+            const csvSelector = document.getElementById('dynamicPlayerSelector');
+            if(!csvSelector.value) { alert("Please select an uploaded player profile from the CSV dropdown."); return; }
+            
+            const parts = csvSelector.value.split('|');
+            playerBib = parts[0] || "";
+            playerName = parts[1] || "";
+            } else {
+                const manualNameEl = document.getElementById('manualPlayerName');
+                const manualBibEl = document.getElementById('p_macro_bib');
+                
+                playerName = manualNameEl ? manualNameEl.value.trim() : "";
+                playerBib = manualBibEl ? manualBibEl.value.trim() : "";
+                
+                if(!playerName || !playerBib) { alert("Player Name and Bib Number are mandatory for manual entry."); return; }
+}
+
+            // Bind values cleanly to the outgoing sync packet
+            packet["Player_Name"] = playerName; 
+            packet["Trial_Number_Or_Bib"] = playerBib;
+            
+            // Capture sub-profile metadata fields if they exist in the UI
+            packet["Date_Of_Birth"] = document.getElementById('p_macro_dob') ? document.getElementById('p_macro_dob').value : "";
+            packet["Preferred_Position"] = document.getElementById('p_macro_pos1') ? document.getElementById('p_macro_pos1').value : "";
+            packet["Secondary_Position"] = document.getElementById('p_macro_pos2') ? document.getElementById('p_macro_pos2').value : "";
+            packet["Dominant_Foot"] = document.getElementById('p_macro_foot') ? document.getElementById('p_macro_foot').value : "";
+            packet["Previous_Club_Experience"] = document.getElementById('p_macro_exp') ? document.getElementById('p_macro_exp').value : "";
+            packet["Contact_Number"] = document.getElementById('p_macro_phone') ? document.getElementById('p_macro_phone').value : "";
+            packet["Injury_Notes"] = document.getElementById('p_macro_injury') ? document.getElementById('p_macro_injury').value : "";
         } else {
-            const lookupEl = document.getElementById('p_macro_student_lookup'); if(!lookupEl.value) { alert("Roster assignment is mandatory."); return; }
-            packet["Player_Name"] = lookupEl.options[lookupEl.selectedIndex].text; packet["Trial_Number_Or_Bib"] = lookupEl.value;
+            if (frameworkSel.value === "Club") {
+                const activeMethod = document.querySelector('input[name="entryMethod"]:checked');
+                if (activeMethod && activeMethod.value === "csv") {
+                    const csvSelector = document.getElementById('dynamicPlayerSelector');
+                    if(!csvSelector.value) { alert("Please select a player from the CSV dropdown."); return; }
+                    const parts = csvSelector.value.split('|');
+                    packet["Trial_Number_Or_Bib"] = parts[0] || "";
+                    packet["Player_Name"] = parts[1] || "";
+                } else {
+                    const manualNameEl = document.getElementById('manualPlayerName');
+                    const manualBibEl = document.getElementById('p_macro_bib');
+                    packet["Player_Name"] = manualNameEl ? manualNameEl.value.trim() : "";
+                    packet["Trial_Number_Or_Bib"] = manualBibEl ? manualBibEl.value.trim() : "";
+                    if(!packet["Player_Name"] || !packet["Trial_Number_Or_Bib"]) { alert("Player Name and Bib are mandatory."); return; }
+                }
+            } else {
+                const lookupEl = document.getElementById('p_macro_student_lookup'); 
+                if(!lookupEl.value) { alert("Roster assignment is mandatory."); return; }
+                const rawText = lookupEl.options[lookupEl.selectedIndex].text;
+                packet["Player_Name"] = rawText.replace(/\s*\(.*\)\s*$/, '').trim();
+                packet["Trial_Number_Or_Bib"] = lookupEl.value;
+            }
         }
 
         document.querySelectorAll('.rating-matrix-row').forEach(row => {
@@ -516,6 +654,10 @@
         packet["Improvement_Areas"] = document.getElementById('out_improvements').value;
         packet["Final_Comments"] = document.getElementById('out_comments').value;
         packet["Assessment_Date"] = document.getElementById('out_assessment_date').value;
+        if (!packet["Assessor_Name"] || packet["Assessor_Name"].trim() === "") {
+    alert("Assessor Signature Name is mandatory. Please fill it before saving.");
+    return;
+}
 
         localTransmissionQueue.push({ 
             tab: sessionTabSel.value, 
@@ -530,7 +672,7 @@
         executeNextQueueTransmission();
     }
 
-    function clearFormLayoutInterface(currentFramework) {
+function clearFormLayoutInterface(currentFramework) {
         if(currentFramework === "Trial") {
             ["p_macro_name", "p_macro_bib", "p_macro_dob", "p_macro_pos1", "p_macro_pos2", "p_macro_foot", "p_macro_exp", "p_macro_phone", "p_macro_injury"].forEach(id => {
                 const el = document.getElementById(id); if (el) el.value = '';
@@ -547,10 +689,8 @@
             const el = document.getElementById(id); if (el) el.value = '';
         });
         window.scrollTo({top: 0, behavior: 'smooth'});
-        // Auto-snap wizard view right back to step 1 upon data commitment
         switchFormWizardStepView(1);
     }
-
     function executeNextQueueTransmission() {
         if (localTransmissionQueue.length === 0) { syncEngineLockFlag = false; setFormFreezeLayoutState(false); return; }
 
@@ -634,4 +774,133 @@
             window.scrollTo({top: navBar.offsetTop - 10, behavior: 'smooth'});
         }
     }
+
+// ==========================================
+// Safe Event Initialization (Handles both Standard & Trial)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Setup Standard CSV Listener
+    const csvInputStandard = document.getElementById('csvFileInput');
+    if (csvInputStandard) {
+        csvInputStandard.addEventListener('change', handleCsvUpload);
+    }
+
+    // 2. Setup Trial CSV Listener 
+    const csvInputTrial = document.getElementById('csvFileInput_trial');
+    if (csvInputTrial) {
+        csvInputTrial.addEventListener('change', handleCsvUpload);
+    }
+});
+
+// ==========================================
+// CSV Handling Core Functions
+// ==========================================
+function handleCsvUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const manualInputPanel = document.getElementById('manualEntryStream');
+    const dropdownContainer = document.getElementById('dynamicPlayerDropdownContainer');
+    const playerSelector = document.getElementById('dynamicPlayerSelector');
+
+    if (manualInputPanel) manualInputPanel.style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const rows = text.split('\n').map(r => r.trim()).filter(r => r.length > 0);
+
+        if (rows.length === 0) return;
+
+        const extractedPlayers = []; // { bib, name, group }
+
+        for (let i = 1; i < rows.length; i++) {
+            const cols = rows[i].split(',');
+            const bib = cols[0] ? cols[0].replace(/^["']|["']$/g, '').trim() : '';
+            const name = cols[1] ? cols[1].replace(/^["']|["']$/g, '').trim() : '';
+            const group = cols[2] ? cols[2].replace(/^["']|["']$/g, '').trim() : 'Other';
+            if (name) {
+                extractedPlayers.push({ bib: bib, name: name, group: group });
+            }
+        }
+
+        if (extractedPlayers.length > 0) {
+            if (playerSelector) {
+                playerSelector.innerHTML = '<option value="">-- Select a Player --</option>';
+
+                const groups = {};
+                extractedPlayers.forEach(p => {
+                    if (!groups[p.group]) groups[p.group] = [];
+                    groups[p.group].push(p);
+                });
+
+                Object.keys(groups).sort().forEach(grp => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = grp;
+                    groups[grp].forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.bib + '|' + p.name; // store both, pipe-separated
+                        option.textContent = p.name + (p.bib ? ' (Sl No: ' + p.bib + ')' : '');
+                        optgroup.appendChild(option);
+                    });
+                    playerSelector.appendChild(optgroup);
+                });
+            }
+
+            if (dropdownContainer) dropdownContainer.style.display = 'block';
+
+        } else {
+            alert('Could not read player names from column 2 of the CSV.');
+            if (manualInputPanel) manualInputPanel.style.display = 'block';
+        }
+    };
+
+    reader.readAsText(file);
+}
+/**
+ * Helper to parse CSV text and extract values from a specific column header
+ */
+function parseCsvColumnByName(csvText, columnName) {
+    const rows = csvText.split('\n').map(row => row.trim()).filter(row => row.length > 0);
+    if (rows.length === 0) return [];
+
+    // Parse headers and strip quotes cleanly
+    const headers = rows[0].split(',').map(h => h.replace(/^["']|["']$/g, '').trim());
+    const targetIndex = headers.indexOf(columnName);
+
+    if (targetIndex === -1) return []; // Column not found
+
+    const results = [];
+    for (let i = 1; i < rows.length; i++) {
+        const columns = rows[i].split(',');
+        if (columns[targetIndex]) {
+            const cleanValue = columns[targetIndex].replace(/^["']|["']$/g, '').trim();
+            if (cleanValue) results.push(cleanValue);
+        }
+    }
+    return results;
+}
+
+/**
+ * Toggles between CSV Upload and Manual Data Entry views for both standard and trial scopes
+ */
+function toggleEntryMethod(method) {
+    const csvStream = document.getElementById('csvEntryStream');
+    const manualStream = document.getElementById('manualEntryStream');
+    const csvCard = document.getElementById('csvMethodCard');
+    const manualCard = document.getElementById('manualMethodCard');
+
+    if (method === 'csv') {
+        if (csvStream) csvStream.style.display = 'block';
+        if (manualStream) manualStream.style.display = 'none';
+        if (csvCard) { csvCard.style.borderColor = 'var(--primary)'; csvCard.style.background = '#fef2f2'; csvCard.style.color = 'var(--primary)'; }
+        if (manualCard) { manualCard.style.borderColor = '#cbd5e1'; manualCard.style.background = 'white'; manualCard.style.color = '#64748b'; }
+    } else {
+        if (csvStream) csvStream.style.display = 'none';
+        if (manualStream) manualStream.style.display = 'block';
+        if (manualCard) { manualCard.style.borderColor = 'var(--primary)'; manualCard.style.background = '#fef2f2'; manualCard.style.color = 'var(--primary)'; }
+        if (csvCard) { csvCard.style.borderColor = '#cbd5e1'; csvCard.style.background = 'white'; csvCard.style.color = '#64748b'; }
+    }
+}
+
 </script>
