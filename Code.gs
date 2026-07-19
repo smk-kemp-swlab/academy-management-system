@@ -30,6 +30,7 @@ function doGet(e) {
   if (appModule === "attendance") fileName = "App_Attendance_System";
   if (appModule === "billing")    fileName = "App_Financial_Dashboard";
   if (appModule === "onboarding") fileName = "App_Onboarding_Form";
+  if (appModule === "staff")      fileName = "App_Staff_Board";
   
   return HtmlService.createTemplateFromFile(fileName).evaluate()
       .setTitle('Kemp Management Suite Engine')
@@ -1168,6 +1169,16 @@ function deleteDiscount(discountId, staffEmail) {
     return { success: false, error: error.toString() };
   }
 }
+/**
+ * Safely formats a date value that may come back as either a clean string
+ * or an auto-converted Date object from the sheet, into "dd MMM yyyy".
+ */
+function formatInvoiceDate(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "dd MMM yyyy");
+  }
+  return value; // already a clean string
+}
 function generateInvoicePDF(invoiceId) {
   try {
     var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
@@ -1215,7 +1226,7 @@ function generateInvoicePDF(invoiceId) {
     </div>
     <div class="row"><span class="label">Student Name</span><span class="value">${studentName}</span></div>
     <div class="row"><span class="label">Student ID</span><span class="value">${inv.Student_ID}</span></div>
-    <div class="row"><span class="label">Billing Period</span><span class="value">${inv.Billing_Cycle_Start_Date} → ${inv.Billing_Cycle_End_Date}</span></div>
+    <div class="row"><span class="label">Billing Period</span><span class="value">${formatInvoiceDate(inv.Billing_Cycle_Start_Date)} → ${formatInvoiceDate(inv.Billing_Cycle_End_Date)}</span></div>
     <div class="row"><span class="label">Total Due</span><span class="value">₹${Number(inv.Total_Due).toFixed(2)}</span></div>
     <div class="row"><span class="label">Amount Paid</span><span class="value">₹${Number(inv.Amount_Paid).toFixed(2)}</span></div>
     <div class="total-row row"><span class="label">Balance</span><span class="value" style="color:${balance > 0 ? '#dc2626' : '#166534'};">₹${balance.toFixed(2)}</span></div>
@@ -1226,6 +1237,219 @@ function generateInvoicePDF(invoiceId) {
     </body></html>`;
 
     return { success: true, html: html };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+// ========================================================================
+// 🧑‍💼 STAFF BOARD — STAFF REGISTRY MANAGEMENT ENGINE
+// ========================================================================
+
+/**
+ * Loads all data needed for the Staff Board: staff list + centers for assignment.
+ */
+function getStaffBoardContext(isDemoMode, staffEmail) {
+  try {
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var currentUserEmail = staffEmail || Session.getActiveUser().getEmail();
+
+    var hubSS = SpreadsheetApp.openById(hubId);
+    var staffValues = hubSS.getSheetByName("Staff_Registry").getDataRange().getValues();
+    var facilityValues = hubSS.getSheetByName("Facilities_Matrix").getDataRange().getValues();
+
+    var staffObjects = parseSheetToObjects(staffValues);
+
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === currentUserEmail.toLowerCase().trim();
+    });
+
+    var isAdmin = (currentUserEmail.toLowerCase() === "samirkamerkar@kempfc.com") ||
+                  (currentUserEmail.toLowerCase() === "samir.kamerkar@gmail.com") ||
+                  (currentStaff && (currentStaff.Role_Type === "Director" || currentStaff.Role_Type === "Admin"));
+
+    return JSON.parse(JSON.stringify({
+      success: true,
+      staff: staffObjects,
+      facilities: parseSheetToObjects(facilityValues),
+      isAdmin: isAdmin || false
+    }));
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Generates the next sequential Staff_ID (e.g. STF-001, STF-002...)
+ */
+function generateNextStaffId(existingStaff) {
+  var maxNum = 0;
+  existingStaff.forEach(function(s) {
+    var match = String(s.Staff_ID || "").match(/STF-(\d+)/);
+    if (match) {
+      var num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+  var nextNum = maxNum + 1;
+  var padded = ("000" + nextNum).slice(-3);
+  return "STF-" + padded;
+}
+
+/**
+ * Adds a new staff member to Staff_Registry.
+ * payload: { fullName, email, roleType, centerId, grantAppAccess: ["eval","attendance","billing"], staffEmail }
+ */
+function addStaffMember(payload) {
+  try {
+    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var sheet = hubSS.getSheetByName("Staff_Registry");
+    if (!sheet) return { success: false, error: "Staff_Registry tab not found." };
+
+    var existingStaff = parseSheetToObjects(sheet.getDataRange().getValues());
+    var normalizedEmail = (payload.email || "").toLowerCase().trim();
+
+    var alreadyExists = existingStaff.some(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === normalizedEmail;
+    });
+    if (alreadyExists) {
+      return { success: false, error: "A staff member with this email already exists." };
+    }
+
+    var newStaffId = generateNextStaffId(existingStaff);
+
+    sheet.appendRow([
+      newStaffId,
+      payload.fullName || "",
+      normalizedEmail,
+      payload.roleType || "",
+      payload.centerId || "",
+      "Active"
+    ]);
+
+    // Optionally provision login access via IAM_Registry
+    if (payload.grantAppAccess && payload.grantAppAccess.length > 0) {
+      provisionIAMAccess(normalizedEmail, payload.grantAppAccess);
+    }
+
+    return { success: true, staffId: newStaffId };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Edits an existing staff member's Full_Name, Role_Type, Assigned_Center_ID.
+ * payload: { staffId, fullName, roleType, centerId }
+ */
+function updateStaffMember(payload) {
+  try {
+    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var sheet = hubSS.getSheetByName("Staff_Registry");
+    if (!sheet) return { success: false, error: "Staff_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Staff_ID");
+    var nameIdx = headers.indexOf("Full_Name");
+    var roleIdx = headers.indexOf("Role_Type");
+    var centerIdx = headers.indexOf("Assigned_Center_ID");
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(payload.staffId)) {
+        sheet.getRange(r + 1, nameIdx + 1).setValue(payload.fullName || "");
+        sheet.getRange(r + 1, roleIdx + 1).setValue(payload.roleType || "");
+        sheet.getRange(r + 1, centerIdx + 1).setValue(payload.centerId || "");
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Staff member not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Toggles a staff member's Status between Active and Terminated.
+ */
+function updateStaffStatus(staffId, newStatus, staffEmail) {
+  try {
+    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var sheet = hubSS.getSheetByName("Staff_Registry");
+    if (!sheet) return { success: false, error: "Staff_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Staff_ID");
+    var statusIdx = headers.indexOf("Status");
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(staffId)) {
+        sheet.getRange(r + 1, statusIdx + 1).setValue(newStatus);
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Staff member not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Admin-only hard delete of a staff row (e.g. entered by mistake).
+ * Prefer updateStaffStatus('Terminated') for real departures — this keeps no audit trail.
+ */
+function deleteStaffMember(staffId, staffEmail) {
+  try {
+    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var sheet = hubSS.getSheetByName("Staff_Registry");
+    if (!sheet) return { success: false, error: "Staff_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Staff_ID");
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(staffId)) {
+        sheet.deleteRow(r + 1);
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Staff member not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Grants a staff member login access to one or more apps by creating/updating
+ * their IAM_Registry row. New rows start with a blank password (self-registration
+ * on first login), matching the existing State-A onboarding flow.
+ * appScopesArray e.g. ["eval","attendance","billing","staff"]
+ */
+function provisionIAMAccess(email, appScopesArray) {
+  try {
+    var vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
+    var sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
+    var data = sheet.getDataRange().getValues();
+    var normalizedEmail = email.toLowerCase().trim();
+    var newScopesString = appScopesArray.join(",");
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).toLowerCase().trim() === normalizedEmail) {
+        // Row exists — merge in any newly granted scopes without wiping existing ones
+        var existingScopes = String(data[i][3] || "").split(",").map(function(s){ return s.trim(); }).filter(Boolean);
+        appScopesArray.forEach(function(scope) {
+          if (existingScopes.indexOf(scope) === -1) existingScopes.push(scope);
+        });
+        sheet.getRange(i + 1, 4).setValue(existingScopes.join(","));
+        sheet.getRange(i + 1, 2).setValue("Active"); // ensure not Suspended
+        return { success: true, updated: true };
+      }
+    }
+
+    // No row yet — create one with blank password (triggers self-registration)
+    sheet.appendRow([normalizedEmail, "Active", "", newScopesString, ""]);
+    return { success: true, created: true };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
