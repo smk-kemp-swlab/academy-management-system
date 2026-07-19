@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kemp Staff Board</title>
+    <?!= include('Styled_Branding_CSS'); ?>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div id="simpleAuthGate" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 999999; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; box-sizing: border-box; border: 1px solid #e2e8f0;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Staff Board</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
+        </div>
+        <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
+            <div style="border: 3px solid #f3f3f3; border-top: 3px solid #0f172a; border-radius: 50%; width: 24px; height: 24px; animation: spinIAM 1s linear infinite; margin: 0 auto 12px auto;"></div>
+            <style>@keyframes spinIAM { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <span style="font-size: 13px; color: #475569;">Contacting Secure Data Vault...</span>
+        </div>
+        <div id="authFormWrapper" style="display: none;">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Select Your Staff Profile</label>
+                <select id="authCoachDropdown" onchange="evaluateSelectedProfileSecurityState()" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; background: #f8fafc; color: #1e293b; box-sizing: border-box;">
+                    <option value="">Loading Profiles...</option>
+                </select>
+            </div>
+            <div id="authInteractionBlock" style="display: none;">
+                <div style="margin-bottom: 14px;">
+                    <label id="authPrimaryLabel" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Your Access Password</label>
+                    <input type="password" id="authPrimaryPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div id="authRegistrationFieldsWrapper" style="display: none; margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm App Password</label>
+                    <input type="password" id="authConfirmPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <button type="button" id="authSubmitActionBtn" onclick="processIdentityVerificationSubmission()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Verify Identity</button>
+            </div>
+        </div>
+        <div id="authErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
+    </div>
+</div>
+
+<!-- Main App -->
+<div class="container">
+    <div class="header-panel">
+        <h1>Kemp FC</h1>
+        <h2>Staff Board</h2>
+    </div>
+
+    <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+        <div class="form-group">
+            <label style="color:#15803d">Logged In As</label>
+            <div id="loggedInStaff" style="font-weight: 700; font-size: 15px; color: #1e293b;">--</div>
+        </div>
+    </div>
+
+    <div id="notAdminNotice" style="display:none;" class="section-box">
+        <div style="text-align:center; padding:10px; color:#64748b; font-size:13px;">
+            🔒 You have read-only access. Only Directors/Admins can add or edit staff.
+        </div>
+    </div>
+
+    <!-- Add New Staff Form (admin only) -->
+    <div id="addStaffFormWrapper" style="display:none;">
+        <div class="section-box">
+            <h3 style="margin-top:0;">Add New Staff Member</h3>
+            <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" id="staffFullName" placeholder="e.g. Rahul Deshpande">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Email Address (Google Identity) *</label>
+                <input type="email" id="staffEmail" placeholder="e.g. rahul@kempfc.com">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Role *</label>
+                <select id="staffRoleType">
+                    <option value="">-- Select Role --</option>
+                    <option value="Director">Director</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Administrative_Manager">Administrative Manager</option>
+                    <option value="Head_Coach">Head Coach</option>
+                    <option value="Coach">Coach</option>
+                    <option value="Team_Manager">Team Manager</option>
+                    <option value="Physio">Physio</option>
+                    <option value="Scout">Scout</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Assigned Center</label>
+                <select id="staffCenterSelect">
+                    <option value="">-- Unassigned / All Centers --</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1;">
+              <label style="margin-bottom:8px;">Grant Login Access To:</label>
+              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
+                  <input type="checkbox" id="grantEval" value="eval" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Evaluations
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
+                  <input type="checkbox" id="grantAttendance" value="attendance" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Attendance
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
+                  <input type="checkbox" id="grantBilling" value="billing" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Fee Tracker / Billing
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="grantStaff" value="staff" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Staff Board
+              </label>
+              <div style="font-size:11px; color:#94a3b8; margin-top:8px;">
+                  They'll set their own password the first time they log into each app.
+              </div>
+          </div>
+            <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewStaff()">✅ Add Staff Member</button>
+        </div>
+    </div>
+
+    <!-- Staff List -->
+    <div class="section-box">
+        <div class="form-group">
+            <label>Filter By Status</label>
+            <select id="staffStatusFilter" onchange="renderStaffList()">
+                <option value="Active">Active</option>
+                <option value="Terminated">Terminated</option>
+                <option value="">All</option>
+            </select>
+        </div>
+    </div>
+
+    <h3>Staff Directory</h3>
+    <div id="staffListContainer"></div>
+    <div id="staffLoadingMsg" style="text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
+        Loading staff...
+    </div>
+</div>
+
+<!-- Edit Staff Modal -->
+<div id="editStaffModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+        <h3 style="margin-top:0;">Edit Staff Member</h3>
+        <input type="hidden" id="editStaffId">
+        <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="editFullName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Role *</label>
+            <select id="editRoleType">
+                <option value="Director">Director</option>
+                <option value="Admin">Admin</option>
+                <option value="Administrative_Manager">Administrative Manager</option>
+                <option value="Head_Coach">Head Coach</option>
+                <option value="Coach">Coach</option>
+                <option value="Team_Manager">Team Manager</option>
+                <option value="Physio">Physio</option>
+                <option value="Scout">Scout</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Assigned Center</label>
+            <select id="editCenterSelect">
+                <option value="">-- Unassigned / All Centers --</option>
+            </select>
+        </div>
+        <div class="btn-container" style="margin-top: 18px;">
+            <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditModal()">Cancel</button>
+            <button class="master-action-btn btn-commit" onclick="submitStaffEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let contextPayload = null;
+let verifiedStaffEmail = "";
+
+// ========== AUTH (reuses cached session from the rest of the suite) ==========
+(function() {
+    const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
+    if (cachedEmail) {
+        verifiedStaffEmail = cachedEmail;
+        document.getElementById('simpleAuthGate').remove();
+        initStaffBoardApp();
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(handleRosterLoad)
+        .withFailureHandler(handleFault)
+        .fetchAuthorizedApplicationProfiles("staff");
+})();
+
+let globalRosterCache = [];
+
+function handleRosterLoad(users) {
+    document.getElementById('authLocalSpinner').style.display = "none";
+    document.getElementById('authFormWrapper').style.display = "block";
+    globalRosterCache = users || [];
+    const dropdown = document.getElementById('authCoachDropdown');
+    dropdown.innerHTML = '<option value="">-- Select Your Email --</option>';
+    globalRosterCache.forEach(function(u) {
+        if (u.email) {
+            const opt = document.createElement('option');
+            opt.value = u.email;
+            opt.textContent = u.email;
+            dropdown.appendChild(opt);
+        }
+    });
+}
+
+function evaluateSelectedProfileSecurityState() {
+    const email = document.getElementById('authCoachDropdown').value;
+    const block = document.getElementById('authInteractionBlock');
+    const regWrapper = document.getElementById('authRegistrationFieldsWrapper');
+    const label = document.getElementById('authPrimaryLabel');
+    const btn = document.getElementById('authSubmitActionBtn');
+    document.getElementById('authErrorAlert').style.display = "none";
+    if (!email) { block.style.display = "none"; return; }
+    const user = globalRosterCache.find(u => u.email === email);
+    if (!user) { block.style.display = "none"; return; }
+    block.style.display = "block";
+    if (user.hasPassword === false) {
+        label.textContent = "Create Access Password";
+        regWrapper.style.display = "block";
+        btn.textContent = "🔐 Register Profile";
+    } else {
+        label.textContent = "Enter Your Password";
+        regWrapper.style.display = "none";
+        btn.textContent = "🔓 Verify";
+    }
+}
+
+function processIdentityVerificationSubmission() {
+    const email = document.getElementById('authCoachDropdown').value;
+    const pass = document.getElementById('authPrimaryPassword').value.trim();
+    document.getElementById('authErrorAlert').style.display = "none";
+    if (!email) return;
+    const user = globalRosterCache.find(u => u.email === email);
+    if (!user) return;
+    if (user.hasPassword === false) {
+        const confirm = document.getElementById('authConfirmPassword').value.trim();
+        if (!pass || !confirm) { showError("Password fields cannot be blank."); return; }
+        if (pass !== confirm) { showError("Passwords do not match."); return; }
+        toggleBtn(true, "Registering...");
+        google.script.run.withSuccessHandler(handleAuthResponse).withFailureHandler(handleFault).commitNewUserPasswordCredential(email, pass);
+    } else {
+        if (!pass) { showError("Please enter your password."); return; }
+        toggleBtn(true, "Verifying...");
+        google.script.run.withSuccessHandler(handleAuthResponse).withFailureHandler(handleFault).validateExistingUserCredentials(email, pass);
+    }
+}
+
+function handleAuthResponse(result) {
+    toggleBtn(false);
+    if (result && result.isAuthenticated) {
+        verifiedStaffEmail = result.verifiedEmail;
+        localStorage.setItem('kemp_suite_verified_session_email', verifiedStaffEmail);
+        document.getElementById('simpleAuthGate').remove();
+        initStaffBoardApp();
+    } else {
+        showError(result ? result.errorMessage : "Access denied.");
+    }
+}
+
+function toggleBtn(loading, text = "") {
+    const btn = document.getElementById('authSubmitActionBtn');
+    btn.disabled = loading;
+    btn.style.opacity = loading ? "0.6" : "1";
+    if (text) btn.textContent = text;
+    else evaluateSelectedProfileSecurityState();
+}
+
+function showError(msg) {
+    const el = document.getElementById('authErrorAlert');
+    el.innerText = msg;
+    el.style.display = "block";
+}
+
+function handleFault(err) {
+    toggleBtn(false);
+    showError("Connection error: " + err.toString());
+}
+
+// ========== APP INIT ==========
+function initStaffBoardApp() {
+    document.getElementById('loggedInStaff').innerText = verifiedStaffEmail;
+    loadStaffBoardContext();
+}
+
+function loadStaffBoardContext() {
+    google.script.run
+        .withSuccessHandler(function(ctx) {
+            if (!ctx.success) {
+                alert("Failed to load staff data: " + ctx.error);
+                return;
+            }
+            contextPayload = ctx;
+
+            if (ctx.isAdmin) {
+                document.getElementById('addStaffFormWrapper').style.display = 'block';
+                document.getElementById('notAdminNotice').style.display = 'none';
+            } else {
+                document.getElementById('addStaffFormWrapper').style.display = 'none';
+                document.getElementById('notAdminNotice').style.display = 'block';
+            }
+
+            populateCenterDropdowns();
+            renderStaffList();
+        })
+        .withFailureHandler(function() {
+            alert("Failed to load data. Please refresh.");
+        })
+        .getStaffBoardContext(false, verifiedStaffEmail);
+}
+
+function populateCenterDropdowns() {
+    const facilities = contextPayload.facilities || [];
+    ['staffCenterSelect', 'editCenterSelect'].forEach(function(id) {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '<option value="">-- Unassigned / All Centers --</option>';
+        facilities.forEach(f => {
+            sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+        });
+    });
+}
+
+// ========== STAFF LIST ==========
+function renderStaffList() {
+    if (!contextPayload) return;
+    document.getElementById('staffLoadingMsg').style.display = 'none';
+
+    const statusFilter = document.getElementById('staffStatusFilter').value;
+    const container = document.getElementById('staffListContainer');
+    const facilities = contextPayload.facilities || [];
+
+    let staff = (contextPayload.staff || []).slice().reverse();
+    if (statusFilter) staff = staff.filter(s => s.Status === statusFilter);
+
+    if (staff.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No staff found.</div>';
+        return;
+    }
+
+    const roleLabels = {
+        'Director': 'Director', 'Admin': 'Admin', 'Administrative_Manager': 'Administrative Manager',
+        'Head_Coach': 'Head Coach', 'Coach': 'Coach', 'Team_Manager': 'Team Manager',
+        'Physio': 'Physio', 'Scout': 'Scout'
+    };
+    const statusColors = {
+        'Active': { bg: '#f0fdf4', color: '#166534' },
+        'Terminated': { bg: '#fef2f2', color: '#991b1b' }
+    };
+
+    let html = '';
+    staff.forEach(s => {
+        const center = facilities.find(f => f.Center_ID === s.Assigned_Center_ID);
+        const centerName = center ? center.Center_Name : 'Unassigned / All Centers';
+        const colors = statusColors[s.Status] || { bg: '#f1f5f9', color: '#475569' };
+        const roleLabel = roleLabels[s.Role_Type] || s.Role_Type;
+
+        html += `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${s.Full_Name}</div>
+                    <div style="font-size:12px; color:#64748b;">${s.Email_Address}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${s.Staff_ID}</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                        ${s.Status}
+                    </div>
+                    ${contextPayload.isAdmin ? `
+                    <div style="position:relative;">
+                        <button onclick="toggleStaffMenu('${s.Staff_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                        <div id="staffMenu_${s.Staff_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:150px;">
+                            <div onclick="openEditModal('${s.Staff_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">✏️ Edit</div>
+                            ${s.Status === 'Active' ?
+                                `<div onclick="toggleStaffStatus('${s.Staff_ID}', 'Terminated')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626; border-bottom:1px solid #f1f5f9;">🚫 Mark Terminated</div>` :
+                                `<div onclick="toggleStaffStatus('${s.Staff_ID}', 'Active')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#166534; border-bottom:1px solid #f1f5f9;">✅ Reactivate</div>`
+                            }
+                            <div onclick="deleteStaffRow('${s.Staff_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete Permanently</div>
+                        </div>
+                    </div>` : ''}
+                </div>
+            </div>
+            <div style="margin-top:10px; font-size:13px; color:#334155;">
+                <strong>${roleLabel}</strong> &nbsp;|&nbsp; ${centerName}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleStaffMenu(staffId) {
+    document.querySelectorAll('[id^="staffMenu_"]').forEach(m => {
+        if (m.id !== 'staffMenu_' + staffId) m.style.display = 'none';
+    });
+    const menu = document.getElementById('staffMenu_' + staffId);
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="staffMenu_"]') && e.target.textContent !== '⋮') {
+        document.querySelectorAll('[id^="staffMenu_"]').forEach(m => m.style.display = 'none');
+    }
+});
+
+// ========== ADD STAFF ==========
+function submitNewStaff() {
+    const fullName = document.getElementById('staffFullName').value.trim();
+    const email = document.getElementById('staffEmail').value.trim();
+    const roleType = document.getElementById('staffRoleType').value;
+    const centerId = document.getElementById('staffCenterSelect').value;
+
+    if (!fullName || !email || !roleType) {
+        alert("Please fill Full Name, Email, and Role.");
+        return;
+    }
+
+    const grantAppAccess = [];
+    if (document.getElementById('grantEval').checked) grantAppAccess.push('eval');
+    if (document.getElementById('grantAttendance').checked) grantAppAccess.push('attendance');
+    if (document.getElementById('grantBilling').checked) grantAppAccess.push('billing');
+    if (document.getElementById('grantStaff').checked) grantAppAccess.push('staff');
+
+    const btn = document.querySelector('#addStaffFormWrapper .btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Adding...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Add Staff Member";
+            if (result.success) {
+                alert("Staff member added! ID: " + result.staffId);
+                document.getElementById('staffFullName').value = '';
+                document.getElementById('staffEmail').value = '';
+                document.getElementById('staffRoleType').value = '';
+                document.getElementById('staffCenterSelect').value = '';
+                document.getElementById('grantEval').checked = false;
+                document.getElementById('grantAttendance').checked = false;
+                document.getElementById('grantBilling').checked = false;
+                document.getElementById('grantStaff').checked = false;
+                loadStaffBoardContext();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Add Staff Member";
+            alert("Connection failed. Please try again.");
+        })
+        .addStaffMember({
+            fullName: fullName,
+            email: email,
+            roleType: roleType,
+            centerId: centerId,
+            grantAppAccess: grantAppAccess,
+            staffEmail: verifiedStaffEmail
+        });
+}
+
+// ========== EDIT STAFF ==========
+function openEditModal(staffId) {
+    const s = (contextPayload.staff || []).find(x => x.Staff_ID === staffId);
+    if (!s) return;
+    document.getElementById('editStaffId').value = s.Staff_ID;
+    document.getElementById('editFullName').value = s.Full_Name;
+    document.getElementById('editRoleType').value = s.Role_Type;
+    document.getElementById('editCenterSelect').value = s.Assigned_Center_ID || '';
+    document.getElementById('editStaffModalOverlay').style.display = 'flex';
+}
+
+function closeEditModal() {
+    document.getElementById('editStaffModalOverlay').style.display = 'none';
+}
+
+function submitStaffEdit() {
+    const staffId = document.getElementById('editStaffId').value;
+    const fullName = document.getElementById('editFullName').value.trim();
+    const roleType = document.getElementById('editRoleType').value;
+    const centerId = document.getElementById('editCenterSelect').value;
+
+    if (!fullName || !roleType) { alert("Please fill Full Name and Role."); return; }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                closeEditModal();
+                loadStaffBoardContext();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed. Please try again.");
+        })
+        .updateStaffMember({
+            staffId: staffId,
+            fullName: fullName,
+            roleType: roleType,
+            centerId: centerId
+        });
+}
+
+// ========== STATUS / DELETE ==========
+function toggleStaffStatus(staffId, newStatus) {
+    if (!confirm(`Mark this staff member as ${newStatus}?`)) return;
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) { loadStaffBoardContext(); }
+            else { alert("Error: " + result.error); }
+        })
+        .withFailureHandler(function() { alert("Connection failed."); })
+        .updateStaffStatus(staffId, newStatus, verifiedStaffEmail);
+}
+
+function deleteStaffRow(staffId) {
+    if (!confirm('Permanently delete this staff record? This cannot be undone and removes their row entirely (no audit trail). Use "Mark Terminated" instead if you want to keep history.')) return;
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) { loadStaffBoardContext(); }
+            else { alert("Error: " + result.error); }
+        })
+        .withFailureHandler(function() { alert("Connection failed."); })
+        .deleteStaffMember(staffId, verifiedStaffEmail);
+}
+</script>
+
+</body>
+</html>
