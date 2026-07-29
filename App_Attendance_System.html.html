@@ -48,9 +48,13 @@
 
 <div class="container">
     <div class="header-panel">
-        <h1>Kemp FC</h1>
-        <h2>Attendance Management System</h2>
-    </div>
+    <? if (brandLogoUrl) { ?>
+      <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
+    <? } ?>
+    <h1 class="brand-name"></h1>
+    <h2>Attendance Management System</h2>
+</div>
+
 
     <!-- Module Selector -->
     <div class="dashboard-grid" style="margin-bottom: 16px;">
@@ -130,12 +134,20 @@
             </div>
         </div>
     </div>
+
+    <div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+        <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
+            🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
+        </button>
+    </div>
 </div>
+
 
 <script>
 let globalRosterCache = [];
 let contextPayload = null;
 let verifiedStaffEmail = "";
+let currentSystemIsDemoMode = false;
 
 // ========== AUTH ==========
 (function() {
@@ -252,19 +264,40 @@ function initAttendanceApp() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('attendanceDate').value = today;
 
-    // Load context
-    google.script.run
-        .withSuccessHandler(function(ctx) {
-            contextPayload = ctx;
-            populateCenters();
-        })
+// Load context
+   google.script.run
+    .withSuccessHandler(function(ctx) {
+        contextPayload = ctx;
+        populateCenters();
+        if (ctx.isAdmin) {
+            document.getElementById("adminSandboxTray").style.display = "block";
+        }
+    })
         .withFailureHandler(function() {
             alert("Failed to load data. Please refresh.");
         })
-        .getPerformanceEngineContext(false);
+        .getPerformanceEngineContext(currentSystemIsDemoMode, verifiedStaffEmail);
 }
 
+function toggleDemoSandboxMode() {
+    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    const btn = document.getElementById('sandboxToggleBtn');
+    const tray = document.getElementById('adminSandboxTray');
+    if (currentSystemIsDemoMode) {
+        btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+        tray.style.background = "#fef3c7";
+        tray.style.borderTopColor = "#f59e0b";
+        btn.style.color = "#92400e";
+    } else {
+        btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+        tray.style.background = "#f8fafc";
+        tray.style.borderTopColor = "#cbd5e1";
+        btn.style.color = "#94a3b8";
+    }
+    initAttendanceApp();
+}
 // ========== MODULE SWITCH ==========
+// Switches between the Student Attendance and Staff Attendance modules.
 function switchModule(module) {
     document.querySelectorAll('.hub-card').forEach(c => c.classList.remove('active-hub'));
     document.getElementById('hub_' + module).classList.add('active-hub');
@@ -272,7 +305,7 @@ function switchModule(module) {
     document.getElementById('module_staff').style.display = module === 'staff' ? 'block' : 'none';
 }
 
-// ========== STUDENT ATTENDANCE ==========
+// Loads the academy centers into the Center dropdown.
 function populateCenters() {
     const sel = document.getElementById('centerSelect');
     sel.innerHTML = '<option value="">-- Select Center --</option>';
@@ -283,6 +316,7 @@ function populateCenters() {
     }
 }
 
+//Loads the batches into the dropdown
 function loadBatches() {
     const centerVal = document.getElementById('centerSelect').value;
     const batchSel = document.getElementById('batchSelect');
@@ -294,6 +328,7 @@ function loadBatches() {
     });
 }
 
+// Loads the active students for the selected center and batch.
 function loadStudentRoster() {
     const centerVal = document.getElementById('centerSelect').value;
     const batchVal = document.getElementById('batchSelect').value;
@@ -310,6 +345,7 @@ function loadStudentRoster() {
 
     buildRosterGrid(students);
 }
+// Builds and displays the student attendance roster.
 
 function buildRosterGrid(students) {
     document.getElementById('rosterLoadingMsg').style.display = 'none';
@@ -365,6 +401,7 @@ function setStatus(studentId, status, clickedBtn) {
     row.setAttribute('data-status', status);
 }
 
+// Collects the attendance records and submits them to the backend.
 function submitAttendance() {
     const centerVal = document.getElementById('centerSelect').value;
     const batchVal = document.getElementById('batchSelect').value;
@@ -440,61 +477,213 @@ function submitAttendance() {
             document.querySelector('.master-action-btn.btn-commit').innerText = "✅ Submit Attendance";
             alert("Connection failed. Please try again.");
         })
-        .submitStudentAttendance(finalRecords);
+        .submitStudentAttendance(finalRecords, currentSystemIsDemoMode);
 }
 
-// ========== STAFF ATTENDANCE ==========
+
+// function markStaffAttendanceNow() {
+//     const btn = document.querySelector('#module_staff .master-action-btn.btn-commit');
+//     btn.disabled = true;
+//     btn.innerText = "Getting Location...";
+
+//     // Safety guard — if GPS permission prompt never resolves (e.g. blocked inside sandboxed iframe),
+//     // proceed anyway after 8 seconds with blank coordinates instead of freezing the button forever.
+//     function withGpsTimeout(callback) {
+//         var settled = false;
+//         var timer = setTimeout(function() {
+//             if (settled) return;
+//             settled = true;
+//             callback('', '');
+//         }, 8000);
+
+//         captureRealGpsCoordinates(function(lat, lon) {
+//             if (settled) return;
+//             settled = true;
+//             clearTimeout(timer);
+//             callback(lat, lon);
+//         });
+//     }
+
+//     fetch('https://ipapi.co/json/')
+//         .then(r => r.json())
+//         .then(data => {
+//             withGpsTimeout(function(lat, lon) {
+//                 getReadableLocationName(lat, lon, function(locationName) {
+//                     finalizeMarkAttendance(data, lat, lon, locationName);
+//                 });
+//             });
+//         })
+//         .catch(function() {
+//             withGpsTimeout(function(lat, lon) {
+//                 getReadableLocationName(lat, lon, function(locationName) {
+//                     finalizeMarkAttendance({ ip: 'Unknown', city: 'Unknown', region: 'Unknown', org: '' }, lat, lon, locationName);
+//                 });
+//             });
+//         });
+// }
+// // Requests the phone's actual GPS coordinates. Calls callback(lat, lon) —
+// // passes empty strings if the browser has no GPS support or the user denies permission.
+// function captureRealGpsCoordinates(callback) {
+//     if (!navigator.geolocation) {
+//         callback('', '');
+//         return;
+//     }
+//     navigator.geolocation.getCurrentPosition(
+//         function(position) {
+//             callback(position.coords.latitude, position.coords.longitude);
+//         },
+//         function() {
+//             callback('', '');
+//         },
+//         { enableHighAccuracy: true, timeout: 10000 }
+//     );
+// }
+// // Converts lat/lon into a readable area name via Nominatim reverse geocoding.
+// // Has its own timeout guard — if Nominatim is slow/unreachable, proceeds with blank name instead of freezing.
+// function getReadableLocationName(lat, lon, callback) {
+//     if (!lat || !lon) {
+//         callback('');
+//         return;
+//     }
+
+//     var settled = false;
+//     var timer = setTimeout(function() {
+//         if (settled) return;
+//         settled = true;
+//         callback('');
+//     }, 6000);
+
+//     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&addressdetails=1`)
+//         .then(r => r.json())
+//         .then(function(geo) {
+//             if (settled) return;
+//             settled = true;
+//             clearTimeout(timer);
+//             var addr = geo.address || {};
+//             var area = addr.suburb || addr.neighbourhood || addr.locality || addr.city_district || addr.town || addr.village || '';
+//             var city = addr.city || addr.state_district || addr.county || '';
+//             var locationName = area && city ? (area + ", " + city) : (area || city || '');
+//             callback(locationName);
+//         })
+//         .catch(function() {
+//             if (settled) return;
+//             settled = true;
+//             clearTimeout(timer);
+//             callback('');
+//         });
+// }
+
+// function finalizeMarkAttendance(data, gpsLat, gpsLon, locationName) {
+//     const btn = document.querySelector('#module_staff .master-action-btn.btn-commit');
+//     btn.innerText = "Logging...";
+
+//     google.script.run
+//         .withSuccessHandler(function(result) {
+//             btn.disabled = false;
+//             btn.innerText = "📍 Mark Attendance Now";
+//             if (result.success) {
+//                 alert("Staff attendance marked successfully!\nLocation: " + (locationName || (data.city + ", " + data.region)));
+//             } else {
+//                 alert("Error: " + result.error);
+//             }
+//         })
+//         .withFailureHandler(function() {
+//             btn.disabled = false;
+//             btn.innerText = "📍 Mark Attendance Now";
+//             alert("Connection failed.");
+//         })
+//         .submitStaffAttendance({
+//           email: verifiedStaffEmail,
+//           ip: data.ip,
+//           city: data.city,
+//           region: data.region,
+//           isp: data.org || '',
+//           latitude: gpsLat,
+//           longitude: gpsLon,
+//           locationName: locationName || '',
+//           actionType: 'Live_Net',
+//           isDemoMode: currentSystemIsDemoMode
+//         });
+// }
 function markStaffAttendanceNow() {
-    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = true;
-    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "Logging...";
+    const btn = document.querySelector('#module_staff .master-action-btn.btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Getting Location...";
+
+    function withGpsTimeout(callback) {
+        var settled = false;
+        var timer = setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            callback('', '');
+        }, 8000);
+
+        captureRealGpsCoordinates(function(lat, lon) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            callback(lat, lon);
+        });
+    }
 
     fetch('https://ipapi.co/json/')
         .then(r => r.json())
         .then(data => {
-            google.script.run
-                .withSuccessHandler(function(result) {
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
-                    if (result.success) {
-                        alert("Staff attendance marked successfully!\nLocation: " + data.city + ", " + data.region);
-                    } else {
-                        alert("Error: " + result.error);
-                    }
-                })
-                .withFailureHandler(function() {
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
-                    alert("Connection failed.");
-                })
-               .submitStaffAttendance({
-                  email: verifiedStaffEmail,
-                  ip: data.ip,
-                  city: data.city,
-                  region: data.region,
-                  isp: data.org || '',
-                  actionType: 'Live_Net'
-                });
+            withGpsTimeout(function(lat, lon) {
+                finalizeMarkAttendance(data, lat, lon);
+            });
         })
         .catch(function() {
-            google.script.run
-                .withSuccessHandler(function(result) {
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
-                    alert(result.success ? "Attendance marked (location unavailable)." : "Error: " + result.error);
-                })
-                .withFailureHandler(function() {
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').disabled = false;
-                    document.querySelector('#module_staff .master-action-btn.btn-commit').innerText = "📍 Mark Attendance Now";
-                })
-                .submitStaffAttendance({
-                  email: verifiedStaffEmail,
-                  ip: 'Unknown',
-                  city: 'Unknown',
-                  region: 'Unknown',
-                  isp: '',
-                  actionType: 'Live_Net'
-              });
+            withGpsTimeout(function(lat, lon) {
+                finalizeMarkAttendance({ ip: 'Unknown', city: 'Unknown', region: 'Unknown', org: '' }, lat, lon);
+            });
         });
+} 
+function finalizeMarkAttendance(data, gpsLat, gpsLon) {
+    const btn = document.querySelector('#module_staff .master-action-btn.btn-commit');
+    btn.innerText = "Logging...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "📍 Mark Attendance Now";
+            if (result.success) {
+                alert("Staff attendance marked successfully!\nLocation: " + data.city + ", " + data.region);
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "📍 Mark Attendance Now";
+            alert("Connection failed.");
+        })
+        .submitStaffAttendance({
+          email: verifiedStaffEmail,
+          ip: data.ip,
+          city: data.city,
+          region: data.region,
+          isp: data.org || '',
+          latitude: gpsLat,
+          longitude: gpsLon,
+          actionType: 'Live_Net',
+          isDemoMode: currentSystemIsDemoMode
+        });
+}
+function captureRealGpsCoordinates(callback) {
+    if (!navigator.geolocation) {
+        callback('', '');
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            callback(position.coords.latitude, position.coords.longitude);
+        },
+        function() {
+            callback('', '');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
 }
 
 function showRetroAttendance() {
@@ -524,7 +713,8 @@ function submitRetroAttendance() {
             city: 'Manual_entry',
             region: '',
             actionType: 'Manual_Retro',
-            retroDate: dateVal
+            retroDate: dateVal,
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 </script>

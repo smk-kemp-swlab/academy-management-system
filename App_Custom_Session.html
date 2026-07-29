@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Custom Session Entry</title>
+    <?!= include('Styled_Branding_CSS'); ?>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-panel">
+        <h1 class="brand-name"></h1>
+        <h2>Custom Session Data Entry</h2>
+    </div>
+
+    <div id="loadingMsg" style="text-align:center; padding:30px; color:#64748b;">
+        🔄 Loading session columns...
+    </div>
+
+    <div id="mainForm" style="display:none;">
+        
+        <!-- Session Info -->
+        <div class="section-box" style="background:#f0fdf4; border:1px solid #bbf7d0; margin-bottom:16px;">
+            <div style="font-weight:700; color:#15803d; font-size:13px;">📋 Session: <span id="sessionNameDisplay"></span></div>
+            <div style="font-size:12px; color:#64748b; margin-top:4px;">Coach: <span id="coachEmailDisplay"></span></div>
+        </div>
+
+        <!-- Dynamic Form Fields -->
+        <div class="section-box">
+            <h3 style="margin-top:0;">Player Data Entry</h3>
+
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="font-weight:600; color:#334155;">Player Name *</label>
+                <input type="text" id="field_Player_Name" placeholder="Enter player name"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="font-weight:600; color:#334155;">Trial Number / Bib *</label>
+                <input type="text" id="field_Trial_Number_Or_Bib" placeholder="Enter bib or trial number"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+            </div>
+
+            <div id="dynamicFieldsContainer"></div>
+        </div>
+
+        <!-- Submit Button -->
+        <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitCustomEntry()">
+    ✅ Save Entry
+          </button>
+
+        <button class="master-action-btn" style="margin-top:10px; background:#475569; color:white;" onclick="goBack()">
+            ← Back to Evaluation Engine
+        </button>
+
+    </div>
+
+    <div id="errorMsg" style="display:none; text-align:center; padding:30px; color:#dc2626; font-weight:600;"></div>
+</div>
+
+
+
+
+<script>
+    let sessionName = '';
+    let sheetColumns = [];
+    let coachEmail = '';
+    let isDemoMode = false;
+  
+    const HIDDEN_COLUMNS = ['TX_Signature_Token'];
+    const LOCKED_COLUMNS = ['Player_Name', 'Trial_Number_Or_Bib'];
+
+
+    // Get URL params
+    (function() {
+       const urlParams = new URLSearchParams(window.location.search);
+sessionName = urlParams.get('session') || '<?!= urlSessionName ?>';
+coachEmail = urlParams.get('coach') || localStorage.getItem('kemp_suite_verified_session_email') || '';
+isDemoMode = (urlParams.get('demo') === 'true') || ('<?!= urlIsDemoMode ?>' === 'true');
+const pageMode = '<?!= urlPageMode ?>';
+
+        if (!sessionName) {
+            showError("No session specified. Please go back and select a session.");
+            return;
+        }
+
+        document.getElementById('sessionNameDisplay').innerText = sessionName;
+        document.getElementById('coachEmailDisplay').innerText = coachEmail;
+
+        // Load columns from sheet
+        google.script.run
+            .withSuccessHandler(function(columns) {
+                if (!columns || columns.length === 0) {
+                    showError("No columns found for this session. Please check the sheet.");
+                    return;
+                }
+                sheetColumns = columns.filter(function(c) {
+                    return HIDDEN_COLUMNS.indexOf(c) === -1 && LOCKED_COLUMNS.indexOf(c) === -1;
+                });
+                buildForm(sheetColumns);
+                if (pageMode === 'manage') {
+                    buildManageSection(columns);
+                }
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('mainForm').style.display = 'block';
+            })
+            .withFailureHandler(function(err) {
+                showError("Failed to load session: " + err);
+            })
+            .getCustomSessionColumns(sessionName, isDemoMode);
+    })();
+
+    function buildForm(columns) {
+        const container = document.getElementById('dynamicFieldsContainer');
+        let html = '';
+        columns.forEach(function(col) {
+            html += `
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="font-weight:600; color:#334155;">${col}</label>
+                <input type="text" id="field_${col.replace(/\s+/g, '_')}" 
+                    placeholder="Enter ${col}"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function submitCustomEntry() {
+    const playerName = document.getElementById('field_Player_Name').value.trim();
+    const bibNumber = document.getElementById('field_Trial_Number_Or_Bib').value.trim();
+
+    if (!playerName || !bibNumber) {
+        alert("Please enter Player Name and Trial Number / Bib before saving.");
+        return;
+    }
+
+    const rowData = {};
+    rowData['TX_Signature_Token'] = 'TX_CUSTOM_' + new Date().getTime();
+    rowData['Player_Name'] = playerName;
+    rowData['Trial_Number_Or_Bib'] = bibNumber;
+
+    sheetColumns.forEach(function(col) {
+        const fieldId = 'field_' + col.replace(/\s+/g, '_');
+        const el = document.getElementById(fieldId);
+        const val = el ? el.value.trim() : '';
+        rowData[col] = val;
+    });
+
+        const btn = document.querySelector('.master-action-btn.btn-commit');
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
+        google.script.run
+            .withSuccessHandler(function(result) {
+                btn.disabled = false;
+                btn.innerText = "✅ Save Entry";
+                if (result.success) {
+                    alert("Entry saved successfully!");
+                    // Reset form for next player
+                    sheetColumns.forEach(function(col) {
+                        const fieldId = 'field_' + col.replace(/\s+/g, '_');
+                        const el = document.getElementById(fieldId);
+                        if (el) el.value = '';
+                    });
+                    document.getElementById('dynamicFieldsContainer').querySelector('input').focus();
+                } else {
+                    alert("Error: " + result.error);
+                }
+            })
+            .withFailureHandler(function() {
+                btn.disabled = false;
+                btn.innerText = "✅ Save Entry";
+                alert("Connection failed. Please try again.");
+            })
+            .saveCustomSessionEntry(sessionName, rowData, coachEmail, isDemoMode);
+    }
+function toggleManageMode() {
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get('mode');
+    if (current === 'manage') {
+        url.searchParams.delete('mode');
+    } else {
+        url.searchParams.set('mode', 'manage');
+    }
+    window.location.href = url.toString();
+}
+    function goBack() {
+    window.top.location.href = 'https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=eval';
+}
+function toggleManageMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentMode = urlParams.get('mode') || 'entry';
+    const nextMode = currentMode === 'manage' ? 'entry' : 'manage';
+
+    const deployedUrl = '<?!= deployedUrl ?>';
+    const targetUrl = deployedUrl
+        + '?app=custom_session'
+        + '&session=' + encodeURIComponent(sessionName)
+        + '&coach=' + encodeURIComponent(coachEmail)
+        + '&demo=' + (isDemoMode ? 'true' : 'false')
+        + '&mode=' + nextMode;
+
+    window.top.location.href = targetUrl;
+}
+    function showError(msg) {
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('errorMsg').innerText = msg;
+        document.getElementById('errorMsg').style.display = 'block';
+    }
+
+
+function buildManageSection(columns) {
+    const container = document.getElementById('dynamicFieldsContainer');
+    
+    // Add manage section above the form
+    const manageHtml = `
+    <div style="background:#fefce8; border:1px solid #fef08a; border-radius:10px; padding:14px; margin-bottom:16px;">
+        <div style="font-weight:700; color:#92400e; font-size:13px; margin-bottom:10px;">⚙️ Manage Columns</div>
+        
+        <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:8px;">CURRENT COLUMNS</div>
+        <div id="manageColumnsList" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+            ${columns.map(col => `
+                <div style="background:white; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;">
+                    ${col}
+                    <span onclick="removeColumnFromSession('${col}')" style="cursor:pointer; color:#dc2626; font-weight:700;">✕</span>
+                </div>
+            `).join('')}
+        </div>
+
+        <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:8px;">ADD NEW COLUMN</div>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="manageNewColInput" placeholder="e.g. Speed Rating"
+                style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px;"
+                onkeydown="if(event.key==='Enter') addColumnToSession()">
+            <button onclick="addColumnToSession()"
+                style="padding:8px 14px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">+</button>
+        </div>
+    </div>
+
+    <hr style="border:0; border-top:1px solid #e2e8f0; margin:16px 0;">
+    <div style="font-weight:700; color:#1e293b; font-size:13px; margin-bottom:12px;">📝 Enter Player Data</div>
+    `;
+
+    container.insertAdjacentHTML('beforebegin', manageHtml);
+}
+
+function addColumnToSession() {
+    const input = document.getElementById('manageNewColInput');
+    const colName = input.value.trim();
+    if (!colName) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                alert("Column added! Refreshing...");
+                const deployedUrl = '<?!= deployedUrl ?>';
+                window.top.location.href = deployedUrl
+                    + '?app=custom_session'
+                    + '&session=' + encodeURIComponent(sessionName)
+                    + '&coach=' + encodeURIComponent(coachEmail)
+                    + '&demo=' + (isDemoMode ? 'true' : 'false')
+                    + '&mode=manage';
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed.");
+        })
+        .addColumnsToExistingSession(sessionName, [colName], isDemoMode);
+}
+
+function removeColumnFromSession(colName) {
+    if (!confirm("Remove column '" + colName + "'? This will delete all data in that column!")) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                alert("Column removed! Refreshing...");
+                const deployedUrl = '<?!= deployedUrl ?>';
+                window.top.location.href = deployedUrl
+                    + '?app=custom_session'
+                    + '&session=' + encodeURIComponent(sessionName)
+                    + '&coach=' + encodeURIComponent(coachEmail)
+                    + '&demo=' + (isDemoMode ? 'true' : 'false')
+                    + '&mode=manage';
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed.");
+        })
+        .removeColumnFromSession(sessionName, colName, isDemoMode);
+}
+</script>
+
+</body>
+</html>

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Kemp Staff Board</title>
     <?!= include('Styled_Branding_CSS'); ?>
+   
 </head>
 <body>
 
@@ -46,9 +47,12 @@
 <!-- Main App -->
 <div class="container">
     <div class="header-panel">
-        <h1>Kemp FC</h1>
-        <h2>Staff Board</h2>
-    </div>
+    <? if (brandLogoUrl) { ?>
+      <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
+    <? } ?>
+    <h1 class="brand-name"></h1>
+    <h2>Staff Board</h2>
+</div>
 
     <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
         <div class="form-group">
@@ -130,10 +134,17 @@
         </div>
     </div>
 
-    <h3>Staff Directory</h3>
+   <h3>Staff Directory</h3>
     <div id="staffListContainer"></div>
     <div id="staffLoadingMsg" style="text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
         Loading staff...
+    </div>
+
+    <!-- Admin Sandbox Tray -->
+    <div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+        <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
+            🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
+        </button>
     </div>
 </div>
 
@@ -169,12 +180,14 @@
             <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditModal()">Cancel</button>
             <button class="master-action-btn btn-commit" onclick="submitStaffEdit()">Save Changes</button>
         </div>
-    </div>
+        
+</div>
 </div>
 
 <script>
 let contextPayload = null;
 let verifiedStaffEmail = "";
+let currentSystemIsDemoMode = false;
 
 // ========== AUTH (reuses cached session from the rest of the suite) ==========
 (function() {
@@ -285,10 +298,10 @@ function handleFault(err) {
 
 // ========== APP INIT ==========
 function initStaffBoardApp() {
+    currentSystemIsDemoMode = false;  //reset on every refresh
     document.getElementById('loggedInStaff').innerText = verifiedStaffEmail;
     loadStaffBoardContext();
 }
-
 function loadStaffBoardContext() {
     google.script.run
         .withSuccessHandler(function(ctx) {
@@ -301,6 +314,7 @@ function loadStaffBoardContext() {
             if (ctx.isAdmin) {
                 document.getElementById('addStaffFormWrapper').style.display = 'block';
                 document.getElementById('notAdminNotice').style.display = 'none';
+                document.getElementById('adminSandboxTray').style.display = 'block';
             } else {
                 document.getElementById('addStaffFormWrapper').style.display = 'none';
                 document.getElementById('notAdminNotice').style.display = 'block';
@@ -312,7 +326,13 @@ function loadStaffBoardContext() {
         .withFailureHandler(function() {
             alert("Failed to load data. Please refresh.");
         })
-        .getStaffBoardContext(false, verifiedStaffEmail);
+        .getStaffBoardContext(currentSystemIsDemoMode, verifiedStaffEmail);
+}
+
+function toggleDemoSandboxMode() {
+    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    updateSandboxUI();
+    loadStaffBoardContext();
 }
 
 function populateCenterDropdowns() {
@@ -461,7 +481,8 @@ function submitNewStaff() {
             roleType: roleType,
             centerId: centerId,
             grantAppAccess: grantAppAccess,
-            staffEmail: verifiedStaffEmail
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 
@@ -504,7 +525,8 @@ function submitStaffEdit() {
             staffId: staffId,
             fullName: fullName,
             roleType: roleType,
-            centerId: centerId
+            centerId: centerId,
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 
@@ -529,6 +551,25 @@ function deleteStaffRow(staffId) {
         })
         .withFailureHandler(function() { alert("Connection failed."); })
         .deleteStaffMember(staffId, verifiedStaffEmail);
+}
+
+
+function updateSandboxUI() {
+    const btn = document.getElementById('sandboxToggleBtn');
+    const tray = document.getElementById('adminSandboxTray');
+    if (!btn || !tray) return;
+
+    if (currentSystemIsDemoMode) {
+        btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+        tray.style.background = "#fef3c7";
+        tray.style.borderTopColor = "#f59e0b";
+        btn.style.color = "#92400e";
+    } else {
+        btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+        tray.style.background = "#f8fafc";
+        tray.style.borderTopColor = "#cbd5e1";
+        btn.style.color = "#94a3b8";
+    }
 }
 </script>
 

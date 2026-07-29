@@ -228,7 +228,7 @@
                 alert("Database Mapping Error: Connection failed. Bypassing to standalone offline mode.");
                 activateOfflineWorkspaceOverride();
             })
-            .getPerformanceEngineContext(currentSystemIsDemoMode);
+            .getPerformanceEngineContext(currentSystemIsDemoMode, localStorage.getItem('kemp_suite_verified_session_email'));
     }
 
     function activateOfflineWorkspaceOverride() {
@@ -302,18 +302,29 @@
         if (currentCenterVal) centerSel.value = currentCenterVal;
     }
     function refreshActiveInstanceTabs() {
-        if (typeof google !== 'undefined' && google.script && google.script.run) {
-            google.script.run
-                .withSuccessHandler(function(tabs) {
-                    const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '';
-                    tabs.forEach(tabName => { select.innerHTML += `<option value="${tabName}">${tabName}</option>`; });
-                    updateBadgeTrackerDisplay();
-                })
-                .getActiveEvaluationSessions(currentSystemIsDemoMode);
-        }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function(result) {
+                if (!result.success) {
+                    document.getElementById('evalSessionTabSelect').innerHTML = '<option value="">-- Failed to load sessions --</option>';
+                    alert("Could not load evaluation sessions: " + result.error + (currentSystemIsDemoMode ? "\n\n(This may be a Demo Sandbox data access issue.)" : ""));
+                    return;
+                }
+                const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '';
+                result.tabs.forEach(tabName => { select.innerHTML += `<option value="${tabName}">${tabName}</option>`; });
+                updateBadgeTrackerDisplay();
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('evalSessionTabSelect').innerHTML = '<option value="">-- Connection failed --</option>';
+                alert("Connection failed while loading evaluation sessions: " + err);
+            })
+            .getActiveEvaluationSessions(currentSystemIsDemoMode, document.getElementById('evalTypeFramework').value);
     }
+}
 
     function handleFrameworkLayoutShift(selectedFramework) {
+        refreshActiveInstanceTabs();
+
         const cascadeContainer = document.getElementById('cascadingWrapperBox');
         const identityCard = document.getElementById('playerIdentityInformationCard');
 
@@ -902,5 +913,239 @@ function toggleEntryMethod(method) {
         if (csvCard) { csvCard.style.borderColor = '#cbd5e1'; csvCard.style.background = 'white'; csvCard.style.color = '#64748b'; }
     }
 }
+function toggleDemoSandboxMode() {
+    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    const btn = document.getElementById('sandboxToggleBtn');
+    const tray = document.getElementById('adminSandboxTray');
 
+    if (currentSystemIsDemoMode) {
+        btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+        tray.style.background = "#fef3c7";
+        tray.style.borderTopColor = "#f59e0b";
+        btn.style.color = "#92400e";
+    } else {
+        btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+        tray.style.background = "#f8fafc";
+        tray.style.borderTopColor = "#cbd5e1";
+        btn.style.color = "#94a3b8";
+    }
+
+    // Reload everything under the new mode
+    triggerExplicitDataSync();
+}
+// ========== SESSION CREATION MODAL ==========
+let selectedSessionTemplate = 'standard';
+let customColumns = [];
+let editColumns = [];
+let existingColumns = [];
+
+function openSessionCreationModal() {
+    selectedSessionTemplate = 'standard';
+    customColumns = [];
+    editColumns = [];
+    
+    const newSessionName = document.getElementById('newSessionName');
+    const customColumnsList = document.getElementById('customColumnsList');
+    const customColumnsSection = document.getElementById('customColumnsSection');
+    const newColumnInput = document.getElementById('newColumnInput');
+    const newEditColumnsList = document.getElementById('newEditColumnsList');
+
+    if (newSessionName) newSessionName.value = '';
+    if (customColumnsList) customColumnsList.innerHTML = '';
+    if (customColumnsSection) customColumnsSection.style.display = 'none';
+    if (newColumnInput) newColumnInput.value = '';
+    if (newEditColumnsList) newEditColumnsList.innerHTML = '';
+
+    selectSessionTemplate('standard');
+    switchSessionTab('create');
+    document.getElementById('sessionCreationModal').style.display = 'flex';
+}
+
+function closeSessionModal() {
+    document.getElementById('sessionCreationModal').style.display = 'none';
+}
+
+function selectSessionTemplate(type) {
+    selectedSessionTemplate = type;
+    const btnStandard = document.getElementById('btnStandard');
+    const btnCustom = document.getElementById('btnCustom');
+    const customSection = document.getElementById('customColumnsSection');
+
+    if (type === 'standard') {
+        btnStandard.style.borderColor = 'var(--primary)';
+        btnStandard.style.background = '#fef2f2';
+        btnStandard.style.color = 'var(--primary)';
+        btnCustom.style.borderColor = '#cbd5e1';
+        btnCustom.style.background = 'white';
+        btnCustom.style.color = '#64748b';
+        customSection.style.display = 'none';
+    } else {
+        btnCustom.style.borderColor = 'var(--primary)';
+        btnCustom.style.background = '#fef2f2';
+        btnCustom.style.color = 'var(--primary)';
+        btnStandard.style.borderColor = '#cbd5e1';
+        btnStandard.style.background = 'white';
+        btnStandard.style.color = '#64748b';
+        customSection.style.display = 'block';
+    }
+}
+
+function addCustomColumn() {
+    const input = document.getElementById('newColumnInput');
+    const colName = input.value.trim();
+    if (!colName) return;
+    if (customColumns.includes(colName)) { alert("Column already added!"); return; }
+
+    customColumns.push(colName);
+    input.value = '';
+
+    const container = document.getElementById('customColumnsList');
+    const tag = document.createElement('div');
+    tag.style.cssText = 'background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;';
+    tag.innerHTML = `${colName} <span onclick="removeCustomColumn('${colName}', this)" style="cursor:pointer; color:#dc2626; font-weight:700;">✕</span>`;
+    container.appendChild(tag);
+    input.focus();
+}
+
+function removeCustomColumn(colName, el) {
+    customColumns = customColumns.filter(c => c !== colName);
+    el.parentElement.remove();
+}
+
+function confirmCreateSession() {
+    const rawName = document.getElementById('newSessionName').value.trim();
+    const sessionName = selectedSessionTemplate === 'custom' ? 'CUSTOM_' + rawName : rawName;
+    if (!sessionName) { alert("Please enter a session name."); return; }
+
+    if (selectedSessionTemplate === 'custom' && customColumns.length === 0) {
+        alert("Please add at least one column for custom template.");
+        return;
+    }
+
+    const createBtn = document.querySelector('#sessionTabCreate button[onclick="confirmCreateSession()"]');
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerText = "⏳ Creating Session...";
+    }
+
+    const frameworkSel = document.getElementById('p_eval_framework_selector');
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (createBtn) {
+                createBtn.disabled = false;
+                createBtn.innerText = "✅ Create Session";
+            }
+
+            if (result && result.success) {
+                closeSessionModal();
+
+                if (selectedSessionTemplate === 'custom') {
+                    const coachEmailForSession = (document.getElementById('evalCoachSelect') ? document.getElementById('evalCoachSelect').value : '') || localStorage.getItem('kemp_suite_verified_session_email') || '';
+                    const url = 'https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=custom_session&session=' + encodeURIComponent(sessionName) +
+                                '&coach=' + encodeURIComponent(coachEmailForSession) +
+                                '&demo=' + currentSystemIsDemoMode;
+                    window.open(url, '_blank');
+                } else {
+                    alert("Trial session created successfully!");
+                    refreshActiveInstanceTabs();
+                }
+            } else {
+                alert("Error: " + (result ? result.error : "Unknown error"));
+            }
+        })
+        .withFailureHandler(function(err) {
+            if (createBtn) {
+                createBtn.disabled = false;
+                createBtn.innerText = "✅ Create Session";
+            }
+            alert("Connection failed: " + err);
+        })
+        .provisionNewEvaluationTab(
+            sessionName,
+            frameworkSel ? frameworkSel.value : 'Trial',
+            currentSystemIsDemoMode,
+            selectedSessionTemplate,
+            customColumns
+        );
+}
+function switchSessionTab(tab) {
+    document.getElementById('sessionTabCreate').style.display = tab === 'create' ? 'block' : 'none';
+    document.getElementById('sessionTabEdit').style.display = tab === 'edit' ? 'block' : 'none';
+    
+    const tabCreate = document.getElementById('tabCreate');
+    const tabEdit = document.getElementById('tabEdit');
+    
+    if (tab === 'create') {
+        tabCreate.style.background = '#0f172a';
+        tabCreate.style.color = 'white';
+        tabCreate.style.borderColor = '#0f172a';
+        tabEdit.style.background = 'white';
+        tabEdit.style.color = '#64748b';
+        tabEdit.style.borderColor = '#cbd5e1';
+    } else {
+        tabEdit.style.background = '#0f172a';
+        tabEdit.style.color = 'white';
+        tabEdit.style.borderColor = '#0f172a';
+        tabCreate.style.background = 'white';
+        tabCreate.style.color = '#64748b';
+        tabCreate.style.borderColor = '#cbd5e1';
+
+        // Load existing custom sessions
+        google.script.run
+            .withSuccessHandler(function(sessions) {
+                const sel = document.getElementById('existingSessionSelect');
+                sel.innerHTML = '<option value="">-- Select Session --</option>';
+                (sessions || []).forEach(function(s) {
+                    sel.innerHTML += `<option value="${s}">${s.replace('CUSTOM_', '')}</option>`;
+                });
+            })
+            .withFailureHandler(function() {
+                alert("Failed to load sessions.");
+            })
+            .getAllCustomSessions(currentSystemIsDemoMode);
+    }
+}
+function loadExistingColumns() {
+    const selectedSession = document.getElementById('existingSessionSelect').value;
+    if (!selectedSession) {
+        document.getElementById('existingColumnsSection').style.display = 'none';
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(function(columns) {
+            existingColumns = columns || [];
+            editColumns = [];
+            document.getElementById('newEditColumnsList').innerHTML = '';
+
+            const container = document.getElementById('existingColumnsList');
+            container.innerHTML = '';
+            existingColumns.forEach(function(col) {
+                const tag = document.createElement('div');
+                tag.style.cssText = 'background:#e0f2fe; border:1px solid #bae6fd; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#0369a1;';
+                tag.innerText = col;
+                container.appendChild(tag);
+            });
+
+            document.getElementById('existingColumnsSection').style.display = 'block';
+        })
+        .withFailureHandler(function() {
+            alert("Failed to load columns.");
+        })
+        .getCustomSessionColumns(selectedSession, currentSystemIsDemoMode);
+}
+
+function saveEditedSession() {
+    const selectedSession = document.getElementById('existingSessionSelect').value;
+    if (!selectedSession) { alert("Please select a session."); return; }
+
+    closeSessionModal();
+
+    const url = DEPLOYED_BASE_URL + '?app=custom_session&session=' + encodeURIComponent(selectedSession) +
+                '&coach=' + encodeURIComponent(localStorage.getItem('kemp_suite_verified_session_email') || '') +
+                '&demo=' + currentSystemIsDemoMode +
+                '&mode=manage';
+    window.open(url, '_blank');
+}
 </script>

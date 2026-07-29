@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <title>Kemp FC — New Player Registration</title>
     <?!= include('Styled_Branding_CSS'); ?>
+    
 </head>
 <body>
 
 <div class="container">
-    <div class="header-panel">
-        <h1>Kemp FC</h1>
-        <h2>New Player Registration</h2>
-    </div>
+   <div class="header-panel">
+    <? if (brandLogoUrl) { ?>
+      <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
+    <? } ?>
+    <h1 class="brand-name"></h1>
+    <h2>New Player Registration</h2>
+</div>
 
     <div id="registrationFormWrapper">
         <div class="section-box">
@@ -88,16 +92,23 @@
             <h3 style="margin-top:0; color:#15803d;">Payment Preference</h3>
             <div class="form-group">
                 <label style="display:flex; align-items:center; margin-bottom:10px; cursor:pointer;">
-                    <input type="radio" name="paymentStrategy" value="Pay_Now" style="width:auto; margin-right:10px;" checked>
+                    <input type="radio" name="paymentStrategy" value="Pay_Now" style="width:auto; margin-right:10px;" checked onchange="togglePayNowQr()">
                     <span><strong>Pay Now</strong> — Complete payment immediately via UPI / Gateway</span>
                 </label>
                 <label style="display:flex; align-items:center; cursor:pointer;">
-                    <input type="radio" name="paymentStrategy" value="Pay_Later" style="width:auto; margin-right:10px;">
+                    <input type="radio" name="paymentStrategy" value="Pay_Later" style="width:auto; margin-right:10px;" onchange="togglePayNowQr()">
                     <span><strong>Pay Later</strong> — We'll email a secure payment link to complete later</span>
                 </label>
             </div>
+
+            <div id="payNowQrSection" style="text-align:center; margin-top:16px; padding:16px; background:white; border:1px solid #bbf7d0; border-radius:10px;">
+                <div style="font-size:13px; font-weight:700; color:#15803d; margin-bottom:10px;">Scan to Pay via UPI</div>
+              <img src="https://lh3.googleusercontent.com/d/1HCS6RVqiAhDIlK4pTTtoVZ3oJj7GBKSt" alt="Kemp FC Payment QR Code" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e2e8f0;">
+                <div style="font-size:11px; color:#64748b; margin-top:8px;">After paying, tap Submit Registration below — no proof upload needed for now.</div>
+            </div>
+
             <div style="font-size:12px; color:#64748b; margin-top:10px;">
-                Note: Online payment checkout isn't live yet — for now this just records your preference. Our team will follow up directly.
+                Note: Online payment checkout isn't live yet — this just records your preference and shows the QR to scan directly. Our team will follow up to confirm.
             </div>
         </div>
         <div class="section-box">
@@ -156,6 +167,12 @@ function populateCenters() {
         sel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
     });
 }
+//payment
+function togglePayNowQr() {
+    const selected = document.querySelector('input[name="paymentStrategy"]:checked').value;
+    document.getElementById('payNowQrSection').style.display = selected === 'Pay_Now' ? 'block' : 'none';
+}
+togglePayNowQr();
 
 function loadBatchesForCenter() {
     const centerVal = document.getElementById('centerSelect').value;

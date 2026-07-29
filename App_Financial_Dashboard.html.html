@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Kemp Financial Dashboard</title>
     <?!= include('Styled_Branding_CSS'); ?>
+   
 </head>
 <body>
 
@@ -48,9 +49,12 @@
 
 <div class="container">
     <div class="header-panel">
-        <h1>Kemp FC</h1>
-        <h2>Financial Dashboard</h2>
-    </div>
+    <? if (brandLogoUrl) { ?>
+      <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
+    <? } ?>
+    <h1 class="brand-name"></h1>
+    <h2>Financial Dashboard</h2>
+</div>
 
     <!-- Module Selector -->
     <div class="dashboard-grid" style="margin-bottom: 16px; grid-template-columns: repeat(2, 1fr);">
@@ -66,7 +70,7 @@
     </div>
     <div class="hub-card" id="hub_applications" onclick="switchModule('applications')">
     <div class="icon">📋</div>
-    <div class="title">Applications</div>
+    <div class="title">Registration</div>
     <div class="badge-mini">Active</div>
 </div>
 <div class="hub-card" id="hub_feeconfig" onclick="switchModule('feeconfig')" style="display:none;">
@@ -333,7 +337,88 @@
                 <button class="master-action-btn" style="background:#475569; color:white;" onclick="closePaymentModal()">Cancel</button>
                 <button class="master-action-btn btn-commit" onclick="submitPayment()">Confirm Payment</button>
             </div>
+
+            
+    </div>
         </div>
+      <!-- ============= EDIT DOCUMENTS MODAL ============= -->
+    <div id="editDocumentsModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px; max-height:90vh; overflow-y:auto;">
+            <h3 style="margin-top:0;">Manage Documents</h3>
+            <input type="hidden" id="editDocsAppId">
+            <div id="editDocsListContainer" style="margin-bottom:16px;"></div>
+
+            <div style="padding-top:12px; border-top:1px dashed #cbd5e1;">
+                <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Upload New Document</label>
+                <select id="editDocsNewType" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-bottom:8px; font-size:12px;">
+                    <option value="Birth_Certificate">Birth Certificate</option>
+                    <option value="Medical">Medical Certificate</option>
+                    <option value="Waiver">Signed Waiver</option>
+                </select>
+                <input type="file" id="editDocsNewFile" accept=".pdf,.jpg,.jpeg,.png" style="width:100%; font-size:12px; margin-bottom:8px;">
+                <button id="uploadDocBtn" class="master-action-btn btn-sync" style="padding:8px; font-size:12px;" onclick="uploadDocumentFromEditModal()">📤 Upload</button>
+            </div>
+
+            <div class="btn-container" style="margin-top: 18px;">
+                <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditDocumentsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+        <!-- ============= EDIT APPLICATION MODAL ============= -->
+    <div id="editApplicationModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px; max-height:90vh; overflow-y:auto;">
+        <h3 style="margin-top:0;">Edit Application Details</h3>
+        <input type="hidden" id="editAppId">
+        <div class="form-group">
+            <label>Student First Name</label>
+            <input type="text" id="editAppFirstName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Student Last Name</label>
+            <input type="text" id="editAppLastName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Center *</label>
+            <select id="editAppCenterSelect"></select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Batch *</label>
+            <select id="editAppBatchSelect"></select>
+        </div>
+       <div class="form-group" style="margin-top:12px;">
+    <label>Parent Name</label>
+    <input type="text" id="editAppParentName">
+</div>
+<div class="form-group" style="margin-top:12px;">
+    <label>Parent Email</label>
+    <input type="email" id="editAppParentEmail">
+</div>
+<div class="form-group" style="margin-top:12px;">
+    <label>Parent Phone</label>
+    <input type="tel" id="editAppParentPhone">
+</div>
+<div class="form-group" style="margin-top:12px;">
+    <label>Kit Shirt Size</label>
+    <input type="text" id="editAppKitShirt">
+</div>
+<div class="form-group" style="margin-top:12px;">
+    <label>Kit Shorts Size</label>
+    <input type="text" id="editAppKitShorts">
+</div>
+<div class="form-group" style="margin-top:12px;">
+    <label>Medical Alerts / Allergies</label>
+    <textarea id="editAppMedical" rows="2"></textarea>
+</div>
+    <div class="btn-container" style="margin-top: 18px;">
+                <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditApplicationModal()">Cancel</button>
+                <button class="master-action-btn btn-commit" onclick="submitApplicationEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+        <div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+        <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
+            🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
+        </button>
     </div>
 
 </div>
@@ -342,6 +427,7 @@
 let contextPayload = null;
 let verifiedStaffEmail = "";
 let activeInvoiceIdForPayment = null;
+let currentSystemIsDemoMode = false;
 
 // ========== AUTH (reuses cached session from Performance Engine / Attendance) ==========
 (function() {
@@ -458,8 +544,11 @@ function initFinancialApp() {
     document.getElementById('cycleStartDate').value = today;
 
     loadDashboardContext();
-}
 
+    if (currentSystemIsDemoMode) {
+        document.getElementById('demoModeBanner').style.display = 'block';
+    }
+}
 function loadDashboardContext() {
     google.script.run
         .withSuccessHandler(function(ctx) {
@@ -473,15 +562,34 @@ function loadDashboardContext() {
             populateDiscountDropdown();
             renderInvoiceList();
 
-            // Show Fee Config card only for admins
+            // Show Fee Config card + Sandbox Tray only for admins
             if (ctx.isAdmin) {
                 document.getElementById('hub_feeconfig').style.display = 'block';
+                document.getElementById('adminSandboxTray').style.display = 'block';
             }
         })
         .withFailureHandler(function() {
             alert("Failed to load data. Please refresh.");
         })
-        .getBillingDashboardContext(false, verifiedStaffEmail);
+        .getBillingDashboardContext(currentSystemIsDemoMode, verifiedStaffEmail);
+}
+
+function toggleDemoSandboxMode() {
+    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    const btn = document.getElementById('sandboxToggleBtn');
+    const tray = document.getElementById('adminSandboxTray');
+    if (currentSystemIsDemoMode) {
+        btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+        tray.style.background = "#fef3c7";
+        tray.style.borderTopColor = "#f59e0b";
+        btn.style.color = "#92400e";
+    } else {
+        btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+        tray.style.background = "#f8fafc";
+        tray.style.borderTopColor = "#cbd5e1";
+        btn.style.color = "#94a3b8";
+    }
+    loadDashboardContext();
 }
 
 // ========== MODULE SWITCH ==========
@@ -630,7 +738,7 @@ function generateInvoice() {
             discountId: discountId,
             billingCycleStartDate: startDate,
             staffEmail: verifiedStaffEmail,
-            isDemoMode: false
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 
@@ -676,16 +784,16 @@ function renderInvoiceList() {
                   <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
                       ${(inv.Payment_Status || '').replace('_', ' ')}
                   </div>
-    ${contextPayload.isAdmin ? `
-    <div style="position:relative;">
-        <button onclick="toggleInvoiceMenu('${inv.Invoice_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
-       <div id="menu_${inv.Invoice_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:140px;">
-    <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📄 Download</div>
-    <div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+            ${contextPayload.isAdmin ? `
+            <div style="position:relative;">
+                    <button onclick="toggleInvoiceMenu('${inv.Invoice_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                  <div id="menu_${inv.Invoice_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:140px;">
+                <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📄 Download</div>
+                <div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
 
-        </div>
-    </div>` : ''}
-</div>
+                    </div>
+                </div>` : ''}
+            </div>
             </div>
             <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:13px;">
                 <div>Total Due: <strong>₹${Number(inv.Total_Due).toFixed(2)}</strong></div>
@@ -739,7 +847,7 @@ function submitPayment() {
             paymentMode: mode,
             transactionRef: txRef,
             staffEmail: verifiedStaffEmail,
-            isDemoMode: false
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 // ========== APPLICATIONS PANEL ==========
@@ -756,6 +864,7 @@ function renderApplicationsList() {
                 return;
             }
 
+            contextPayload.applications = result.applications || [];
             let apps = result.applications || [];
             if (statusFilter) apps = apps.filter(a => a.Review_Status === statusFilter);
 
@@ -774,7 +883,7 @@ function renderApplicationsList() {
             let html = '';
             apps.forEach(app => {
                 const colors = statusColors[app.Review_Status] || { bg: '#f1f5f9', color: '#475569' };
-                html += `
+               html += `
                 <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
@@ -782,8 +891,20 @@ function renderApplicationsList() {
                             <div style="font-size:12px; color:#64748b;">${app.Application_ID}</div>
                             <div style="font-size:12px; color:#64748b; margin-top:2px;">Submitted: ${app.Submission_Timestamp}</div>
                         </div>
-                        <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
-                            ${(app.Review_Status || '').replace('_', ' ')}
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                                ${(app.Review_Status || '').replace('_', ' ')}
+                            </div>
+                            <div style="position:relative;">
+                                <button onclick="toggleAppMenu('${app.Application_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                               <div id="appMenu_${app.Application_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:160px;">
+                                    ${app.Review_Status === 'Approved' ? `
+                                    <div onclick="openEditApplicationModal('${app.Application_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">✏️ Edit Details</div>
+                                    <div onclick="openEditDocumentsModal('${app.Application_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📁 Edit Documents</div>
+                                    ` : ''}
+                                    <div onclick="deleteApplicationRow('${app.Application_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div style="margin-top:10px; font-size:12px; color:#475569; line-height:1.6;">
@@ -794,12 +915,22 @@ function renderApplicationsList() {
                     </div>
                     <button class="master-action-btn btn-sync" style="margin-top:10px; padding:8px; font-size:12px;" onclick="toggleDocumentsPanel('${app.Application_ID}')">📁 View Documents</button>
                     <div id="docsPanel_${app.Application_ID}" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border-radius:8px;"></div>
-                    ${app.Review_Status === 'Pending_Review' ? `
-                    <div style="display:flex; gap:8px; margin-top:12px;">
-                        <button class="master-action-btn btn-commit" style="flex:1; padding:8px; font-size:12px;" onclick="updateAppStatus('${app.Application_ID}', 'Approved')">✅ Approve</button>
-                        <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#f59e0b; color:white;" onclick="updateAppStatus('${app.Application_ID}', 'Waitlisted')">⏳ Waitlist</button>
-                        <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#dc2626; color:white;" onclick="updateAppStatus('${app.Application_ID}', 'Rejected')">❌ Reject</button>
-                    </div>` : ''}
+                ${app.Review_Status === 'Pending_Review' && contextPayload.isAdmin ? `
+                        <div style="display:flex;gap:8px;margin-top:12px;">
+                            <button onclick="updateAppStatus('${app.Application_ID}','Approved')"
+                                style="flex:1;padding:10px;border-radius:8px;border:none;background:#16a34a;color:white;font-weight:700;font-size:13px;cursor:pointer;">✅ Approve</button>
+                            <button onclick="updateAppStatus('${app.Application_ID}','Rejected')"
+                                style="flex:1;padding:10px;border-radius:8px;border:none;background:#cc0000;color:white;font-weight:700;font-size:13px;cursor:pointer;">❌ Reject</button>
+                            <button onclick="updateAppStatus('${app.Application_ID}','Waitlisted')"
+                                style="flex:1;padding:10px;border-radius:8px;border:none;background:#d97706;color:white;font-weight:700;font-size:13px;cursor:pointer;">⏳ Waitlist</button>
+                        </div>` : ''}
+                ${app.Review_Status === 'Waitlisted' && contextPayload.isAdmin ? `
+                        <div style="display:flex;gap:8px;margin-top:12px;">
+                            <button onclick="updateAppStatus('${app.Application_ID}','Approved')"
+                                style="flex:1;padding:10px;border-radius:8px;border:none;background:#16a34a;color:white;font-weight:700;font-size:13px;cursor:pointer;">✅ Approve</button>
+                            <button onclick="updateAppStatus('${app.Application_ID}','Rejected')"
+                                style="flex:1;padding:10px;border-radius:8px;border:none;background:#cc0000;color:white;font-weight:700;font-size:13px;cursor:pointer;">❌ Reject</button>
+                        </div>` : ''}
                 </div>`;
             });
 
@@ -808,7 +939,7 @@ function renderApplicationsList() {
         .withFailureHandler(function() {
             container.innerHTML = '<div style="text-align:center; padding:20px; color:#991b1b;">Connection failed.</div>';
         })
-        .getOnboardingApplications();
+        .getOnboardingApplications(currentSystemIsDemoMode);
 }
 
 function updateAppStatus(applicationId, newStatus) {
@@ -862,7 +993,7 @@ function toggleDocumentsPanel(applicationId) {
                         <strong>${doc.Document_Type.replace('_', ' ')}</strong>
                         <span style="color:#94a3b8;"> — ${doc.Verification_Status}</span>
                     </div>
-                    <button class="master-action-btn btn-commit" style="padding:6px 10px; font-size:11px; margin-top:0;" onclick="viewSecureDocument('${doc.Google_Drive_File_ID}', '${doc.Document_Type}')">👁️ View</button>
+                    <button class="master-action-btn btn-commit" style="padding:6px 10px; font-size:11px; margin-top:0;" onclick="viewSecureDocument('${doc.Google_Drive_File_ID}', '${doc.Document_Type}')"> View</button>
                 </div>`;
             });
             panel.innerHTML = html;
@@ -1032,7 +1163,8 @@ function saveFeeConfig() {
             baseFeeAmount: baseFee,
             kitFeeAmount: kitFee,
             registrationFeeAmount: regFee,
-            staffEmail: verifiedStaffEmail
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 function renderDiscountList() {
@@ -1098,7 +1230,7 @@ function saveDiscount() {
             btn.innerText = "✅ Save Discount";
             alert("Connection failed.");
         })
-        .saveDiscountConfiguration({ name: name, percentage: pct });
+        .saveDiscountConfiguration({ name: name, percentage: pct, isDemoMode: currentSystemIsDemoMode });
 }
 // ========== LEAVE REQUESTS ==========
 function populateLeaveStudentDropdown() {
@@ -1180,7 +1312,8 @@ function submitNewLeave() {
             breakStartDate: startDate,
             breakEndDate: endDate,
             leaveReason: reason,
-            staffEmail: verifiedStaffEmail
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 
@@ -1242,7 +1375,7 @@ function renderLeaveList() {
         .withFailureHandler(function() {
             container.innerHTML = '<div style="text-align:center; padding:20px; color:#991b1b;">Connection failed.</div>';
         })
-        .getLeaveRequests();
+        .getLeaveRequests(currentSystemIsDemoMode);
 }
 
 function updateLeave(leaveId, newStatus) {
@@ -1260,7 +1393,7 @@ function updateLeave(leaveId, newStatus) {
         .withFailureHandler(function() {
             alert("Connection failed. Please try again.");
         })
-        .updateLeaveStatus(leaveId, newStatus, verifiedStaffEmail);
+        .updateLeaveStatus(leaveId, newStatus, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 function toggleMenu(menuId) {
     document.querySelectorAll('[id^="feeMenu_"], [id^="discMenu_"]').forEach(m => {
@@ -1278,7 +1411,7 @@ function deleteFeeConfig(feeConfigId) {
             else { alert('Error: ' + result.error); }
         })
         .withFailureHandler(function() { alert('Connection failed.'); })
-        .deleteFeeConfig(feeConfigId, verifiedStaffEmail);
+        .deleteFeeConfig(feeConfigId, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 
 function deleteDiscount(discountId) {
@@ -1289,7 +1422,7 @@ function deleteDiscount(discountId) {
             else { alert('Error: ' + result.error); }
         })
         .withFailureHandler(function() { alert('Connection failed.'); })
-        .deleteDiscount(discountId, verifiedStaffEmail);
+        .deleteDiscount(discountId, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 
 function toggleInvoiceMenu(invoiceId) {
@@ -1313,7 +1446,7 @@ function deleteInvoice(invoiceId) {
         .withFailureHandler(function() {
             alert('Connection failed. Please try again.');
         })
-        .deleteInvoice(invoiceId, verifiedStaffEmail);
+        .deleteInvoice(invoiceId, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 
 
@@ -1338,8 +1471,299 @@ document.addEventListener('click', function(e) {
         document.querySelectorAll('[id^="menu_"]').forEach(m => m.style.display = 'none');
     }
 });
+function toggleAppMenu(appId) {
+    document.querySelectorAll('[id^="appMenu_"]').forEach(m => {
+        if (m.id !== 'appMenu_' + appId) m.style.display = 'none';
+    });
+    const menu = document.getElementById('appMenu_' + appId);
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
 
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="appMenu_"]') && e.target.textContent !== '⋮') {
+        document.querySelectorAll('[id^="appMenu_"]').forEach(m => m.style.display = 'none');
+    }
+});
+
+let currentAppsListCache = [];
+
+function openEditApplicationModal(appId) {
+    const menuItem = document.querySelector(`#appMenu_${appId} div[onclick*="openEditApplicationModal"]`);
+    if (menuItem) {
+        menuItem.style.pointerEvents = 'none';
+        menuItem.style.opacity = '0.5';
+        menuItem.innerText = '⏳ Loading...';
+    }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (menuItem) {
+                menuItem.style.pointerEvents = 'auto';
+                menuItem.style.opacity = '1';
+                menuItem.innerHTML = '✏️ Edit Details';
+            }
+
+            if (!result.success) { alert("Error loading application: " + result.error); return; }
+            const app = result.applications.find(a => a.Application_ID === appId);
+            if (!app) { alert("Application not found."); return; }
+
+            document.getElementById('editAppId').value = app.Application_ID;
+            document.getElementById('editAppFirstName').value = app.Player_First_Name || '';
+            document.getElementById('editAppLastName').value = app.Player_Last_Name || '';
+            document.getElementById('editAppParentName').value = app.Parent_Name || '';
+            document.getElementById('editAppParentEmail').value = app.Parent_Email || '';
+            document.getElementById('editAppParentPhone').value = app.Parent_Phone || '';
+            document.getElementById('editAppKitShirt').value = app.Kit_Shirt || '';
+            document.getElementById('editAppKitShorts').value = app.Kit_Shorts || '';
+            document.getElementById('editAppMedical').value = (app.Medical_Alert_Flags === 'None' ? '' : app.Medical_Alert_Flags) || '';
+
+            // Populate Center dropdown
+            const centerSel = document.getElementById('editAppCenterSelect');
+            centerSel.innerHTML = '<option value="">-- Select Center --</option>';
+            (contextPayload.facilities || []).forEach(f => {
+                centerSel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+            });
+            centerSel.value = app.Target_Center_ID || '';
+
+            // Populate Batch dropdown filtered to that center
+            function populateEditBatches() {
+                const batchSel = document.getElementById('editAppBatchSelect');
+                batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+                (contextPayload.batches || []).filter(b => b.Center_ID === centerSel.value).forEach(b => {
+                    batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+                });
+                batchSel.value = app.Target_Batch_ID || '';
+            }
+            populateEditBatches();
+            centerSel.onchange = populateEditBatches;
+
+            document.getElementById('editApplicationModalOverlay').style.display = 'flex';
+        })
+        .withFailureHandler(function() {
+            if (menuItem) {
+                menuItem.style.pointerEvents = 'auto';
+                menuItem.style.opacity = '1';
+                menuItem.innerHTML = '✏️ Edit Details';
+            }
+            alert("Connection failed. Please try again.");
+        })
+        .getOnboardingApplications(currentSystemIsDemoMode);
+}
+function closeEditApplicationModal() {
+    document.getElementById('editApplicationModalOverlay').style.display = 'none';
+}
+
+function submitApplicationEdit() {
+    const applicationId = document.getElementById('editAppId').value;
+    const firstName = document.getElementById('editAppFirstName').value.trim();
+    const lastName = document.getElementById('editAppLastName').value.trim();
+    const centerId = document.getElementById('editAppCenterSelect').value;
+    const batchId = document.getElementById('editAppBatchSelect').value;
+    const parentName = document.getElementById('editAppParentName').value.trim();
+    const parentEmail = document.getElementById('editAppParentEmail').value.trim();
+    const parentPhone = document.getElementById('editAppParentPhone').value.trim();
+    const kitShirt = document.getElementById('editAppKitShirt').value.trim();
+    const kitShorts = document.getElementById('editAppKitShorts').value.trim();
+    const medicalAlerts = document.getElementById('editAppMedical').value.trim();
+
+    if (!centerId || !batchId) { alert("Please select Center and Batch."); return; }
+
+    const saveBtn = document.querySelector('#editApplicationModalOverlay .btn-commit');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "Saving..."; }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "Save Changes"; }
+            if (result.success) {
+                closeEditApplicationModal();
+                renderApplicationsList();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "Save Changes"; }
+            alert("Connection failed. Please try again.");
+        })
+        .updateApplicationDetails({
+            applicationId: applicationId,
+            firstName: firstName,
+            lastName: lastName,
+            centerId: centerId,
+            batchId: batchId,
+            parentName: parentName,
+            parentEmail: parentEmail,
+            parentPhone: parentPhone,
+            kitShirt: kitShirt,
+            kitShorts: kitShorts,
+            medicalAlerts: medicalAlerts || "None",
+            isDemoMode: currentSystemIsDemoMode
+        });
+}
+function deleteApplicationRow(appId) {
+    if (!confirm('Permanently delete this application? This cannot be undone.')) return;
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                renderApplicationsList();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() { alert("Connection failed."); })
+        .deleteApplication(appId, verifiedStaffEmail, currentSystemIsDemoMode);
+}
+//edit the documnets
+function openEditDocumentsModal(applicationId) {
+    document.getElementById('editDocsAppId').value = applicationId;
+    document.getElementById('editDocsListContainer').innerHTML = '<div style="font-size:12px; color:#64748b;">Loading documents...</div>';
+    document.getElementById('editDocumentsModalOverlay').style.display = 'flex';
+    refreshEditDocsList(applicationId);
+}
+
+function refreshEditDocsList(applicationId) {
+    const container = document.getElementById('editDocsListContainer');
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) {
+                container.innerHTML = '<div style="font-size:12px; color:#991b1b;">Error: ' + result.error + '</div>';
+                return;
+            }
+            if (result.documents.length === 0) {
+                container.innerHTML = '<div style="font-size:12px; color:#64748b;">No documents uploaded yet.</div>';
+                return;
+            }
+            let html = '';
+            result.documents.forEach(doc => {
+                const isVerified = doc.Verification_Status === 'Verified';
+                const statusHtml = contextPayload.isAdmin
+                    ? `<div onclick="toggleDocVerification('${doc.Google_Drive_File_ID}', '${applicationId}', '${doc.Verification_Status}')" style="cursor:pointer; font-size:11px; font-weight:700; color:${isVerified ? '#166534' : '#94a3b8'}; text-decoration:underline; text-decoration-style:dotted;">${doc.Verification_Status} (tap to toggle)</div>`
+                    : `<div style="font-size:11px; color:${isVerified ? '#166534' : '#94a3b8'}; font-weight:500;">${doc.Verification_Status}</div>`;
+
+                html += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #e2e8f0;">
+                    <div>
+                        <div style="font-size:13px; font-weight:700; color:#1e293b;">${doc.Document_Type.replace('_', ' ')}</div>
+                        ${statusHtml}
+                    </div>
+                    <div style="display:flex; gap:6px; flex-shrink:0;">
+                        <button style="padding:6px 12px; font-size:12px; font-weight:600; border-radius:6px; border:1px solid #cbd5e1; cursor:pointer; background:white; color:#0f172a;" onclick="viewSecureDocument('${doc.Google_Drive_File_ID}', '${doc.Document_Type}')">View</button>
+                        <button style="padding:6px 12px; font-size:12px; font-weight:600; border-radius:6px; border:1px solid #fca5a5; cursor:pointer; background:white; color:#dc2626;" onclick="deleteEditDocument('${doc.Google_Drive_File_ID}', '${applicationId}')">Delete</button>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        })
+        .withFailureHandler(function() {
+            container.innerHTML = '<div style="font-size:12px; color:#991b1b;">Connection failed.</div>';
+        })
+        .getDocumentsForEntity(applicationId);
+}
+//delete the document
+function deleteEditDocument(fileId, applicationId) {
+    if (!confirm("Delete this document? This cannot be undone.")) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                refreshEditDocsList(applicationId);
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed. Please try again.");
+        })
+        .deleteEntityDocument(fileId, verifiedStaffEmail);
+}
+
+function closeEditDocumentsModal() {
+    document.getElementById('editDocumentsModalOverlay').style.display = 'none';
+}
+//toggle button for verification
+function toggleDocVerification(fileId, applicationId, currentStatus) {
+    const newStatus = currentStatus === 'Verified' ? 'Unverified' : 'Verified';
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                refreshEditDocsList(applicationId);
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed. Please try again.");
+        })
+        .updateDocumentVerificationStatus(fileId, newStatus, verifiedStaffEmail, contextPayload.isAdmin);
+}
+function uploadDocumentFromEditModal() {
+    const applicationId = document.getElementById('editDocsAppId').value;
+    const docType = document.getElementById('editDocsNewType').value;
+    const fileInput = document.getElementById('editDocsNewFile');
+    const file = fileInput.files[0];
+    const uploadBtn = document.getElementById('uploadDocBtn');
+
+    if (!file) { alert("Please choose a file first."); return; }
+    
+    // Permanent size limit check
+    const maxSizeMB = 4;
+    if (file.size > maxSizeMB * 1024 * 1024) {
+        alert("File too large! Maximum allowed size is 4MB.\n\nYour file: " + (file.size / (1024*1024)).toFixed(1) + "MB\n\nPlease compress the file and try again.");
+        fileInput.value = '';
+        return;
+    }
+
+    if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.innerText = "Uploading...";
+    }
+
+    const app = (contextPayload.applications || []).find(a => a.Application_ID === applicationId);
+    const playerName = app ? (app.Player_First_Name + "_" + app.Player_Last_Name) : applicationId;
+    const centerId = app ? app.Target_Center_ID : "";
+    const centerObj = (contextPayload.facilities || []).find(f => f.Center_ID === centerId);
+    const centerName = centerObj ? centerObj.Center_Name : (centerId || "Unassigned_Center");
+
+    const reader = new FileReader();
+    reader.onload = function() {
+        const base64Data = reader.result.split(',')[1];
+
+        google.script.run
+            .withSuccessHandler(function(result) {
+                if (uploadBtn) {
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerText = "📎 Upload";
+                }
+                if (result.success) {
+                    alert("Document uploaded successfully!");
+                    fileInput.value = '';
+                    refreshEditDocsList(applicationId);
+                } else {
+                    alert("Error: " + result.error);
+                }
+            })
+            .withFailureHandler(function() {
+                if (uploadBtn) {
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerText = "📎 Upload";
+                }
+                alert("Upload failed. Please try again.");
+            })
+            .uploadEntityDocument({
+                entityId: applicationId,
+                playerName: playerName,
+                centerName: centerName,
+                documentType: docType,
+                base64Data: base64Data,
+                mimeType: file.type,
+                fileName: file.name
+            });
+    };
+    reader.readAsDataURL(file);
+}
 </script>
+
 
 </body>
 </html>

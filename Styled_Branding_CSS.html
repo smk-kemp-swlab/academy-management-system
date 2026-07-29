@@ -1,5 +1,6 @@
 <style>
-    :root { --primary: #cc0000; --dark: #1e293b; --light: #f8fafc; --border: #cbd5e1; --blue: #0288d1; --success: #16a34a; }
+    :root { --primary: #cc0000; --dark: #1e293b; --light: #f8fafc; --border: #cbd5e1; --blue: #0288d1; --success: #16a34a; --academy-name: "Kemp FC"; }
+h1.brand-name::before { content: var(--academy-name); }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: var(--light); color: var(--dark); padding: 12px; -webkit-tap-highlight-color: transparent; transition: border-top 0.2s ease; }
     .container { max-width: 500px; margin: 0 auto; background: white; padding: 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
