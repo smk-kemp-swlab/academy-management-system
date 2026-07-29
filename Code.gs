@@ -11,35 +11,59 @@ const GLOBAL_SYSTEM_CONFIG = {
   SPOKE_ATTENDANCE_ID: "11i7It5g5xXyT1dwJ_mnfoDtzCxJZDKyHp_l7b1DH6WM",
   SPOKE_FINANCIALS_ID: "1REgMO_SvWt_HmYqczLUXmaJAlr5SZgVRX8q8vflZN5c",
 
+
   // 🌍 GLOBAL CONFIGURATION ANCHOR: DEMO DATA SYSTEM
-  DEMO_CORE_HUB_ID: "1KM5kOApWdKikRCiSCPGb8ldwpF3nbSvNQEVW0AltZig",
-  DEMO_SPOKE_EVALUATIONS_ID: "1qJgZl0Z9iYGFnKfYska1c0eFNzCIIfvTveoZt029yVM",
-  DEMO_SPOKE_ATTENDANCE_ID: "1eny4OoNqnne1cORYhDFF4IGQOnSCn9gkae5LczFa7Pg",
-  DEMO_SPOKE_FINANCIALS_ID: "1rXnrfDVHrZH1NSfWwrTSRdpDatAS09RQP4CvCrUA-qs",
+  DEMO_CORE_HUB_ID: "1YZfUBsx3NzdVQ6GxiwoJcQjJ3sNeNy0p2VGDr7uUg7k",
+  DEMO_SPOKE_EVALUATIONS_ID: "1bJUeMUcU9r9eOkH1BcS7CDf4ArYyBIpLiGRk9X7enx4",
+  DEMO_SPOKE_ATTENDANCE_ID: "13ETYFEH1Y4tVSYmbH1LCmAm70oQucQnnMl9EG9Jp0hY",
+  DEMO_SPOKE_FINANCIALS_ID: "1qFKzMNAXhFQ5auS3ashgD3bZwf4WWSnNv-u71-hNtRA",
 
   // 🌍 GLOBAL CONFIGURATION ANCHOR: IDENTITY & ACCESS MANAGEMENT SYSTEM
   CONFIG_IAM_MASTER_ID: "1Ge1y-BOPhM0MtMTichv2Jv1PBVwMwKKsu3prw7a98O4",
 
   GLOBAL_TIMEZONE: "Asia/Kolkata"
 }; 
-
+//This is the entry point of a Google Apps Script web application. (Main)
 function doGet(e) {
   var appModule = (e && e.parameter && e.parameter.app) || "eval";
+  var academyId = (e && e.parameter && e.parameter.school) || "default";
   var fileName = "App_Performance_Engine";
   
   if (appModule === "attendance") fileName = "App_Attendance_System";
   if (appModule === "billing")    fileName = "App_Financial_Dashboard";
   if (appModule === "onboarding") fileName = "App_Onboarding_Form";
   if (appModule === "staff")      fileName = "App_Staff_Board";
+  if (appModule === "custom_session") fileName = "App_Custom_Session";
   
-  return HtmlService.createTemplateFromFile(fileName).evaluate()
-      .setTitle('Kemp Management Suite Engine')
+var template = HtmlService.createTemplateFromFile(fileName);
+  var branding = getBrandingConfig(academyId);
+
+  template.brandAcademyName = branding.Academy_Name;
+  template.brandLogoUrl = branding.Logo_URL;
+  template.brandColorPrimary = branding.Color_Primary;
+  template.brandColorDark = branding.Color_Dark;
+  template.brandColorLight = branding.Color_Light;
+  template.brandColorBorder = branding.Color_Border;
+  template.brandColorBlue = branding.Color_Blue;
+  template.brandColorSuccess = branding.Color_Success;
+
+  // Pass through custom-session URL params server-side, since window.location.search
+  // inside the rendered iframe does not reflect the outer page's real query string.
+template.urlSessionName = (e && e.parameter && e.parameter.session) || "";
+template.urlCoachEmail = (e && e.parameter && e.parameter.coach) || "";
+template.urlIsDemoMode = (e && e.parameter && e.parameter.demo === "true");
+template.urlPageMode = (e && e.parameter && e.parameter.mode) || "entry";
+template.deployedUrl = ScriptApp.getService().getUrl();
+
+  return template.evaluate()
+      .setTitle(branding.Academy_Name + ' Management Suite')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
 }
-
-function getPerformanceEngineContext(isDemoMode) {
+//called when performance engine starts
+//loads all the data and send it to the frontend
+function getPerformanceEngineContext(isDemoMode, staffEmail) {
   try {
-    var userEmail = Session.getActiveUser().getEmail();
+    var userEmail = staffEmail || Session.getActiveUser().getEmail();
     var hasValidEmail = (userEmail && userEmail.trim() !== "");
     
     var targetHubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
@@ -52,6 +76,12 @@ function getPerformanceEngineContext(isDemoMode) {
     var batchValues = hubSS.getSheetByName("Batches_Registry").getDataRange().getValues();
     var rosterValues = hubSS.getSheetByName("Academy_Roster").getDataRange().getValues();
     
+    var staffObjects = parseSheetToObjects(staffValues);
+    var currentStaff = staffObjects.find(function(s) {
+        return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (userEmail || "").toLowerCase().trim();
+    });
+    var isAdminUser = currentStaff && (currentStaff.Role_Type === "Director" || currentStaff.Role_Type === "Admin");
+    
     var masterPayload = {
       coaches: parseColumnToFilteredArray(staffValues, "Email_Address"),
       facilities: parseSheetToObjects(facilityValues),
@@ -59,7 +89,7 @@ function getPerformanceEngineContext(isDemoMode) {
       players: parseSheetToObjects(rosterValues),
       
       currentUserEmailTrace: userEmail,
-      isAdmin: (userEmail.toLowerCase() === "samirkamerkar@kempfc.com"),
+      isAdmin: isAdminUser || false,
       isIdentityWarm: hasValidEmail,
       isHealthyPayload: true,
       environmentModeActive: isDemoMode ? "DEMO_SANDBOX" : "LIVE_PRODUCTION"
@@ -84,6 +114,7 @@ function getPerformanceEngineContext(isDemoMode) {
   }
 }
 
+/************** Autheintication strategy switch 7th June 2026
 /************** Autheintication strategy switch 7th June 2026 
  * Removing the serverside identity verification, in favor of simple client side IAM module
 function getIdentityVerificationPacket() {
@@ -147,8 +178,7 @@ function getIdentityVerificationPacket() {
   return verificationResult;
 }
 */
-
-function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode) {
+function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode, templateType, customColumns) {
   try {
     var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
     var ss = SpreadsheetApp.openById(targetWarehouseId);
@@ -208,25 +238,27 @@ function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode) {
         "Assessment_Date", "Logged_Coach_Email", "Timestamp"
     ];
 
-    if (typeLower === "trial") {
-        // 🏃 Trial — full identity card + full scoring (technical included)
-        systemHeaders = [
-            "TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag",
-            "Date_Of_Birth", "Preferred_Position", "Secondary_Position", "Dominant_Foot",
-            "Previous_Club_Experience", "Contact_Number", "Injury_Notes"
-        ].concat(technicalScoringHeaders).concat(commonScoringHeaders).concat(summaryHeaders);
-
-    } else if (typeLower === "club") {
+    if (templateType === 'custom' && customColumns && customColumns.length > 0) {
+        var requiredCustomIdentity = ["TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib"];
+        systemHeaders = requiredCustomIdentity.concat(customColumns);
+      } else if (typeLower === "trial") {
+              // 🏃 Trial — full identity card + full scoring (technical included)
+              systemHeaders = [
+                  "TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag",
+                  "Date_Of_Birth", "Preferred_Position", "Secondary_Position", "Dominant_Foot",
+                  "Previous_Club_Experience", "Contact_Number", "Injury_Notes"
+              ].concat(technicalScoringHeaders).concat(commonScoringHeaders).concat(summaryHeaders);
+          } else if (typeLower === "club") {
         // ⚽ Club — roster lookup identity, technical metrics hidden in UI, no technical columns
         systemHeaders = [
             "TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag"
         ].concat(commonScoringHeaders).concat(summaryHeaders);
 
     } else {
-        // 🎓 Academy (default) — roster lookup identity, full scoring including technical
+        // 🎓 Academy (default) — roster lookup identity, Tactical/Physical/Psych only (no Technical — matches Club, matches UI)
         systemHeaders = [
             "TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag"
-        ].concat(technicalScoringHeaders).concat(commonScoringHeaders).concat(summaryHeaders);
+        ].concat(commonScoringHeaders).concat(summaryHeaders);
     }
     
     newSheet.getRange(1, 1, 1, systemHeaders.length).setValues([systemHeaders]);
@@ -268,11 +300,36 @@ return { success: true, transactionId: txId };
   }
 }
 
-function getActiveEvaluationSessions(isDemoMode) {
-  var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
-  return SpreadsheetApp.openById(targetWarehouseId).getSheets().map(function(sh) { return sh.getName(); });
-}
+function getActiveEvaluationSessions(isDemoMode, frameworkType) {
+  try {
+    var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
+    var ss = SpreadsheetApp.openById(targetWarehouseId);
+    var typeLower = (frameworkType || "").toLowerCase();
 
+    var matchingTabs = ss.getSheets().filter(function(sh) {
+      var name = sh.getName();
+      if (name.indexOf('CUSTOM_') === 0) return false;
+
+      var metadata = sh.getDeveloperMetadata();
+      var storedType = null;
+      for (var i = 0; i < metadata.length; i++) {
+        if (metadata[i].getKey() === 'frameworkType') {
+          storedType = metadata[i].getValue();
+          break;
+        }
+      }
+
+      // Sheets created before this fix have no tag — treat untagged sheets as visible everywhere
+      if (!storedType) return true;
+
+      return storedType === typeLower;
+    }).map(function(sh) { return sh.getName(); });
+
+    return { success: true, tabs: matchingTabs };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
 function parseSheetToObjects(matrix) {
   var headers = matrix[0]; var list = [];
   for (var r = 1; r < matrix.length; r++) {
@@ -294,39 +351,62 @@ function parseColumnToFilteredArray(matrix, headerName) {
 // 🛡️ REUSABLE ECOSYSTEM IDENTITY & ACCESS MANAGEMENT BACKEND SERVICES
 
 /**
- * Scans the centralized database ledger and extracts profile addresses authorized for the active script scope
+ * Scans the centralized IAM ledger and extracts profile addresses authorized for the active script scope —
+ * now also cross-checked against Staff_Registry so only currently Active staff can ever appear in the login list,
+ * even if their IAM_Registry row is still sitting there from before.
  */
 function fetchAuthorizedApplicationProfiles(appScopeKey) {
-  // CONFIGURATION LINK: Lock explicitly onto your unified user sheet vault container
   const vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID; 
   const sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
   const data = sheet.getDataRange().getValues();
-  
+
+  // 🛡️ Build a set of currently Active staff emails from Staff_Registry (the real source of truth)
+  var activeStaffEmails = {};
+  try {
+    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var staffSheet = hubSS.getSheetByName("Staff_Registry");
+    var staffData = staffSheet.getDataRange().getValues();
+    var staffHeaders = staffData[0];
+    var emailIdx = staffHeaders.indexOf("Email_Address");
+    var statusIdx = staffHeaders.indexOf("Status");
+
+    for (var s = 1; s < staffData.length; s++) {
+      var staffEmailCell = String(staffData[s][emailIdx] || "").toLowerCase().trim();
+      var staffStatusCell = String(staffData[s][statusIdx] || "").trim();
+      if (staffEmailCell && staffStatusCell === "Active") {
+        activeStaffEmails[staffEmailCell] = true;
+      }
+    }
+  } catch (staffLookupError) {
+    // If Staff_Registry can't be read for any reason, fail safe: treat as no active staff,
+    // so a broken lookup locks things down rather than silently granting broad access.
+    Logger.log("Staff_Registry cross-check failed: " + staffLookupError.toString());
+  }
+
   let verifiedProfileListing = [];
-  
-  // Start tracking at index 1 to skip row headers cleanly
+
   for (let i = 1; i < data.length; i++) {
     var emailCell   = String(data[i][0]).toLowerCase().trim();
     var statusCell  = String(data[i][1]).trim();
     var passwordCell = String(data[i][2]).trim();
     var approvedApps = String(data[i][3]).toLowerCase().trim();
 
-    // 🧪 ADD THESE TWO DIAGNOSTIC LOG LINES RIGHT HERE:
-    Logger.log("Row " + (i+1) + " Read Check -> Email: '" + emailCell + "', Status: '" + statusCell + "', Apps: '" + approvedApps + "'");
-    Logger.log("Match Evaluation -> Status Match: " + (statusCell === "Active") + " | Scope Match: " + (approvedApps.indexOf(appScopeKey) !== -1));
-    
-    // Ensure the row profile is structurally active and contains authorization matching the app code token
-    if (statusCell === "Active" && approvedApps.indexOf(appScopeKey) !== -1) {
+    var isIamActive = (statusCell === "Active");
+    var isScopeApproved = (approvedApps.indexOf(appScopeKey) !== -1);
+    var isActiveStaffMember = !!activeStaffEmails[emailCell];
+
+    Logger.log("Row " + (i+1) + " -> Email: '" + emailCell + "' | IAM Active: " + isIamActive + " | Scope Match: " + isScopeApproved + " | Active Staff: " + isActiveStaffMember);
+
+    if (isIamActive && isScopeApproved && isActiveStaffMember) {
       verifiedProfileListing.push({
         email: emailCell,
-        hasPassword: (passwordCell !== "") // Tells the frontend UI whether to show registration or challenge boxes
+        hasPassword: (passwordCell !== "")
       });
     }
   }
 
-  // 🧪 ADD This THIRD LOG LINE BEFORE THE RETURN:
   Logger.log("Final Array Built for Frontend: " + JSON.stringify(verifiedProfileListing));
-  
+
   return verifiedProfileListing;
 }
 
@@ -387,9 +467,10 @@ function validateExistingUserCredentials(targetEmail, typedPasswordString) {
   }
   return { isAuthenticated: false, errorMessage: "Profile handle mismatch error bounds." };
 }
-function submitStudentAttendance(records) {
+function submitStudentAttendance(records, isDemoMode) {
   try {
-    var ss = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID);
+    var targetId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_ATTENDANCE_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID;
+    var ss = SpreadsheetApp.openById(targetId);
     var sheet = ss.getSheetByName("Student_Attendance_Log");
     
     if (!sheet) {
@@ -416,20 +497,22 @@ function submitStudentAttendance(records) {
     return { success: false, error: error.toString() };
   }
 }
+
 function submitStaffAttendance(data) {
   try {
-    var ss = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID);
+    var targetId = data.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_ATTENDANCE_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID;
+    var hubTargetId = data.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var ss = SpreadsheetApp.openById(targetId);
     var sheet = ss.getSheetByName("Staff_Attendance_Log");
     
     if (!sheet) {
       return { success: false, error: "Staff_Attendance_Log tab not found." };
     }
 
-    // Look up Full_Name and Role_Type from Staff_Registry
     var fullName = data.email;
     var roleType = "";
     try {
-      var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+      var hubSS = SpreadsheetApp.openById(hubTargetId);
       var staffSheet = hubSS.getSheetByName("Staff_Registry");
       var staffData = staffSheet.getDataRange().getValues();
       var headers = staffData[0];
@@ -445,7 +528,6 @@ function submitStaffAttendance(data) {
         }
       }
     } catch(lookupError) {
-      // If lookup fails, fall back to email
       fullName = data.email;
     }
 
@@ -461,6 +543,25 @@ function submitStaffAttendance(data) {
 
     var attendanceDate = data.retroDate || Utilities.formatDate(new Date(), GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
 
+   var liveLocationLink = "";
+    if (data.latitude && data.longitude) {
+      liveLocationLink = "https://www.google.com/maps?q=" + data.latitude + "," + data.longitude;
+    }
+
+    // sheet.appendRow([
+    //   logId,
+    //   data.email,
+    //   fullName,
+    //   roleType,
+    //   attendanceDate,
+    //   timestamp,
+    //   data.actionType,
+    //   data.ip,
+    //   data.isp || "",
+    //   data.locationName || (data.region ? data.city + ", " + data.region : data.city),
+    //   locationFlag,
+    //   liveLocationLink
+    // ]);
     sheet.appendRow([
       logId,
       data.email,
@@ -472,14 +573,15 @@ function submitStaffAttendance(data) {
       data.ip,
       data.isp || "",
       data.region ? data.city + ", " + data.region : data.city,
-      locationFlag
+      locationFlag,
+      liveLocationLink
     ]);
-    
     return { success: true };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
 }
+
 // ========================================================================
 // 💳 SUBSCRIPTION FINANCIALS — BILLING LEDGER ENGINE
 // ========================================================================
@@ -743,13 +845,13 @@ function submitOnboardingApplication(formData) {
     return { success: false, error: error.toString() };
   }
 }
-function getOnboardingApplications() {
+function getOnboardingApplications(isDemoMode) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Onboarding_Pipeline");
     if (!sheet) return { success: false, error: "Onboarding_Pipeline tab not found." };
     var data = parseSheetToObjects(sheet.getDataRange().getValues());
-    // Most recent first
     data.reverse();
     return JSON.parse(JSON.stringify({ success: true, applications: data }));
   } catch (error) {
@@ -785,6 +887,37 @@ function updateApplicationStatus(applicationId, newStatus, staffEmail) {
       }
     }
     return { success: false, error: "Application not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+//delete the document 
+function deleteEntityDocument(fileId, staffEmail) {
+  try {
+    try {
+      var file = DriveApp.getFileById(fileId);
+      file.setTrashed(true);
+    } catch (fileErr) {
+      // Continue even if the Drive file is already missing
+    }
+
+    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var sheet = financeSS.getSheetByName("Document_Vault_Registry");
+    if (!sheet) return { success: false, error: "Document_Vault_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var fileIdIdx = headers.indexOf("Google_Drive_File_ID");
+    if (fileIdIdx === -1) return { success: false, error: "Google_Drive_File_ID column not found in sheet." };
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][fileIdIdx]) === String(fileId)) {
+        sheet.deleteRow(r + 1);
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: "Document record not found in registry." };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
@@ -860,26 +993,132 @@ function promoteApplicationToStudent(applicationId, staffEmail) {
     return { success: false, error: error.toString() };
   }
 }
-// ========================================================================
-// 🏖️ APPROVED LEAVE REGISTRY — SLIDING MILESTONE ENGINE UI
-// ========================================================================
-
-/**
- * Returns all leave requests, most recent first.
- */
-function getLeaveRequests() {
+//update the student details
+function updateApplicationDetails(payload) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
-    var sheet = financeSS.getSheetByName("Approved_Leave_Registry");
-    if (!sheet) return { success: false, error: "Approved_Leave_Registry tab not found." };
+    var financeId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
+    var sheet = financeSS.getSheetByName("Onboarding_Pipeline");
+    if (!sheet) return { success: false, error: "Onboarding_Pipeline tab not found." };
 
-    var data = parseSheetToObjects(sheet.getDataRange().getValues());
-    data.reverse();
-    return JSON.parse(JSON.stringify({ success: true, leaves: data }));
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Application_ID");
+    var firstNameIdx = headers.indexOf("Player_First_Name");
+    var lastNameIdx = headers.indexOf("Player_Last_Name");
+    var centerIdx = headers.indexOf("Target_Center_ID");
+    var batchIdx = headers.indexOf("Target_Batch_ID");
+    var parentNameIdx = headers.indexOf("Parent_Name");
+    var parentEmailIdx = headers.indexOf("Parent_Email");
+    var parentPhoneIdx = headers.indexOf("Parent_Phone");
+    var kitShirtIdx = headers.indexOf("Kit_Shirt");
+    var kitShortsIdx = headers.indexOf("Kit_Shorts");
+    var medicalIdx = headers.indexOf("Medical_Alert_Flags");
+
+    var matchedApp = null;
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(payload.applicationId)) {
+        var rowNum = r + 1;
+        if (firstNameIdx !== -1) sheet.getRange(rowNum, firstNameIdx + 1).setValue(payload.firstName || "");
+        if (lastNameIdx !== -1) sheet.getRange(rowNum, lastNameIdx + 1).setValue(payload.lastName || "");
+        if (centerIdx !== -1) sheet.getRange(rowNum, centerIdx + 1).setValue(payload.centerId || "");
+        if (batchIdx !== -1) sheet.getRange(rowNum, batchIdx + 1).setValue(payload.batchId || "");
+        if (parentNameIdx !== -1) sheet.getRange(rowNum, parentNameIdx + 1).setValue(payload.parentName || "");
+        if (parentEmailIdx !== -1) sheet.getRange(rowNum, parentEmailIdx + 1).setValue(payload.parentEmail || "");
+        if (parentPhoneIdx !== -1) sheet.getRange(rowNum, parentPhoneIdx + 1).setValue(payload.parentPhone || "");
+        if (kitShirtIdx !== -1) sheet.getRange(rowNum, kitShirtIdx + 1).setValue(payload.kitShirt || "");
+        if (kitShortsIdx !== -1) sheet.getRange(rowNum, kitShortsIdx + 1).setValue(payload.kitShorts || "");
+        if (medicalIdx !== -1) sheet.getRange(rowNum, medicalIdx + 1).setValue(payload.medicalAlerts || "None");
+
+        matchedApp = data[r];
+        break;
+      }
+    }
+
+    if (!matchedApp) return { success: false, error: "Application not found." };
+
+    // 🌟 Also sync the corresponding Academy_Roster row, if this application was already promoted to a student
+    try {
+      var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+      var hubSS = SpreadsheetApp.openById(hubId);
+      var rosterSheet = hubSS.getSheetByName("Academy_Roster");
+      var rosterData = rosterSheet.getDataRange().getValues();
+      var rosterHeaders = rosterData[0];
+
+      var rFirstIdx = rosterHeaders.indexOf("First_Name");
+      var rLastIdx = rosterHeaders.indexOf("Last_Name");
+      var rParentEmailIdx = rosterHeaders.indexOf("Parent_Email");
+      var rParentNameIdx = rosterHeaders.indexOf("Parent_Name");
+      var rParentPhoneIdx = rosterHeaders.indexOf("Parent_Phone");
+      var rCenterIdx = rosterHeaders.indexOf("Academy_Center_ID");
+      var rBatchIdx = rosterHeaders.indexOf("Academy_Batch_ID");
+      var rKitShirtIdx = rosterHeaders.indexOf("Kit_Size_Shirt");
+      var rKitShortsIdx = rosterHeaders.indexOf("Kit_Size_Shorts");
+      var rMedicalIdx = rosterHeaders.indexOf("Medical_Alert_Flags");
+
+      // Match roster row by original parent email (stable identifier across both sheets)
+      var originalParentEmail = matchedApp[parentEmailIdx];
+
+      for (var rr = 1; rr < rosterData.length; rr++) {
+        if (String(rosterData[rr][rParentEmailIdx]).toLowerCase().trim() === String(originalParentEmail).toLowerCase().trim()) {
+          var rosterRowNum = rr + 1;
+          if (rFirstIdx !== -1) rosterSheet.getRange(rosterRowNum, rFirstIdx + 1).setValue(payload.firstName || "");
+          if (rLastIdx !== -1) rosterSheet.getRange(rosterRowNum, rLastIdx + 1).setValue(payload.lastName || "");
+          if (rParentNameIdx !== -1) rosterSheet.getRange(rosterRowNum, rParentNameIdx + 1).setValue(payload.parentName || "");
+          if (rParentEmailIdx !== -1) rosterSheet.getRange(rosterRowNum, rParentEmailIdx + 1).setValue(payload.parentEmail || "");
+          if (rParentPhoneIdx !== -1) rosterSheet.getRange(rosterRowNum, rParentPhoneIdx + 1).setValue(payload.parentPhone || "");
+          if (rCenterIdx !== -1) rosterSheet.getRange(rosterRowNum, rCenterIdx + 1).setValue(payload.centerId || "");
+          if (rBatchIdx !== -1) rosterSheet.getRange(rosterRowNum, rBatchIdx + 1).setValue(payload.batchId || "");
+          if (rKitShirtIdx !== -1) rosterSheet.getRange(rosterRowNum, rKitShirtIdx + 1).setValue(payload.kitShirt || "");
+          if (rKitShortsIdx !== -1) rosterSheet.getRange(rosterRowNum, rKitShortsIdx + 1).setValue(payload.kitShorts || "");
+          if (rMedicalIdx !== -1) rosterSheet.getRange(rosterRowNum, rMedicalIdx + 1).setValue(payload.medicalAlerts || "None");
+          break;
+        }
+      }
+    } catch (rosterSyncError) {
+      // Roster sync failing shouldn't block the application update itself — log and continue
+      Logger.log("Roster sync failed: " + rosterSyncError.toString());
+    }
+
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
 }
+//verification of the documnets
+
+function updateDocumentVerificationStatus(fileId, newStatus, staffEmail, isAdmin) {
+  try {
+    if (!isAdmin) {
+      return { success: false, error: "Only Admin Directors can verify documents." };
+    }
+
+    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var sheet = financeSS.getSheetByName("Document_Vault_Registry");
+    if (!sheet) return { success: false, error: "Document_Vault_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var fileIdIdx = headers.indexOf("Google_Drive_File_ID");
+    var statusIdx = headers.indexOf("Verification_Status");
+    if (fileIdIdx === -1 || statusIdx === -1) return { success: false, error: "Required columns not found." };
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][fileIdIdx]) === String(fileId)) {
+        sheet.getRange(r + 1, statusIdx + 1).setValue(newStatus);
+        return { success: true, newStatus: newStatus };
+      }
+    }
+
+    return { success: false, error: "Document record not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+// ========================================================================
+// 🏖️ APPROVED LEAVE REGISTRY — SLIDING MILESTONE ENGINE UI
+
 
 /**
  * Submits a new leave request with Approval_Status = "Pending".
@@ -887,7 +1126,8 @@ function getLeaveRequests() {
  */
 function submitLeaveRequest(payload) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Approved_Leave_Registry");
     if (!sheet) return { success: false, error: "Approved_Leave_Registry tab not found." };
 
@@ -895,21 +1135,20 @@ function submitLeaveRequest(payload) {
     var end = new Date(payload.breakEndDate);
     if (end < start) return { success: false, error: "End date cannot be before start date." };
 
-    // Inclusive day count (both start and end day count as break days)
     var totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     var tz = GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE;
     var leaveId = "LV-" + new Date().getTime();
 
     var row = [
-      leaveId,                                                        // Leave_ID
-      payload.studentId,                                              // Student_ID
-      Utilities.formatDate(start, tz, "yyyy-MM-dd"),                  // Break_Start_Date
-      Utilities.formatDate(end, tz, "yyyy-MM-dd"),                    // Break_End_Date
-      totalDays,                                                      // Total_Break_Days
-      payload.leaveReason || "",                                      // Leave_Reason
-      "Pending",                                                      // Approval_Status
-      payload.staffEmail || ""                                        // Authorized_By_Staff_ID
+      leaveId,
+      payload.studentId,
+      Utilities.formatDate(start, tz, "yyyy-MM-dd"),
+      Utilities.formatDate(end, tz, "yyyy-MM-dd"),
+      totalDays,
+      payload.leaveReason || "",
+      "Pending",
+      payload.staffEmail || ""
     ];
 
     sheet.appendRow(row);
@@ -923,9 +1162,10 @@ function submitLeaveRequest(payload) {
 /**
  * Approves or rejects a pending leave request.
  */
-function updateLeaveStatus(leaveId, newStatus, staffEmail) {
+function updateLeaveStatus(leaveId, newStatus, staffEmail, isDemoMode) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Approved_Leave_Registry");
     if (!sheet) return { success: false, error: "Approved_Leave_Registry tab not found." };
 
@@ -947,30 +1187,29 @@ function updateLeaveStatus(leaveId, newStatus, staffEmail) {
     return { success: false, error: error.toString() };
   }
 }
-// ========================================================================
-// 📁 DOCUMENT VAULT — UPLOAD ENGINE (CORRECTED PER DESIGN SECTION 2)
-// ========================================================================
 
-/**
- * Gets a subfolder by name inside a parent folder, creating it if it doesn't exist.
- * Uses a script lock to prevent race conditions when multiple uploads
- * (e.g. Birth Cert + Medical + Waiver) run in parallel for the same student.
- */
-function getOrCreateSubfolder(parentFolder, folderName) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000); // wait up to 30 seconds for the lock
-
+function getLeaveRequests(isDemoMode) {
   try {
-    var existing = parentFolder.getFoldersByName(folderName);
-    if (existing.hasNext()) {
-      return existing.next();
-    }
-    return parentFolder.createFolder(folderName);
-  } finally {
-    lock.releaseLock();
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
+    var sheet = financeSS.getSheetByName("Approved_Leave_Registry");
+    if (!sheet) return { success: false, error: "Approved_Leave_Registry tab not found." };
+
+    var data = parseSheetToObjects(sheet.getDataRange().getValues());
+    data.reverse();
+    return JSON.parse(JSON.stringify({ success: true, leaves: data }));
+  } catch (error) {
+    return { success: false, error: error.toString() };
   }
 }
-
+function getOrCreateSubfolder(parentFolder, subfolderName) {
+  var folders = parentFolder.getFoldersByName(subfolderName);
+  if (folders.hasNext()) {
+    return folders.next();
+  } else {
+    return parentFolder.createFolder(subfolderName);
+  }
+}
 /**
  * Uploads a document to the correct nested Drive path:
  * Master Academy Vault > Center Folder > Player Folder > file
@@ -1071,7 +1310,8 @@ function getDocumentsForEntity(entityId) {
 }
 function saveFeeConfiguration(payload) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Fee_Configuration_Matrix");
     if (!sheet) return { success: false, error: "Fee_Configuration_Matrix tab not found." };
 
@@ -1093,9 +1333,11 @@ function saveFeeConfiguration(payload) {
     return { success: false, error: error.toString() };
   }
 }
+
 function saveDiscountConfiguration(payload) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Discount_Registry");
     if (!sheet) return { success: false, error: "Discount_Registry tab not found." };
 
@@ -1111,9 +1353,11 @@ function saveDiscountConfiguration(payload) {
     return { success: false, error: error.toString() };
   }
 }
-function deleteInvoice(invoiceId, staffEmail) {
+
+function deleteInvoice(invoiceId, staffEmail, isDemoMode) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Billing_Ledger_Invoices");
     if (!sheet) return { success: false, error: "Billing_Ledger_Invoices tab not found." };
     var data = sheet.getDataRange().getValues();
@@ -1130,14 +1374,15 @@ function deleteInvoice(invoiceId, staffEmail) {
     return { success: false, error: error.toString() };
   }
 }
-function deleteFeeConfig(feeConfigId, staffEmail) {
+function deleteFeeConfig(feeConfigId, staffEmail, isDemoMode) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Fee_Configuration_Matrix");
     if (!sheet) return { success: false, error: "Fee_Configuration_Matrix tab not found." };
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
-    var idIdx = headers.indexOf("Fee_Config_ID");
+    var idIdx = headers.indexOf("Config_ID");
     for (var r = 1; r < data.length; r++) {
       if (String(data[r][idIdx]) === String(feeConfigId)) {
         sheet.deleteRow(r + 1);
@@ -1150,9 +1395,10 @@ function deleteFeeConfig(feeConfigId, staffEmail) {
   }
 }
 
-function deleteDiscount(discountId, staffEmail) {
+function deleteDiscount(discountId, staffEmail, isDemoMode) {
   try {
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Discount_Registry");
     if (!sheet) return { success: false, error: "Discount_Registry tab not found." };
     var data = sheet.getDataRange().getValues();
@@ -1169,6 +1415,7 @@ function deleteDiscount(discountId, staffEmail) {
     return { success: false, error: error.toString() };
   }
 }
+
 /**
  * Safely formats a date value that may come back as either a clean string
  * or an auto-converted Date object from the sheet, into "dd MMM yyyy".
@@ -1301,7 +1548,8 @@ function generateNextStaffId(existingStaff) {
  */
 function addStaffMember(payload) {
   try {
-    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
     var sheet = hubSS.getSheetByName("Staff_Registry");
     if (!sheet) return { success: false, error: "Staff_Registry tab not found." };
 
@@ -1336,14 +1584,14 @@ function addStaffMember(payload) {
     return { success: false, error: error.toString() };
   }
 }
-
 /**
  * Edits an existing staff member's Full_Name, Role_Type, Assigned_Center_ID.
  * payload: { staffId, fullName, roleType, centerId }
  */
 function updateStaffMember(payload) {
   try {
-    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
     var sheet = hubSS.getSheetByName("Staff_Registry");
     if (!sheet) return { success: false, error: "Staff_Registry tab not found." };
 
@@ -1452,6 +1700,182 @@ function provisionIAMAccess(email, appScopesArray) {
     return { success: true, created: true };
   } catch (error) {
     return { success: false, error: error.toString() };
+  }
+}
+function isValidHexColor(value) {
+  return typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value.trim());
+}
+
+function getBrandingConfig(academyId) {
+  var fallback = {
+    Academy_ID: "default",
+    Academy_Name: "KEMP FC",
+    Logo_URL: "",
+    Color_Primary: "#cc0000",
+    Color_Dark: "#1e293b",
+    Color_Light: "#f8fafc",
+    Color_Border: "#cbd5e1",
+    Color_Blue: "#0288d1",
+    Color_Success: "#16a34a"
+  };
+
+  try {
+    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
+    var sheet = hubSS.getSheetByName("Branding_Config");
+    if (!sheet) return fallback;
+
+    var rows = parseSheetToObjects(sheet.getDataRange().getValues());
+    var targetId = academyId || "default";
+    var match = rows.find(function(r) { return String(r.Academy_ID).toLowerCase() === targetId.toLowerCase(); });
+
+    if (!match) return fallback;
+
+    // Validate every color field individually — fall back to Kemp's value if malformed
+    var colorFields = ["Color_Primary", "Color_Dark", "Color_Light", "Color_Border", "Color_Blue", "Color_Success"];
+    colorFields.forEach(function(field) {
+      if (!isValidHexColor(match[field])) {
+        match[field] = fallback[field];
+      }
+    });
+
+    return match;
+  } catch (e) {
+    return fallback;
+  }
+}
+function getCustomSessionColumns(sessionName, isDemoMode) {
+  try {
+    var ss = SpreadsheetApp.openById(
+      isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID
+    );
+    var sheet = ss.getSheetByName(sessionName);
+    if (!sheet) return [];
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    return headers.filter(function(h) { return h !== ''; });
+  } catch(e) {
+    return [];
+  }
+}
+
+function saveCustomSessionEntry(sessionName, rowData, coachEmail, isDemoMode) {
+  try {
+    var ss = SpreadsheetApp.openById(
+      isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID
+    );
+    var sheet = ss.getSheetByName(sessionName);
+    Logger.log("Session name received: " + sessionName);
+    if (!sheet) return { success: false, error: "Session sheet not found." };
+
+    // Read existing headers (row 1)
+    var lastCol = sheet.getLastColumn();
+    var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+
+    // Make sure the required identity columns exist, in the right order,
+    // followed by any custom columns already present, followed by anything
+    // new in rowData that isn't a header yet.
+    var requiredFirst = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib'];
+
+    var missingRequired = requiredFirst.filter(function(h) { return headers.indexOf(h) === -1; });
+
+    var incomingKeys = Object.keys(rowData);
+    var missingFromIncoming = incomingKeys.filter(function(k) {
+      return headers.indexOf(k) === -1 && requiredFirst.indexOf(k) === -1;
+    });
+
+    var headersChanged = false;
+
+    // If the sheet is brand new (no headers at all), build the full header row.
+    if (headers.length === 0) {
+      headers = requiredFirst.concat(missingFromIncoming);
+      headersChanged = true;
+    } else {
+      // Insert any missing required columns at the front (only if truly missing)
+      if (missingRequired.length > 0) {
+        headers = requiredFirst.concat(headers.filter(function(h) { return requiredFirst.indexOf(h) === -1; }));
+        headersChanged = true;
+      }
+      // Append any new custom columns not yet tracked
+      if (missingFromIncoming.length > 0) {
+        headers = headers.concat(missingFromIncoming);
+        headersChanged = true;
+      }
+    }
+
+    if (headersChanged) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+
+    var row = headers.map(function(h) { return rowData[h] || ''; });
+    sheet.appendRow(row);
+
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+//app custom
+function getAllCustomSessions(isDemoMode) {
+  try {
+    var ss = SpreadsheetApp.openById(
+      isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID
+    );
+    var sheets = ss.getSheets();
+    return sheets
+      .map(function(s) { return s.getName(); })
+      .filter(function(name) { return name.startsWith('CUSTOM_'); });
+  } catch(e) {
+    return [];
+  }
+}
+
+function addColumnsToExistingSession(sessionName, newColumns, isDemoMode) {
+  try {
+    var PROTECTED_COLUMNS = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib'];
+    var blocked = newColumns.filter(function(c) { return PROTECTED_COLUMNS.indexOf(c) !== -1; });
+    if (blocked.length > 0) {
+      return { success: false, error: "These column names are reserved: " + blocked.join(', ') };
+    }
+
+    var ss = SpreadsheetApp.openById(
+      isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID
+    );
+    
+    var sheet = ss.getSheetByName(sessionName);
+    if (!sheet) return { success: false, error: "Session not found." };
+
+    var lastCol = sheet.getLastColumn();
+    var newHeaders = newColumns;
+    
+    // Add new column headers
+    sheet.getRange(1, lastCol + 1, 1, newHeaders.length).setValues([newHeaders]);
+
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+function removeColumnFromSession(sessionName, colName, isDemoMode) {
+  try {
+    var PROTECTED_COLUMNS = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib'];
+    if (PROTECTED_COLUMNS.indexOf(colName) !== -1) {
+      return { success: false, error: "This column is required and cannot be removed." };
+    }
+
+    var ss = SpreadsheetApp.openById(
+      isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID
+    );
+    var sheet = ss.getSheetByName(sessionName);
+    if (!sheet) return { success: false, error: "Session not found." };
+
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var colIndex = headers.indexOf(colName);
+    if (colIndex === -1) return { success: false, error: "Column not found." };
+
+    sheet.deleteColumn(colIndex + 1);
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.toString() };
   }
 }
 function include(filename) {
