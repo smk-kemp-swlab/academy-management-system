@@ -923,6 +923,7 @@ function toggleDemoSandboxMode() {
         tray.style.background = "#fef3c7";
         tray.style.borderTopColor = "#f59e0b";
         btn.style.color = "#92400e";
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     } else {
         btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
         tray.style.background = "#f8fafc";
@@ -953,8 +954,13 @@ function openSessionCreationModal() {
     if (newSessionName) newSessionName.value = '';
     if (customColumnsList) customColumnsList.innerHTML = '';
     if (customColumnsSection) customColumnsSection.style.display = 'none';
-    if (newColumnInput) newColumnInput.value = '';
     if (newEditColumnsList) newEditColumnsList.innerHTML = '';
+    pendingBaseName = '';
+    pendingSubLabels = [];
+    const baseNameEl = document.getElementById('newColBaseName');
+    if (baseNameEl) baseNameEl.value = '';
+    const subBuilderEl = document.getElementById('subLabelBuilder');
+    if (subBuilderEl) subBuilderEl.style.display = 'none';
 
     selectSessionTemplate('standard');
     switchSessionTab('create');
@@ -990,21 +996,76 @@ function selectSessionTemplate(type) {
     }
 }
 
-function addCustomColumn() {
-    const input = document.getElementById('newColumnInput');
-    const colName = input.value.trim();
-    if (!colName) return;
-    if (customColumns.includes(colName)) { alert("Column already added!"); return; }
+let pendingBaseName = '';
+let pendingSubLabels = [];
 
-    customColumns.push(colName);
+function startColumnGroup() {
+    const baseInput = document.getElementById('newColBaseName');
+    const baseName = baseInput.value.trim();
+    if (!baseName) { alert("Enter a main header name first."); return; }
+    if (customColumns.includes(baseName)) { alert(`"${baseName}" already exists!`); return; }
+
+    pendingBaseName = baseName;
+    pendingSubLabels = [];
+
+    document.getElementById('baseNamePreview').innerText = baseName;
+    document.getElementById('subLabelBuilder').style.display = 'block';
+    document.getElementById('subLabelChips').innerHTML = '';
+    document.getElementById('newSubLabelInput').value = '';
+    document.getElementById('newSubLabelInput').focus();
+}
+
+function addSubLabel() {
+    const input = document.getElementById('newSubLabelInput');
+    const label = input.value.trim();
+    if (!label) return;
+
+    if (pendingSubLabels.length >= 3) {
+        alert("Maximum 3 sub-columns per group.");
+        return;
+    }
+
+    const suffix = label.replace(/\s+/g, '');
+    const fullName = pendingBaseName + '_' + suffix;
+
+    if (pendingSubLabels.some(s => s.fullName === fullName) || customColumns.includes(fullName)) {
+        alert(`"${label}" already added for this group!`);
+        return;
+    }
+
+    pendingSubLabels.push({ label: label, fullName: fullName });
     input.value = '';
 
-    const container = document.getElementById('customColumnsList');
-    const tag = document.createElement('div');
-    tag.style.cssText = 'background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;';
-    tag.innerHTML = `${colName} <span onclick="removeCustomColumn('${colName}', this)" style="cursor:pointer; color:#dc2626; font-weight:700;">✕</span>`;
-    container.appendChild(tag);
+    const chipContainer = document.getElementById('subLabelChips');
+    const chip = document.createElement('div');
+    chip.style.cssText = 'background:white; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;';
+    chip.innerHTML = `${label} <span onclick="this.parentElement.remove(); pendingSubLabels = pendingSubLabels.filter(s => s.fullName !== '${fullName}');" style="cursor:pointer; color:#dc2626; font-weight:700;">✕</span>`;
+    chipContainer.appendChild(chip);
     input.focus();
+}
+
+function finishColumnGroup() {
+    if (!pendingBaseName) { alert("Click \"Start Group\" first and enter a main header."); return; }
+    if (pendingSubLabels.length === 0) { alert("Please add at least one sub-column (e.g. \"No Pressure\", \"Rating\") before adding this group."); return; }
+
+    const namesToAdd = [pendingBaseName];
+    pendingSubLabels.forEach(function(s) { namesToAdd.push(s.fullName); });
+
+    const container = document.getElementById('customColumnsList');
+    namesToAdd.forEach(function(colName) {
+        customColumns.push(colName);
+        const tag = document.createElement('div');
+        tag.style.cssText = 'background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;';
+        tag.innerHTML = `${colName} <span onclick="removeCustomColumn('${colName}', this)" style="cursor:pointer; color:#dc2626; font-weight:700;">✕</span>`;
+        container.appendChild(tag);
+    });
+
+    // Reset the builder
+    pendingBaseName = '';
+    pendingSubLabels = [];
+    document.getElementById('newColBaseName').value = '';
+    document.getElementById('subLabelBuilder').style.display = 'none';
+    document.getElementById('subLabelChips').innerHTML = '';
 }
 
 function removeCustomColumn(colName, el) {
@@ -1014,8 +1075,8 @@ function removeCustomColumn(colName, el) {
 
 function confirmCreateSession() {
     const rawName = document.getElementById('newSessionName').value.trim();
+    if (!rawName) { alert("Please enter a session name."); return; }
     const sessionName = selectedSessionTemplate === 'custom' ? 'CUSTOM_' + rawName : rawName;
-    if (!sessionName) { alert("Please enter a session name."); return; }
 
     if (selectedSessionTemplate === 'custom' && customColumns.length === 0) {
         alert("Please add at least one column for custom template.");

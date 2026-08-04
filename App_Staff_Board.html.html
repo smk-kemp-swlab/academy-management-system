@@ -91,6 +91,7 @@
                     <option value="Team_Manager">Team Manager</option>
                     <option value="Physio">Physio</option>
                     <option value="Scout">Scout</option>
+                    <option value="Accounts">Accounts</option>
                 </select>
             </div>
             <div class="form-group" style="margin-top:12px;">
@@ -168,15 +169,33 @@
                 <option value="Team_Manager">Team Manager</option>
                 <option value="Physio">Physio</option>
                 <option value="Scout">Scout</option>
+                <option value="Accounts">Accounts</option>
             </select>
         </div>
         <div class="form-group" style="margin-top:12px;">
-            <label>Assigned Center</label>
-            <select id="editCenterSelect">
-                <option value="">-- Unassigned / All Centers --</option>
-            </select>
-        </div>
-        <div class="btn-container" style="margin-top: 18px;">
+    <label>Assigned Center</label>
+    <select id="editCenterSelect">
+        <option value="">-- Unassigned / All Centers --</option>
+    </select>
+</div>
+
+<div class="form-group" style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1;">
+  <label style="margin-bottom:8px;">Grant Login Access To:</label>
+  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
+      <input type="checkbox" id="editGrantEval" value="eval" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Evaluations
+  </label>
+  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
+      <input type="checkbox" id="editGrantAttendance" value="attendance" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Attendance
+  </label>
+  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
+      <input type="checkbox" id="editGrantBilling" value="billing" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Fee Tracker / Billing
+  </label>
+  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; cursor:pointer;">
+      <input type="checkbox" id="editGrantStaff" value="staff" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Staff Board
+  </label>
+</div>
+
+<div class="btn-container" style="margin-top: 18px;">
             <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditModal()">Cancel</button>
             <button class="master-action-btn btn-commit" onclick="submitStaffEdit()">Save Changes</button>
         </div>
@@ -194,6 +213,7 @@ let currentSystemIsDemoMode = false;
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
     if (cachedEmail) {
         verifiedStaffEmail = cachedEmail;
+        currentSystemIsDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
         document.getElementById('simpleAuthGate').remove();
         initStaffBoardApp();
         return;
@@ -298,7 +318,6 @@ function handleFault(err) {
 
 // ========== APP INIT ==========
 function initStaffBoardApp() {
-    currentSystemIsDemoMode = false;  //reset on every refresh
     document.getElementById('loggedInStaff').innerText = verifiedStaffEmail;
     loadStaffBoardContext();
 }
@@ -339,7 +358,7 @@ function populateCenterDropdowns() {
     const facilities = contextPayload.facilities || [];
     ['staffCenterSelect', 'editCenterSelect'].forEach(function(id) {
         const sel = document.getElementById(id);
-        sel.innerHTML = '<option value="">-- Unassigned / All Centers --</option>';
+        sel.innerHTML = '<option value="">-- Unassigned --</option><option value="ALL">-- All Centers --</option>';
         facilities.forEach(f => {
             sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
         });
@@ -375,8 +394,15 @@ function renderStaffList() {
 
     let html = '';
     staff.forEach(s => {
-        const center = facilities.find(f => f.Center_ID === s.Assigned_Center_ID);
-        const centerName = center ? center.Center_Name : 'Unassigned / All Centers';
+       let centerName;
+          if (s.Assigned_Center_ID === 'ALL') {
+              centerName = 'All Centers';
+          } else if (!s.Assigned_Center_ID) {
+              centerName = 'Unassigned';
+          } else {
+              const center = facilities.find(f => f.Center_ID === s.Assigned_Center_ID);
+              centerName = center ? center.Center_Name : 'Unassigned';
+          }
         const colors = statusColors[s.Status] || { bg: '#f1f5f9', color: '#475569' };
         const roleLabel = roleLabels[s.Role_Type] || s.Role_Type;
 
@@ -494,9 +520,27 @@ function openEditModal(staffId) {
     document.getElementById('editFullName').value = s.Full_Name;
     document.getElementById('editRoleType').value = s.Role_Type;
     document.getElementById('editCenterSelect').value = s.Assigned_Center_ID || '';
-    document.getElementById('editStaffModalOverlay').style.display = 'flex';
-}
 
+    // Reset checkboxes while access is loading
+    ['editGrantEval', 'editGrantAttendance', 'editGrantBilling', 'editGrantStaff'].forEach(id => {
+        document.getElementById(id).checked = false;
+    });
+
+    document.getElementById('editStaffModalOverlay').style.display = 'flex';
+
+    google.script.run
+        .withSuccessHandler(function(scopes) {
+            scopes = scopes || [];
+            document.getElementById('editGrantEval').checked = scopes.indexOf('eval') !== -1;
+            document.getElementById('editGrantAttendance').checked = scopes.indexOf('attendance') !== -1;
+            document.getElementById('editGrantBilling').checked = scopes.indexOf('billing') !== -1;
+            document.getElementById('editGrantStaff').checked = scopes.indexOf('staff') !== -1;
+        })
+        .withFailureHandler(function() {
+            // Silent fail — boxes just stay unchecked, admin can still re-grant manually
+        })
+        .getIAMAccessForEmail(s.Email_Address);
+}
 function closeEditModal() {
     document.getElementById('editStaffModalOverlay').style.display = 'none';
 }
@@ -508,6 +552,12 @@ function submitStaffEdit() {
     const centerId = document.getElementById('editCenterSelect').value;
 
     if (!fullName || !roleType) { alert("Please fill Full Name and Role."); return; }
+
+    const grantAppAccess = [];
+    if (document.getElementById('editGrantEval').checked) grantAppAccess.push('eval');
+    if (document.getElementById('editGrantAttendance').checked) grantAppAccess.push('attendance');
+    if (document.getElementById('editGrantBilling').checked) grantAppAccess.push('billing');
+    if (document.getElementById('editGrantStaff').checked) grantAppAccess.push('staff');
 
     google.script.run
         .withSuccessHandler(function(result) {
@@ -526,6 +576,7 @@ function submitStaffEdit() {
             fullName: fullName,
             roleType: roleType,
             centerId: centerId,
+            grantAppAccess: grantAppAccess,
             isDemoMode: currentSystemIsDemoMode
         });
 }
@@ -533,24 +584,28 @@ function submitStaffEdit() {
 // ========== STATUS / DELETE ==========
 function toggleStaffStatus(staffId, newStatus) {
     if (!confirm(`Mark this staff member as ${newStatus}?`)) return;
+    document.querySelectorAll('[id^="staffMenu_"]').forEach(m => m.style.display = 'none');   // ← add this line here
+
     google.script.run
         .withSuccessHandler(function(result) {
             if (result.success) { loadStaffBoardContext(); }
             else { alert("Error: " + result.error); }
         })
         .withFailureHandler(function() { alert("Connection failed."); })
-        .updateStaffStatus(staffId, newStatus, verifiedStaffEmail);
+        .updateStaffStatus(staffId, newStatus, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 
 function deleteStaffRow(staffId) {
     if (!confirm('Permanently delete this staff record? This cannot be undone and removes their row entirely (no audit trail). Use "Mark Terminated" instead if you want to keep history.')) return;
+    document.querySelectorAll('[id^="staffMenu_"]').forEach(m => m.style.display = 'none');   // ← add this line here
+
     google.script.run
         .withSuccessHandler(function(result) {
             if (result.success) { loadStaffBoardContext(); }
             else { alert("Error: " + result.error); }
         })
         .withFailureHandler(function() { alert("Connection failed."); })
-        .deleteStaffMember(staffId, verifiedStaffEmail);
+        .deleteStaffMember(staffId, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 
 
@@ -564,6 +619,7 @@ function updateSandboxUI() {
         tray.style.background = "#fef3c7";
         tray.style.borderTopColor = "#f59e0b";
         btn.style.color = "#92400e";
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     } else {
         btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
         tray.style.background = "#f8fafc";

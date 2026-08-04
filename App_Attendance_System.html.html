@@ -155,6 +155,7 @@ let currentSystemIsDemoMode = false;
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
     if (cachedEmail) {
         verifiedStaffEmail = cachedEmail;
+        currentSystemIsDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
         document.getElementById('simpleAuthGate').remove();
         initAttendanceApp();
         return;
@@ -288,6 +289,7 @@ function toggleDemoSandboxMode() {
         tray.style.background = "#fef3c7";
         tray.style.borderTopColor = "#f59e0b";
         btn.style.color = "#92400e";
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     } else {
         btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
         tray.style.background = "#f8fafc";

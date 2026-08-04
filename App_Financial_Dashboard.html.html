@@ -56,6 +56,10 @@
     <h2>Financial Dashboard</h2>
 </div>
 
+<div id="dashboardLoadingIndicator" style="text-align:center; padding:16px; color:#64748b; font-size:13px; font-weight:600;">
+    🔄 Loading dashboard data...
+</div>
+
     <!-- Module Selector -->
     <div class="dashboard-grid" style="margin-bottom: 16px; grid-template-columns: repeat(2, 1fr);">
     <div class="hub-card active-hub" id="hub_generate" onclick="switchModule('generate')">
@@ -146,7 +150,8 @@
 
     <!-- ============= INVOICE LEDGER MODULE ============= -->
     <div id="module_ledger" style="display: none;">
-        <div class="section-box">
+    <button id="bulkReminderBtn" class="master-action-btn" style="background:#0288d1; color:white; margin-bottom:12px;" onclick="sendBulkReminders()">📧 Send Reminders to All Unpaid</button>
+    <div class="section-box">
             <div class="form-group">
                 <label>Filter By Status</label>
                 <select id="statusFilter" onchange="renderInvoiceList()">
@@ -244,9 +249,9 @@
         <div style="font-weight:700; color:#92400e; font-size:13px;">⚙️ Admin Only — Fee Configuration</div>
     </div>
 
-    <!-- Add New Fee Config Form -->
-    <div class="section-box">
-        <h3 style="margin-top:0;">Add New Fee Configuration</h3>
+    <!-- Add New Fee Config Form (Admin/Accounts only) -->
+<div class="section-box" id="addFeeConfigFormWrapper" style="display:none;">
+    <h3 style="margin-top:0;">Add New Fee Configuration</h3>
         <div class="form-group">
             <label>Center *</label>
             <select id="fcCenterSelect">
@@ -286,16 +291,16 @@
             <label>Registration Fee Amount (₹)</label>
             <input type="number" id="fcRegFee" placeholder="e.g. 1000">
         </div>
-        <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="saveFeeConfig()">✅ Save Fee Configuration</button>
+        <button class="master-action-btn btn-commit" id="saveFeeConfigBtn" style="margin-top:16px;" onclick="saveFeeConfig()">✅ Save Fee Configuration</button>
     </div>
 
     <!-- Existing Fee Configs List -->
     <h3>Existing Fee Configurations</h3>
     <div id="feeConfigListContainer"></div>
 
-    <!-- Discount Management -->
-    <div class="section-box" style="margin-top:16px;">
-        <h3 style="margin-top:0;">Add New Discount</h3>
+    <!-- Discount Management (Admin only) -->
+<div class="section-box" id="addDiscountFormWrapper" style="margin-top:16px; display:none;">
+    <h3 style="margin-top:0;">Add New Discount</h3>
         <div class="form-group">
             <label>Discount Name *</label>
             <input type="text" id="discountNameInput" placeholder="e.g. Sibling Discount, Early Bird">
@@ -304,7 +309,7 @@
             <label>Discount Percentage (%) *</label>
             <input type="number" id="discountPctInput" placeholder="e.g. 10" min="0" max="100">
         </div>
-        <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="saveDiscount()">✅ Save Discount</button>
+        <button class="master-action-btn btn-commit" id="saveDiscountBtn" style="margin-top:16px;" onclick="saveDiscount()">✅ Save Discount</button>
     </div>
 
     <!-- Existing Discounts List -->
@@ -313,7 +318,7 @@
 </div>
     <!-- ============= PAYMENT MODAL ============= -->
     <div id="paymentModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
-        <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+        <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px; max-height:90vh; overflow-y:auto;">
             <h3 style="margin-top:0;">Record Payment</h3>
             <div style="font-size:13px; color:#64748b; margin-bottom:14px;" id="paymentModalInvoiceInfo"></div>
             <div class="form-group">
@@ -322,15 +327,20 @@
             </div>
             <div class="form-group" style="margin-top:12px;">
                 <label>Payment Mode *</label>
-                <select id="paymentModeSelect">
+                <select id="paymentModeSelect" onchange="togglePaymentQrDisplay()">
                     <option value="Cash">Cash</option>
                     <option value="UPI">UPI</option>
                     <option value="Transfer">Transfer</option>
                     <option value="Gateway">Gateway</option>
                 </select>
             </div>
+
+            <div id="paymentQrSection" style="display:none; text-align:center; margin-top:14px; padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
+                <div style="font-size:12px; font-weight:700; color:#15803d; margin-bottom:8px;">Scan to Pay via UPI</div>
+                <img src="https://lh3.googleusercontent.com/d/1HCS6RVqiAhDIlK4pTTtoVZ3oJj7GBKSt" alt="Payment QR Code" style="max-width:220px; width:100%; border-radius:8px; border:1px solid #e2e8f0;">
+            </div>
             <div class="form-group" style="margin-top:12px;">
-                <label>Transaction Reference No.</label>
+                <label>Transaction Reference No. *</label>
                 <input type="text" id="paymentTxRefInput" placeholder="Optional">
             </div>
             <div class="btn-container" style="margin-top: 18px;">
@@ -352,8 +362,8 @@
                 <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Upload New Document</label>
                 <select id="editDocsNewType" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-bottom:8px; font-size:12px;">
                     <option value="Birth_Certificate">Birth Certificate</option>
-                    <option value="Medical">Medical Certificate</option>
-                    <option value="Waiver">Signed Waiver</option>
+                    <option value="Aadhar_Card">Aadhar Card</option>
+                    <option value="Indemnity_Waiver">Indemnity Waiver</option>
                 </select>
                 <input type="file" id="editDocsNewFile" accept=".pdf,.jpg,.jpeg,.png" style="width:100%; font-size:12px; margin-bottom:8px;">
                 <button id="uploadDocBtn" class="master-action-btn btn-sync" style="padding:8px; font-size:12px;" onclick="uploadDocumentFromEditModal()">📤 Upload</button>
@@ -434,6 +444,7 @@ let currentSystemIsDemoMode = false;
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
     if (cachedEmail) {
         verifiedStaffEmail = cachedEmail;
+        currentSystemIsDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
         document.getElementById('simpleAuthGate').remove();
         initFinancialApp();
         return;
@@ -530,7 +541,17 @@ function showError(msg) {
     el.innerText = msg;
     el.style.display = "block";
 }
-
+//for formatting the date
+function formatDateDisplay(dateValue) {
+    if (!dateValue) return "";
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return String(dateValue);
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+}
 function handleFault(err) {
     toggleBtn(false);
     showError("Connection error: " + err.toString());
@@ -544,14 +565,14 @@ function initFinancialApp() {
     document.getElementById('cycleStartDate').value = today;
 
     loadDashboardContext();
-
-    if (currentSystemIsDemoMode) {
-        document.getElementById('demoModeBanner').style.display = 'block';
-    }
 }
 function loadDashboardContext() {
+    const loadingEl = document.getElementById('dashboardLoadingIndicator');
+    if (loadingEl) loadingEl.style.display = 'block';
+
     google.script.run
         .withSuccessHandler(function(ctx) {
+            if (loadingEl) loadingEl.style.display = 'none';
             if (!ctx.success) {
                 alert("Failed to load financial data: " + ctx.error);
                 return;
@@ -561,17 +582,38 @@ function loadDashboardContext() {
             populateFeeConfigDropdown();
             populateDiscountDropdown();
             renderInvoiceList();
+            renderFeeConfigList();
+            renderDiscountList();
 
-            // Show Fee Config card + Sandbox Tray only for admins
-            if (ctx.isAdmin) {
-                document.getElementById('hub_feeconfig').style.display = 'block';
+            const perms = ctx.permissions || { isAdmin: ctx.isAdmin, canManageFeeConfig: ctx.isAdmin, canUseDemoToggle: ctx.isAdmin };
+
+            // Fee Config card visible to everyone; Add-forms only for those who can manage it
+            document.getElementById('hub_feeconfig').style.display = 'block';
+            document.getElementById('addFeeConfigFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
+            document.getElementById('addDiscountFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
+            if (!perms.canGenerateInvoice) {
+              const genBadge = document.querySelector('#hub_generate .badge-mini');
+              if (genBadge) {
+                  genBadge.innerText = 'Restricted Access';
+                  genBadge.style.background = '#f1f5f9';
+                  genBadge.style.color = '#64748b';
+              }
+          }
+
+           if (perms.canUseDemoToggle) {
                 document.getElementById('adminSandboxTray').style.display = 'block';
+            }
+
+            const bulkBtn = document.getElementById('bulkReminderBtn');
+            if (bulkBtn) {
+                bulkBtn.style.display = perms.canViewInvoices ? 'block' : 'none';
             }
         })
         .withFailureHandler(function() {
-            alert("Failed to load data. Please refresh.");
-        })
-        .getBillingDashboardContext(currentSystemIsDemoMode, verifiedStaffEmail);
+    if (loadingEl) loadingEl.style.display = 'none';
+    alert("Failed to load data. Please refresh.");
+})
+.getBillingDashboardContext(currentSystemIsDemoMode, verifiedStaffEmail);
 }
 
 function toggleDemoSandboxMode() {
@@ -583,6 +625,7 @@ function toggleDemoSandboxMode() {
         tray.style.background = "#fef3c7";
         tray.style.borderTopColor = "#f59e0b";
         btn.style.color = "#92400e";
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     } else {
         btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
         tray.style.background = "#f8fafc";
@@ -677,7 +720,23 @@ function previewInvoice() {
     const discountPct = discount ? Number(discount.Discount_Percentage) : 0;
     const netAmount = Math.round((baseAmount * (1 - discountPct / 100)) * 100) / 100;
 
-    const leaves = (contextPayload.leaves || []).filter(l => l.Student_ID === studentId && l.Approval_Status === "Approved");
+    // Find this student's most recent previous invoice (by cycle end date) so we only
+    // count leave that finished AFTER that cycle closed — not leave already accounted for.
+    const priorInvoices = (contextPayload.invoices || []).filter(inv => inv.Student_ID === studentId);
+    let mostRecentCycleEnd = null;
+    priorInvoices.forEach(inv => {
+        const endDate = new Date(inv.Billing_Cycle_End_Date);
+        if (!isNaN(endDate.getTime()) && (!mostRecentCycleEnd || endDate > mostRecentCycleEnd)) {
+            mostRecentCycleEnd = endDate;
+        }
+    });
+
+    const leaves = (contextPayload.leaves || []).filter(l => {
+        if (l.Student_ID !== studentId || l.Approval_Status !== "Approved") return false;
+        if (!mostRecentCycleEnd) return true; // no prior invoice — count all approved leave
+        const leaveEnd = new Date(l.Break_End_Date);
+        return !isNaN(leaveEnd.getTime()) && leaveEnd > mostRecentCycleEnd;
+    });
     const totalBreakDays = leaves.reduce((sum, l) => sum + (Number(l.Total_Break_Days) || 0), 0);
 
     const start = new Date(startDate);
@@ -698,6 +757,10 @@ function previewInvoice() {
 }
 
 function generateInvoice() {
+    if (!contextPayload.permissions.canGenerateInvoice) {
+        alert("You don't have permission to generate invoices. Please contact an Admin.");
+        return;
+    }
     const studentId = document.getElementById('studentSelect').value;
     const configId = document.getElementById('feeConfigSelect').value;
     const discountId = document.getElementById('discountSelect').value;
@@ -741,7 +804,46 @@ function generateInvoice() {
             isDemoMode: currentSystemIsDemoMode
         });
 }
+//sending notification to email
+function sendSingleReminder(invoiceId) {
+    if (!confirm("Send a payment reminder email to this student's parent?")) return;
 
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) alert("Reminder sent!");
+            else alert("Error: " + result.error);
+        })
+        .withFailureHandler(function() { alert("Connection failed. Please try again."); })
+        .sendPaymentReminderEmail(invoiceId, currentSystemIsDemoMode);
+}
+
+function sendBulkReminders() {
+    if (!contextPayload.permissions.canViewInvoices) {
+        alert("You don't have permission to send payment reminders. Please contact an Admin.");
+        return;
+    }
+    if (!confirm("Send payment reminders to ALL unpaid / partially-paid invoices right now?")) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                let msg = `Sent ${result.sentCount} of ${result.totalUnpaid} reminders.`;
+                if (result.skipped && result.skipped.length > 0) {
+                    msg += "\n\nSkipped:\n" + result.skipped.join("\n");
+                }
+                alert(msg);
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() { alert("Connection failed. Please try again."); })
+        .sendBulkPaymentReminders(currentSystemIsDemoMode);
+}
+//payiment in invoices upi toggle button 
+function togglePaymentQrDisplay() {
+    const mode = document.getElementById('paymentModeSelect').value;
+    document.getElementById('paymentQrSection').style.display = mode === 'UPI' ? 'block' : 'none';
+}
 // ========== INVOICE LEDGER ==========
 function renderInvoiceList() {
     if (!contextPayload) return;
@@ -778,7 +880,7 @@ function renderInvoiceList() {
                 <div>
                     <div style="font-weight:700; font-size:14px; color:#1e293b;">${studentName}</div>
                     <div style="font-size:12px; color:#64748b;">${inv.Invoice_ID}</div>
-                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${inv.Billing_Cycle_Start_Date} → ${inv.Billing_Cycle_End_Date}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${formatDateDisplay(inv.Billing_Cycle_Start_Date)} → ${formatDateDisplay(inv.Billing_Cycle_End_Date)}</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
@@ -800,7 +902,11 @@ function renderInvoiceList() {
                 <div>Paid: <strong>₹${Number(inv.Amount_Paid).toFixed(2)}</strong></div>
                 <div>Balance: <strong>₹${balance.toFixed(2)}</strong></div>
             </div>
-    ${inv.Payment_Status !== 'Fully_Paid' ? `<button class="master-action-btn btn-sync" style="margin-top:10px; padding:8px; font-size:12px;" onclick="openPaymentModal('${inv.Invoice_ID}', ${balance})">💳 Record Payment</button>` : ''}
+    ${inv.Payment_Status !== 'Fully_Paid' && contextPayload.permissions.canViewInvoices ? `
+<div style="display:flex; gap:8px; margin-top:10px;">
+    <button class="master-action-btn btn-sync" style="padding:8px; font-size:12px; margin-top:0; flex:1;" onclick="openPaymentModal('${inv.Invoice_ID}', ${balance})">💳 Record Payment</button>
+    <button class="master-action-btn" style="padding:8px; font-size:12px; margin-top:0; flex:1; background:#0288d1; color:white;" onclick="sendSingleReminder('${inv.Invoice_ID}')">📧 Send Reminder</button>
+</div>` : ''}
 </div>`;
     });
 
@@ -813,9 +919,10 @@ function openPaymentModal(invoiceId, balance) {
     document.getElementById('paymentModalInvoiceInfo').innerText = `Invoice: ${invoiceId} | Balance Due: ₹${balance.toFixed(2)}`;
     document.getElementById('paymentAmountInput').value = balance.toFixed(2);
     document.getElementById('paymentTxRefInput').value = '';
+    document.getElementById('paymentModeSelect').value = 'Cash';
+    document.getElementById('paymentQrSection').style.display = 'none';
     document.getElementById('paymentModalOverlay').style.display = 'flex';
 }
-
 function closePaymentModal() {
     document.getElementById('paymentModalOverlay').style.display = 'none';
     activeInvoiceIdForPayment = null;
@@ -827,6 +934,7 @@ function submitPayment() {
     const txRef = document.getElementById('paymentTxRefInput').value.trim();
 
     if (!amount || amount <= 0) { alert("Please enter a valid payment amount."); return; }
+    if (!txRef) { alert("Please enter a Transaction Reference No."); return; }
 
     google.script.run
         .withSuccessHandler(function(result) {
@@ -895,16 +1003,17 @@ function renderApplicationsList() {
                             <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
                                 ${(app.Review_Status || '').replace('_', ' ')}
                             </div>
+                            ${contextPayload.permissions.canManageApplications ? `
                             <div style="position:relative;">
                                 <button onclick="toggleAppMenu('${app.Application_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                                <div id="appMenu_${app.Application_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:160px;">
-                                    ${app.Review_Status === 'Approved' ? `
+                                    ${(app.Review_Status === 'Approved' || app.Review_Status === 'Pending_Review') ? `
                                     <div onclick="openEditApplicationModal('${app.Application_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">✏️ Edit Details</div>
                                     <div onclick="openEditDocumentsModal('${app.Application_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📁 Edit Documents</div>
                                     ` : ''}
                                     <div onclick="deleteApplicationRow('${app.Application_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
                                 </div>
-                            </div>
+                            </div>` : ''}
                         </div>
                     </div>
                     <div style="margin-top:10px; font-size:12px; color:#475569; line-height:1.6;">
@@ -955,6 +1064,10 @@ function updateAppStatus(applicationId, newStatus) {
                 } else {
                     alert(`Application ${newStatus} successfully.`);
                 }
+                // Refresh the whole context (students, invoices, leaves, etc.) so
+                // any newly-created student shows up immediately in Leave Requests,
+                // Invoice Generation, and everywhere else — not just this list.
+                loadDashboardContext();
                 renderApplicationsList();
             } else {
                 alert("Error: " + result.error);
@@ -963,7 +1076,7 @@ function updateAppStatus(applicationId, newStatus) {
         .withFailureHandler(function() {
             alert("Connection failed. Please try again.");
         })
-        .updateApplicationStatus(applicationId, newStatus, verifiedStaffEmail);
+        .updateApplicationStatus(applicationId, newStatus, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 // ========== DOCUMENT VIEWER ==========
 function toggleDocumentsPanel(applicationId) {
@@ -1001,7 +1114,7 @@ function toggleDocumentsPanel(applicationId) {
         .withFailureHandler(function() {
             panel.innerHTML = '<div style="font-size:12px; color:#991b1b;">Connection failed.</div>';
         })
-        .getDocumentsForEntity(applicationId);
+        .getDocumentsForEntity(applicationId, currentSystemIsDemoMode);
 }
 
 function viewSecureDocument(fileId, docType) {
@@ -1108,7 +1221,7 @@ function renderFeeConfigList() {
                 <div style="position:relative;">
                     <button onclick="toggleMenu('feeMenu_${idx}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                     <div id="feeMenu_${idx}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
-                        <div onclick="deleteFeeConfig('${c.Fee_Config_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                        <div onclick="deleteFeeConfig('${c.Config_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
                     </div>
                 </div>` : ''}
             </div>
@@ -1130,7 +1243,7 @@ function saveFeeConfig() {
         return;
     }
 
-    const btn = document.querySelector('#module_feeconfig .btn-commit');
+    const btn = document.getElementById('saveFeeConfigBtn');
     btn.disabled = true;
     btn.innerText = "Saving...";
 
@@ -1208,7 +1321,7 @@ function saveDiscount() {
     if (!name || !pct) { alert("Please fill Discount Name and Percentage."); return; }
     if (Number(pct) < 0 || Number(pct) > 100) { alert("Percentage must be between 0 and 100."); return; }
 
-    const btn = document.querySelector('#module_feeconfig .btn-commit:last-of-type');
+    const btn = document.getElementById('saveDiscountBtn');
     btn.disabled = true;
     btn.innerText = "Saving...";
 
@@ -1329,6 +1442,8 @@ function renderLeaveList() {
                 return;
             }
 
+            contextPayload.leaves = result.leaves || [];   // ← ADD THIS ONE LINE
+
             let leaves = result.leaves || [];
             if (statusFilter) leaves = leaves.filter(l => l.Approval_Status === statusFilter);
 
@@ -1362,7 +1477,7 @@ function renderLeaveList() {
                         </div>
                     </div>
                     <div style="margin-top:8px; font-size:12px; color:#475569;">Reason: ${lv.Leave_Reason}</div>
-                    ${lv.Approval_Status === 'Pending' ? `
+                    ${lv.Approval_Status === 'Pending' && contextPayload.isAdmin ? `
                     <div style="display:flex; gap:8px; margin-top:12px;">
                         <button class="master-action-btn btn-commit" style="flex:1; padding:8px; font-size:12px;" onclick="updateLeave('${lv.Leave_ID}', 'Approved')">✅ Approve</button>
                         <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#dc2626; color:white;" onclick="updateLeave('${lv.Leave_ID}', 'Rejected')">❌ Reject</button>
@@ -1385,6 +1500,9 @@ function updateLeave(leaveId, newStatus) {
         .withSuccessHandler(function(result) {
             if (result.success) {
                 alert(`Leave request ${newStatus}.`);
+                // Refresh contextPayload.leaves so invoice previews/generation
+                // immediately reflect this approval — no hard refresh needed.
+                loadDashboardContext();
                 renderLeaveList();
             } else {
                 alert("Error: " + result.error);
@@ -1405,20 +1523,25 @@ function toggleMenu(menuId) {
 
 function deleteFeeConfig(feeConfigId) {
     if (!confirm('Delete this fee configuration? This cannot be undone.')) return;
+    document.querySelectorAll('[id^="feeMenu_"]').forEach(m => m.style.display = 'none');
     google.script.run
         .withSuccessHandler(function(result) {
-            if (result.success) { alert('Fee configuration deleted.'); loadDashboardContext(); }
+            if (result.success) { loadDashboardContext(); alert('Fee configuration deleted.'); }
             else { alert('Error: ' + result.error); }
         })
         .withFailureHandler(function() { alert('Connection failed.'); })
         .deleteFeeConfig(feeConfigId, verifiedStaffEmail, currentSystemIsDemoMode);
 }
 
+
+
 function deleteDiscount(discountId) {
     if (!confirm('Delete this discount? This cannot be undone.')) return;
+    document.querySelectorAll('[id^="discMenu_"]').forEach(m => m.style.display = 'none');   // ← add this line here
+
     google.script.run
         .withSuccessHandler(function(result) {
-            if (result.success) { alert('Discount deleted.'); loadDashboardContext(); }
+            if (result.success) { loadDashboardContext(); alert('Discount deleted.'); }
             else { alert('Error: ' + result.error); }
         })
         .withFailureHandler(function() { alert('Connection failed.'); })
@@ -1434,16 +1557,34 @@ function toggleInvoiceMenu(invoiceId) {
 }
 function deleteInvoice(invoiceId) {
     if (!confirm('Are you sure you want to delete invoice ' + invoiceId + '? This cannot be undone.')) return;
+
+    const menuItem = document.querySelector(`#menu_${invoiceId} div[onclick*="deleteInvoice"]`);
+    if (menuItem) {
+        menuItem.style.pointerEvents = 'none';
+        menuItem.style.opacity = '0.5';
+        menuItem.innerHTML = '⏳ Deleting...';
+    }
+
     google.script.run
         .withSuccessHandler(function(result) {
             if (result.success) {
-                alert('Invoice deleted successfully.');
                 loadDashboardContext();
+                alert('Invoice deleted successfully.');
             } else {
+                if (menuItem) {
+                    menuItem.style.pointerEvents = 'auto';
+                    menuItem.style.opacity = '1';
+                    menuItem.innerHTML = '🗑️ Delete';
+                }
                 alert('Error: ' + result.error);
             }
         })
         .withFailureHandler(function() {
+            if (menuItem) {
+                menuItem.style.pointerEvents = 'auto';
+                menuItem.style.opacity = '1';
+                menuItem.innerHTML = '🗑️ Delete';
+            }
             alert('Connection failed. Please try again.');
         })
         .deleteInvoice(invoiceId, verifiedStaffEmail, currentSystemIsDemoMode);
@@ -1451,8 +1592,21 @@ function deleteInvoice(invoiceId) {
 
 
 function downloadInvoice(invoiceId) {
+    const menuItem = document.querySelector(`#menu_${invoiceId} div[onclick*="downloadInvoice"]`);
+    if (menuItem) {
+        menuItem.style.pointerEvents = 'none';
+        menuItem.style.opacity = '0.5';
+        menuItem.innerHTML = '⏳ Preparing...';
+    }
+
     google.script.run
         .withSuccessHandler(function(result) {
+            if (menuItem) {
+                menuItem.style.pointerEvents = 'auto';
+                menuItem.style.opacity = '1';
+                menuItem.innerHTML = '📄 Download';
+            }
+            document.querySelectorAll('[id^="menu_"]').forEach(m => m.style.display = 'none');
             if (result.success) {
                 const win = window.open('', '_blank');
                 win.document.write(result.html);
@@ -1462,9 +1616,14 @@ function downloadInvoice(invoiceId) {
             }
         })
         .withFailureHandler(function() {
+            if (menuItem) {
+                menuItem.style.pointerEvents = 'auto';
+                menuItem.style.opacity = '1';
+                menuItem.innerHTML = '📄 Download';
+            }
             alert('Connection failed.');
         })
-        .generateInvoicePDF(invoiceId);
+        .generateInvoicePDF(invoiceId, currentSystemIsDemoMode);
 }
 document.addEventListener('click', function(e) {
     if (!e.target.closest('[id^="menu_"]') && e.target.textContent !== '⋮') {
@@ -1657,7 +1816,7 @@ function refreshEditDocsList(applicationId) {
         .withFailureHandler(function() {
             container.innerHTML = '<div style="font-size:12px; color:#991b1b;">Connection failed.</div>';
         })
-        .getDocumentsForEntity(applicationId);
+        .getDocumentsForEntity(applicationId, currentSystemIsDemoMode);
 }
 //delete the document
 function deleteEditDocument(fileId, applicationId) {
@@ -1674,9 +1833,8 @@ function deleteEditDocument(fileId, applicationId) {
         .withFailureHandler(function() {
             alert("Connection failed. Please try again.");
         })
-        .deleteEntityDocument(fileId, verifiedStaffEmail);
+        .deleteEntityDocument(fileId, verifiedStaffEmail, currentSystemIsDemoMode);
 }
-
 function closeEditDocumentsModal() {
     document.getElementById('editDocumentsModalOverlay').style.display = 'none';
 }
@@ -1695,7 +1853,7 @@ function toggleDocVerification(fileId, applicationId, currentStatus) {
         .withFailureHandler(function() {
             alert("Connection failed. Please try again.");
         })
-        .updateDocumentVerificationStatus(fileId, newStatus, verifiedStaffEmail, contextPayload.isAdmin);
+        .updateDocumentVerificationStatus(fileId, newStatus, verifiedStaffEmail, contextPayload.isAdmin, currentSystemIsDemoMode);
 }
 function uploadDocumentFromEditModal() {
     const applicationId = document.getElementById('editDocsAppId').value;
@@ -1757,7 +1915,8 @@ function uploadDocumentFromEditModal() {
                 documentType: docType,
                 base64Data: base64Data,
                 mimeType: file.type,
-                fileName: file.name
+                fileName: file.name,
+                isDemoMode: currentSystemIsDemoMode
             });
     };
     reader.readAsDataURL(file);

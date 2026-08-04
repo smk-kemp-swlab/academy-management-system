@@ -18,7 +18,7 @@
             <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; line-height: 1.4;">Login to Kemp FC Academy Portal</h2>
             <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
         </div>
-
+       
         <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
             <div style="border: 3px solid #f3f3f3; border-top: 3px solid #0f172a; border-radius: 50%; width: 24px; height: 24px; animation: spinIAM 1s linear infinite; margin: 0 auto 12px auto;"></div>
             <style>@keyframes spinIAM { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
@@ -51,6 +51,12 @@
         </div>
         
         <div id="authErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
+
+        <div id="authDemoToggleTray" style="text-align:center; padding:12px 0; margin-top:16px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+            <button type="button" id="authDemoToggleBtn" onclick="toggleAuthDemoMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight:700;">
+                🔒 Live Login (Tap to switch to Demo Login)
+            </button>
+        </div>
     </div>
 </div>
 <!-- End simple login UI block -->
@@ -69,7 +75,8 @@
             <div style="font-size: 24px; margin-right: 12px;" id="identityIconMarker">👤</div>
             <div>
                 <label style="margin-bottom: 2px; color: #475569;">Coach Assessor Logged In</label>
-                <div id="identityEmailLabel" style="font-weight: 700; font-size: 16px; color: var(--dark);">Resolving Google Session Token...</div>
+               <div id="identityEmailLabel" style="font-weight: 700; font-size: 16px; color: var(--dark);">Resolving Google Session Token...</div>
+                <a href="#" onclick="logoutAndSwitchAccount(); return false;" style="font-size:11px; color:#64748b; text-decoration:underline; cursor:pointer;">Switch Account / Logout</a>
             </div>
         </div>
         <div id="identityStatusAlert" style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px; background: #e2e8f0; color: #475569;">
@@ -272,16 +279,42 @@
                 </button>
             </div>
             <div id="customColumnsSection" style="display:none; margin-bottom:16px;">
-                <label style="font-size:13px; font-weight:600; color:#334155;">Add Columns</label>
-                <div style="display:flex; gap:8px; margin-top:6px;">
-                    <input type="text" id="newColumnInput" placeholder="e.g. Speed Rating"
-                        style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px;"
-                        onkeydown="if(event.key==='Enter') addCustomColumn()">
-                    <button onclick="addCustomColumn()"
-                        style="padding:8px 14px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">+</button>
-                </div>
-                <div id="customColumnsList" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;"></div>
-            </div>
+    <label style="font-size:13px; font-weight:600; color:#334155;">Add Column Group</label>
+
+    <div style="margin-top:6px;">
+        <input type="text" id="newColBaseName" placeholder="Main header, e.g. Dribbling"
+            style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; box-sizing:border-box;">
+    </div>
+
+    <div id="subLabelBuilder" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px;">
+        <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px;">SUB-COLUMNS UNDER "<span id="baseNamePreview"></span>" (optional)</div>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="newSubLabelInput" placeholder="e.g. No Pressure, Under Pressure, Notes"
+                style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px;"
+                onkeydown="if(event.key==='Enter'){event.preventDefault(); addSubLabel();}">
+            <button onclick="addSubLabel()"
+                style="padding:8px 14px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">+</button>
+        </div>
+        <div id="subLabelChips" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;"></div>
+    </div>
+
+        <div style="display:flex; gap:8px; margin-top:10px;">
+            <button onclick="startColumnGroup()"
+                style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#475569; font-weight:700; font-size:12px; cursor:pointer;">
+                Start Group
+            </button>
+            <button onclick="finishColumnGroup()"
+                style="flex:1; padding:8px; border-radius:8px; border:none; background:#16a34a; color:white; font-weight:700; font-size:12px; cursor:pointer;">
+                ✓ Add to Session
+            </button>
+        </div>
+
+       <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Type the main header, click "Start Group", then add at least one sub-column label (e.g. "Rating", "No Pressure"), then "Add to Session".</div>
+
+        <hr style="border:0; border-top:1px solid #e2e8f0; margin:14px 0;">
+        <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:8px;">COLUMNS ADDED SO FAR</div>
+        <div id="customColumnsList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+</div>
             <div style="display:flex; gap:10px; margin-top:8px;">
                 <button onclick="closeSessionModal()"
                     style="flex:1; padding:12px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#64748b; font-weight:700; font-size:13px; cursor:pointer;">
@@ -319,25 +352,53 @@
 <!-- Start simple login UI block -->
 <script>
 let globalRosterCacheMatrix = [];
+let authIsDemoMode = false;
+const TARGET_APPLICATION_SCOPE = "eval";
 
 (function() {
     // Check if already authenticated via another app in the suite
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
     if (cachedEmail) {
+        currentSystemIsDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
         document.getElementById('simpleAuthGate').remove();
         if (typeof initializeApplicationWorkspace === "function") {
             initializeApplicationWorkspace();
         }
         return;
     }
+    loadAuthProfiles();
+})();
 
-    const TARGET_APPLICATION_SCOPE = "eval";
-    
+function loadAuthProfiles() {
+    document.getElementById('authLocalSpinner').style.display = "block";
+    document.getElementById('authFormWrapper').style.display = "none";
+    document.getElementById('authInteractionBlock').style.display = "none";
     google.script.run
         .withSuccessHandler(handleInitialRosterLoadSuccess)
         .withFailureHandler(handleMasterSystemFaultException)
-        .fetchAuthorizedApplicationProfiles(TARGET_APPLICATION_SCOPE);
-})();
+        .fetchAuthorizedApplicationProfiles(TARGET_APPLICATION_SCOPE, authIsDemoMode);
+}
+
+function toggleAuthDemoMode() {
+    authIsDemoMode = !authIsDemoMode;
+    const btn = document.getElementById('authDemoToggleBtn');
+    const tray = document.getElementById('authDemoToggleTray');
+    if (authIsDemoMode) {
+        btn.innerText = "🧪 Demo Login ACTIVE (Tap to switch to Live Login)";
+        tray.style.background = "#fef3c7";
+        tray.style.borderTopColor = "#f59e0b";
+        tray.style.borderBottomColor = "#f59e0b";
+        btn.style.color = "#92400e";
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
+    } else {
+        btn.innerText = "🔒 Live Login (Tap to switch to Demo Login)";
+        tray.style.background = "#f8fafc";
+        tray.style.borderTopColor = "#cbd5e1";
+        tray.style.borderBottomColor = "#cbd5e1";
+        btn.style.color = "#94a3b8";
+    }
+    loadAuthProfiles();
+}
 function handleInitialRosterLoadSuccess(authorizedUsersArray) {
     document.getElementById('authLocalSpinner').style.display = "none";
     document.getElementById('authFormWrapper').style.display = "block";
@@ -391,6 +452,15 @@ function evaluateSelectedProfileSecurityState() {
     }
 }
 
+//logout
+function logoutAndSwitchAccount() {
+    if (!confirm("Log out and switch to a different account?")) return;
+    localStorage.removeItem('kemp_suite_verified_session_email');
+    localStorage.removeItem('kemp_suite_verified_demo_mode');
+
+    const deployedUrl = '<?!= deployedUrl ?>';
+    window.top.location.href = deployedUrl + '?app=eval';
+}
 function processIdentityVerificationSubmission() {
     const selectedEmail = document.getElementById('authCoachDropdown').value;
     const primaryPass = document.getElementById('authPrimaryPassword').value.trim();
@@ -417,7 +487,7 @@ function processIdentityVerificationSubmission() {
         google.script.run
             .withSuccessHandler(handleAuthenticationResponsePacket)
             .withFailureHandler(handleMasterSystemFaultException)
-            .commitNewUserPasswordCredential(selectedEmail, primaryPass);
+            .commitNewUserPasswordCredential(selectedEmail, primaryPass, authIsDemoMode);
             
     } else {
         if (!primaryPass) {
@@ -429,7 +499,7 @@ function processIdentityVerificationSubmission() {
         google.script.run
             .withSuccessHandler(handleAuthenticationResponsePacket)
             .withFailureHandler(handleMasterSystemFaultException)
-            .validateExistingUserCredentials(selectedEmail, primaryPass);
+            .validateExistingUserCredentials(selectedEmail, primaryPass, authIsDemoMode);
     }
 }
 
@@ -438,6 +508,8 @@ function handleAuthenticationResponsePacket(outcomePacket) {
     
     if (outcomePacket && outcomePacket.isAuthenticated === true) {
         localStorage.setItem('kemp_suite_verified_session_email', outcomePacket.verifiedEmail);
+        localStorage.setItem('kemp_suite_verified_demo_mode', authIsDemoMode ? 'true' : 'false');
+        currentSystemIsDemoMode = authIsDemoMode;
         document.getElementById('simpleAuthGate').remove();
         
         if (typeof initializeApplicationWorkspace === "function") {
@@ -447,7 +519,6 @@ function handleAuthenticationResponsePacket(outcomePacket) {
         showAuthenticationError(outcomePacket ? outcomePacket.errorMessage : "Access Denied: Server verification rejected credentials.");
     }
 }
-
 function toggleSubmittingUiState(isProcessing, statusPhrase = "") {
     const btn = document.getElementById('authSubmitActionBtn');
     if (isProcessing) {

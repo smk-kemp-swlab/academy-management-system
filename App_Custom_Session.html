@@ -214,7 +214,7 @@ function buildManageSection(columns) {
     
     // Add manage section above the form
     const manageHtml = `
-    <div style="background:#fefce8; border:1px solid #fef08a; border-radius:10px; padding:14px; margin-bottom:16px;">
+    <div class="manage-columns-block" style="background:#fefce8; border:1px solid #fef08a; border-radius:10px; padding:14px; margin-bottom:16px;">
         <div style="font-weight:700; color:#92400e; font-size:13px; margin-bottom:10px;">⚙️ Manage Columns</div>
         
         <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:8px;">CURRENT COLUMNS</div>
@@ -227,16 +227,33 @@ function buildManageSection(columns) {
             `).join('')}
         </div>
 
-        <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:8px;">ADD NEW COLUMN</div>
-        <div style="display:flex; gap:8px;">
-            <input type="text" id="manageNewColInput" placeholder="e.g. Speed Rating"
-                style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px;"
-                onkeydown="if(event.key==='Enter') addColumnToSession()">
-            <button onclick="addColumnToSession()"
-                style="padding:8px 14px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">+</button>
+        <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:8px;">ADD NEW COLUMN GROUP</div>
+        <input type="text" id="manageBaseNameInput" placeholder="Main header, e.g. Speed"
+            style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; box-sizing:border-box;">
+
+        <div id="manageSubLabelBuilder" style="display:none; margin-top:10px; padding:10px; background:white; border:1px dashed #cbd5e1; border-radius:8px;">
+            <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:6px;">SUB-COLUMNS UNDER "<span id="manageBaseNamePreview"></span>" (optional)</div>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="manageSubLabelInput" placeholder="e.g. No Pressure, Under Pressure, Notes"
+                    style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px;"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault(); addManageSubLabel();}">
+                <button onclick="addManageSubLabel()"
+                    style="padding:8px 14px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">+</button>
+            </div>
+            <div id="manageSubLabelChips" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;"></div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:10px;">
+            <button onclick="startManageColumnGroup()"
+                style="flex:1; padding:8px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#475569; font-weight:700; font-size:12px; cursor:pointer;">
+                Start Group
+            </button>
+            <button onclick="finishManageColumnGroup()"
+                style="flex:1; padding:8px; border-radius:8px; border:none; background:#16a34a; color:white; font-weight:700; font-size:12px; cursor:pointer;">
+                ✓ Add to Session
+            </button>
         </div>
     </div>
-
     <hr style="border:0; border-top:1px solid #e2e8f0; margin:16px 0;">
     <div style="font-weight:700; color:#1e293b; font-size:13px; margin-bottom:12px;">📝 Enter Player Data</div>
     `;
@@ -249,49 +266,163 @@ function addColumnToSession() {
     const colName = input.value.trim();
     if (!colName) return;
 
+    const btn = document.querySelector('[onclick="addColumnToSession()"]');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+    input.disabled = true;
+
     google.script.run
         .withSuccessHandler(function(result) {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+            input.disabled = false;
             if (result.success) {
-                alert("Column added! Refreshing...");
-                const deployedUrl = '<?!= deployedUrl ?>';
-                window.top.location.href = deployedUrl
-                    + '?app=custom_session'
-                    + '&session=' + encodeURIComponent(sessionName)
-                    + '&coach=' + encodeURIComponent(coachEmail)
-                    + '&demo=' + (isDemoMode ? 'true' : 'false')
-                    + '&mode=manage';
+                input.value = '';
+                reloadColumnsInPlace();
             } else {
                 alert("Error: " + result.error);
             }
         })
         .withFailureHandler(function() {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+            input.disabled = false;
             alert("Connection failed.");
         })
         .addColumnsToExistingSession(sessionName, [colName], isDemoMode);
 }
+//for grouping the columns and adding the columns
+let managePendingBaseName = '';
+let managePendingSubLabels = [];
 
-function removeColumnFromSession(colName) {
-    if (!confirm("Remove column '" + colName + "'? This will delete all data in that column!")) return;
+function startManageColumnGroup() {
+    const baseInput = document.getElementById('manageBaseNameInput');
+    const baseName = baseInput.value.trim();
+    if (!baseName) { alert("Enter a main header name first."); return; }
+
+    managePendingBaseName = baseName;
+    managePendingSubLabels = [];
+
+    document.getElementById('manageBaseNamePreview').innerText = baseName;
+    document.getElementById('manageSubLabelBuilder').style.display = 'block';
+    document.getElementById('manageSubLabelChips').innerHTML = '';
+    document.getElementById('manageSubLabelInput').value = '';
+    document.getElementById('manageSubLabelInput').focus();
+}
+
+function addManageSubLabel() {
+    const input = document.getElementById('manageSubLabelInput');
+    const label = input.value.trim();
+    if (!label) return;
+
+    if (managePendingSubLabels.length >= 3) {
+        alert("Maximum 3 sub-columns per group.");
+        return;
+    }
+
+    const suffix = label.replace(/\s+/g, '');
+    const fullName = managePendingBaseName + '_' + suffix;
+
+    if (managePendingSubLabels.some(s => s.fullName === fullName)) {
+        alert(`"${label}" already added for this group!`);
+        return;
+    }
+    managePendingSubLabels.push({ label: label, fullName: fullName });
+    input.value = '';
+
+    const chipContainer = document.getElementById('manageSubLabelChips');
+    const chip = document.createElement('div');
+    chip.style.cssText = 'background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;';
+    chip.innerHTML = `${label} <span onclick="this.parentElement.remove(); managePendingSubLabels = managePendingSubLabels.filter(s => s.fullName !== '${fullName}');" style="cursor:pointer; color:#dc2626; font-weight:700;">✕</span>`;
+    chipContainer.appendChild(chip);
+    input.focus();
+}
+
+function finishManageColumnGroup() {
+    if (!managePendingBaseName) { alert("Click \"Start Group\" first and enter a main header."); return; }
+    if (managePendingSubLabels.length === 0) { alert("Please add at least one sub-column (e.g. \"No Pressure\", \"Rating\") before adding this group."); return; }
+
+    const namesToAdd = [managePendingBaseName];
+    managePendingSubLabels.forEach(function(s) { namesToAdd.push(s.fullName); });
+
+    const alreadyExists = namesToAdd.filter(function(n) { return sheetColumns.indexOf(n) !== -1; });
+    if (alreadyExists.length > 0) {
+        alert("These columns already exist: " + alreadyExists.join(', ') + ". Please choose different names.");
+        return;
+    }
+
+    const btn = document.querySelector('[onclick="finishManageColumnGroup()"]');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
 
     google.script.run
         .withSuccessHandler(function(result) {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
             if (result.success) {
-                alert("Column removed! Refreshing...");
-                const deployedUrl = '<?!= deployedUrl ?>';
-                window.top.location.href = deployedUrl
-                    + '?app=custom_session'
-                    + '&session=' + encodeURIComponent(sessionName)
-                    + '&coach=' + encodeURIComponent(coachEmail)
-                    + '&demo=' + (isDemoMode ? 'true' : 'false')
-                    + '&mode=manage';
+                managePendingBaseName = '';
+                managePendingSubLabels = [];
+                reloadColumnsInPlace();
             } else {
                 alert("Error: " + result.error);
             }
         })
         .withFailureHandler(function() {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
             alert("Connection failed.");
         })
+        .addColumnsToExistingSession(sessionName, namesToAdd, isDemoMode);
+}
+function removeColumnFromSession(colName) {
+    if (!confirm("Remove column '" + colName + "'? This will delete all data in that column!")) return;
+
+    // Find the chip for this column and show a deleting state
+    const chips = document.querySelectorAll('#manageColumnsList > div');
+    chips.forEach(function(chip) {
+        if (chip.textContent.trim().startsWith(colName)) {
+            chip.innerHTML = '⏳ Deleting...';
+            chip.style.opacity = '0.6';
+            chip.style.pointerEvents = 'none';
+        }
+    });
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                reloadColumnsInPlace();
+            } else {
+                alert("Error: " + result.error);
+                reloadColumnsInPlace(); // restore chip state even on logical failure
+            }
+        })
+        .withFailureHandler(function() {
+            alert("Connection failed.");
+            reloadColumnsInPlace(); // restore chip state on network failure too
+        })
         .removeColumnFromSession(sessionName, colName, isDemoMode);
+}
+// Re-fetches the column list and re-renders the manage section + form,
+// without a full page reload.
+function reloadColumnsInPlace() {
+    google.script.run
+        .withSuccessHandler(function(columns) {
+            if (!columns || columns.length === 0) {
+                showError("No columns found for this session. Please check the sheet.");
+                return;
+            }
+            sheetColumns = columns.filter(function(c) {
+                return HIDDEN_COLUMNS.indexOf(c) === -1 && LOCKED_COLUMNS.indexOf(c) === -1;
+            });
+
+            // Nuke every trace of previously-injected manage UI, regardless of class,
+            // by removing anything between the Trial Number field and dynamicFieldsContainer.
+            const allInjected = document.querySelectorAll('.manage-columns-block, .manage-player-data-heading, .manage-section-hr');
+            allInjected.forEach(function(el) { el.remove(); });
+
+            document.getElementById('dynamicFieldsContainer').innerHTML = '';
+
+            buildForm(sheetColumns);
+            buildManageSection(columns);
+        })
+        .withFailureHandler(function(err) {
+            alert("Failed to refresh columns: " + err);
+        })
+        .getCustomSessionColumns(sessionName, isDemoMode);
 }
 </script>
 

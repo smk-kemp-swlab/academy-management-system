@@ -104,7 +104,11 @@
             <div id="payNowQrSection" style="text-align:center; margin-top:16px; padding:16px; background:white; border:1px solid #bbf7d0; border-radius:10px;">
                 <div style="font-size:13px; font-weight:700; color:#15803d; margin-bottom:10px;">Scan to Pay via UPI</div>
               <img src="https://lh3.googleusercontent.com/d/1HCS6RVqiAhDIlK4pTTtoVZ3oJj7GBKSt" alt="Kemp FC Payment QR Code" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e2e8f0;">
-                <div style="font-size:11px; color:#64748b; margin-top:8px;">After paying, tap Submit Registration below — no proof upload needed for now.</div>
+                <div class="form-group" style="margin-top:14px; text-align:left;">
+                    <label>Upload Payment Screenshot *</label>
+                    <input type="file" id="docPaymentScreenshot" accept=".pdf,.jpg,.jpeg,.png">
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-top:8px;">After paying, upload a screenshot of the payment confirmation, then tap Submit Registration below.</div>
             </div>
 
             <div style="font-size:12px; color:#64748b; margin-top:10px;">
@@ -114,15 +118,15 @@
         <div class="section-box">
             <h3 style="margin-top:0;">Upload Documents</h3>
             <div class="form-group">
-              <label>Birth Certificate (optional)</label>
+              <label>Birth Certificate *</label>
               <input type="file" id="docBirthCert" accept=".pdf,.jpg,.jpeg,.png">
             </div>
              <div class="form-group" style="margin-top:12px;">
-                <label>Medical Certificate (optional)</label>
-                <input type="file" id="docMedical" accept=".pdf,.jpg,.jpeg,.png">
+                <label>Aadhar Card (optional)</label>
+                <input type="file" id="docAadhar" accept=".pdf,.jpg,.jpeg,.png">
             </div>
             <div class="form-group" style="margin-top:12px;">
-                <label>Signed Waiver (optional)</label>
+                <label>Indemnity Waiver (optional)</label>
                 <input type="file" id="docWaiver" accept=".pdf,.jpg,.jpeg,.png">
             </div>
         </div>
@@ -132,19 +136,26 @@
     </div>
 
     <div id="confirmationBox" style="display:none;" class="section-box">
-        <div style="text-align:center; padding: 20px;">
+        <div style="text-align: center; padding: 20px;">
             <div style="font-size: 40px; margin-bottom: 12px;">🎉</div>
             <h3>Registration Submitted!</h3>
             <p style="font-size:13px; color:#64748b;">Thank you for registering with Kemp FC. Our team will review your application shortly.</p>
             <p style="font-size:12px; color:#94a3b8; margin-top:10px;">Reference: <span id="confirmedAppId"></span></p>
         </div>
     </div>
+
+    <div id="adminSandboxTray" style="text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+        <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
+            🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
+        </button>
+    </div>
 </div>
 
 <script>
 let contextPayload = null;
+let currentSystemIsDemoMode = false;
 
-(function() {
+function loadOnboardingContext() {
     google.script.run
         .withSuccessHandler(function(ctx) {
             if (!ctx.success) {
@@ -157,8 +168,35 @@ let contextPayload = null;
         .withFailureHandler(function() {
             alert("Failed to connect. Please refresh the page.");
         })
-        .getPublicOnboardingContext();
-})();
+        .getPublicOnboardingContext(currentSystemIsDemoMode);
+}
+
+loadOnboardingContext();
+
+function toggleDemoSandboxMode() {
+    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    const btn = document.getElementById('sandboxToggleBtn');
+    const tray = document.getElementById('adminSandboxTray');
+
+    if (currentSystemIsDemoMode) {
+        btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+        tray.style.background = "#fef3c7";
+        tray.style.borderTopColor = "#f59e0b";
+        btn.style.color = "#92400e";
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
+    } else {
+        btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+        tray.style.background = "#f8fafc";
+        tray.style.borderTopColor = "#cbd5e1";
+        btn.style.color = "#94a3b8";
+    }
+
+    // Reset the form's dropdowns/selection to avoid mixing Live center/batch IDs with Demo ones
+    document.getElementById('centerSelect').value = "";
+    document.getElementById('batchSelect').innerHTML = '<option value="">-- Select Center First --</option>';
+
+    loadOnboardingContext();
+}
 
 function populateCenters() {
     const sel = document.getElementById('centerSelect');
@@ -207,15 +245,24 @@ async function submitApplication() {
     const parentPhone = document.getElementById('parentPhone').value.trim();
     const paymentStrategy = document.querySelector('input[name="paymentStrategy"]:checked').value;
     const birthCertFile = document.getElementById('docBirthCert').files[0];
-    const medicalFile = document.getElementById('docMedical').files[0];
+    const aadharFile = document.getElementById('docAadhar').files[0];
     const waiverFile = document.getElementById('docWaiver').files[0];
+    const paymentScreenshotFile = document.getElementById('docPaymentScreenshot').files[0];
 
     if (!firstName || !lastName || !dob || !centerId || !batchId || !kitShirt || !kitShorts || !parentName || !parentEmail || !parentPhone) {
         alert("Please fill in all required fields marked with *.");
         return;
     }
-  
 
+    if (!birthCertFile) {
+        alert("Please upload the Birth Certificate before submitting.");
+        return;
+    }
+
+    if (paymentStrategy === 'Pay_Now' && !paymentScreenshotFile) {
+        alert("Please upload a screenshot of your payment before submitting, or choose 'Pay Later'.");
+        return;
+    }
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
     btn.innerText = "Submitting Registration...";
@@ -243,17 +290,32 @@ async function submitApplication() {
                     const b64 = await readFileAsBase64(birthCertFile);
                     uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Birth_Certificate", b64, birthCertFile.type, birthCertFile.name));
                 }
-                if (medicalFile) {
-                    const b64 = await readFileAsBase64(medicalFile);
-                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Medical", b64, medicalFile.type, medicalFile.name));
+              if (aadharFile) {
+                    const b64 = await readFileAsBase64(aadharFile);
+                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Aadhar_Card", b64, aadharFile.type, aadharFile.name));
                 }
                 if (waiverFile) {
                     const b64 = await readFileAsBase64(waiverFile);
-                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Waiver", b64, waiverFile.type, waiverFile.name));
+                    uploadTasks.push(uploadDocPromise(applicationId, fullPlayerName, centerName, "Indemnity_Waiver", b64, waiverFile.type, waiverFile.name));
+                }
+                let paymentScreenshotResult = null;
+                if (paymentScreenshotFile) {
+                    const b64 = await readFileAsBase64(paymentScreenshotFile);
+                    const screenshotPromise = uploadDocPromise(applicationId, fullPlayerName, centerName, "Payment_Screenshot", b64, paymentScreenshotFile.type, paymentScreenshotFile.name)
+                        .then(function(result) { paymentScreenshotResult = result; return result; });
+                    uploadTasks.push(screenshotPromise);
                 }
 
                 await Promise.all(uploadTasks);
 
+                if (paymentScreenshotResult && paymentScreenshotResult.success && paymentScreenshotResult.fileUrl) {
+                    await new Promise((resolve) => {
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(resolve)
+                            .attachPaymentProofLink(applicationId, paymentScreenshotResult.fileUrl, currentSystemIsDemoMode);
+                    });
+                }
                 document.getElementById('registrationFormWrapper').style.display = 'none';
                 document.getElementById('confirmationBox').style.display = 'block';
                 document.getElementById('confirmedAppId').innerText = applicationId;
@@ -281,7 +343,8 @@ async function submitApplication() {
             kitShirt: kitShirt,
             kitShorts: kitShorts,
             medicalAlerts: medicalAlerts || "None",
-            paymentStrategy: paymentStrategy
+            paymentStrategy: paymentStrategy,
+            isDemoMode: currentSystemIsDemoMode
         });
 }
 
@@ -297,7 +360,8 @@ function uploadDocPromise(entityId, playerName, centerName, documentType, base64
                 documentType: documentType,
                 base64Data: base64Data,
                 mimeType: mimeType,
-                fileName: fileName
+                fileName: fileName,
+                isDemoMode: currentSystemIsDemoMode
             });
     });
 }
