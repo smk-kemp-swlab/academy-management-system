@@ -151,6 +151,7 @@
     <!-- ============= INVOICE LEDGER MODULE ============= -->
     <div id="module_ledger" style="display: none;">
     <button id="bulkReminderBtn" class="master-action-btn" style="background:#0288d1; color:white; margin-bottom:12px;" onclick="sendBulkReminders()">📧 Send Reminders to All Unpaid</button>
+
     <div class="section-box">
             <div class="form-group">
                 <label>Filter By Status</label>
@@ -167,6 +168,28 @@
         <div id="ledgerLoadingMsg" style="display: none; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
             Loading invoices...
         </div>
+
+    <!-- Monthly Fee Report -->
+    <div class="section-box">
+        <h3 style="margin-top:0;">📊 Monthly Fee Report</h3>
+        <div class="form-group">
+            <label>Month *</label>
+            <input type="month" id="invoiceReportMonth">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+    <label>Exact Date (optional)</label>
+    <input type="date" id="invoiceReportExactDate">
+    </div>
+    <button id="generateInvoiceReportBtn" class="master-action-btn btn-sync" style="margin-top:12px;" onclick="generateMonthlyInvoiceReport()">📊 Generate Report</button>
+    </div>
+
+    <div id="invoiceReportResultsContainer" style="display:none;" class="section-box">
+        <div id="invoiceReportTableWrapper"></div>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="master-action-btn btn-commit" style="flex:1;" onclick="downloadInvoiceReportCSV()">⬇️ CSV</button>
+            <button class="master-action-btn btn-sync" style="flex:1;" onclick="downloadInvoiceReportPDF()">🖨️ PDF</button>
+        </div>
+    </div>
 
     </div>
     <!-- ============= APPLICATIONS MODULE ============= -->
@@ -579,6 +602,7 @@ function loadDashboardContext() {
             }
             contextPayload = ctx;
             populateStudentDropdown();
+            populateInvoiceReportCenters();
             populateFeeConfigDropdown();
             populateDiscountDropdown();
             renderInvoiceList();
@@ -1920,6 +1944,146 @@ function uploadDocumentFromEditModal() {
             });
     };
     reader.readAsDataURL(file);
+}
+// ========== MONTHLY INVOICE REPORT ==========
+var lastInvoiceReportRecords = null;
+var lastInvoiceReportMeta = null;
+
+function populateInvoiceReportCenters() {
+    const sel = document.getElementById('invoiceReportCenterSelect');
+    if (!sel || !contextPayload) return;
+    sel.innerHTML = '<option value="">-- All Centers --</option>';
+    (contextPayload.facilities || []).forEach(c => {
+        sel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
+    });
+}
+
+function generateMonthlyInvoiceReport() {
+    const monthVal = document.getElementById('invoiceReportMonth').value;
+    const exactDateVal = document.getElementById('invoiceReportExactDate').value;
+
+    if (!monthVal) { alert("Please select a Month."); return; }
+
+    const btn = document.getElementById('generateInvoiceReportBtn');
+    btn.disabled = true;
+    btn.innerText = "Generating...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            if (!result.success) { alert("Error: " + result.error); return; }
+            renderInvoiceReportTable(result);
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            alert("Connection failed. Please try again.");
+        })
+        .getMonthlyInvoiceReport(monthVal, "", currentSystemIsDemoMode, exactDateVal);
+}
+
+function renderInvoiceReportTable(result) {
+    lastInvoiceReportRecords = result.records;
+    lastInvoiceReportMeta = { month: result.selectedMonth, center: result.selectedCenter };
+
+    let html = `<div style="margin-bottom:12px; font-size:14px;">
+        <strong>Month:</strong> ${result.selectedMonth} &nbsp;|&nbsp; <strong>Center:</strong> ${result.selectedCenter}
+    </div>`;
+
+    if (result.skippedInvalidDateCount > 0) {
+        html += `<div style="background:#fffbeb; border:1px solid #fef08a; padding:8px 12px; border-radius:8px; font-size:12px; color:#92400e; margin-bottom:12px;">
+            ⚠️ ${result.skippedInvalidDateCount} invoice(s) skipped due to missing/invalid billing date: ${result.skippedInvalidDateIds.join(', ')}
+        </div>`;
+    }
+
+    if (result.records.length === 0) {
+        html += `<div style="text-align:center; padding:20px; color:#64748b;">No invoices found for this month.</div>`;
+    } else {
+        html += `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="background:#f1f5f9; text-align:left;">
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Student</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Invoice ID</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Total Due</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Paid</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Balance</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Status</th>
+            </tr></thead><tbody>`;
+
+        result.records.forEach(r => {
+            html += `<tr>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${r.studentName}<br><span style="color:#94a3b8; font-size:11px;">${r.studentId}</span></td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${r.invoiceId}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">₹${r.totalDue.toFixed(2)}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">₹${r.amountPaid.toFixed(2)}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">₹${r.balance.toFixed(2)}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${(r.paymentStatus || '').replace('_', ' ')}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+    }
+
+    document.getElementById('invoiceReportTableWrapper').innerHTML = html;
+    document.getElementById('invoiceReportResultsContainer').style.display = 'block';
+}
+
+function downloadInvoiceReportCSV() {
+    if (!lastInvoiceReportRecords || !lastInvoiceReportMeta) { alert("Generate a report first."); return; }
+    let csv = "Month,Center,Student_Name,Student_ID,Invoice_ID,Billing_Cycle_Start,Billing_Cycle_End,Total_Due,Amount_Paid,Balance,Payment_Status,Payment_Date,Payment_Mode\n";
+    lastInvoiceReportRecords.forEach(r => {
+        csv += `"${lastInvoiceReportMeta.month}","${lastInvoiceReportMeta.center}","${r.studentName}",${r.studentId},${r.invoiceId},${r.billingCycleStart},${r.billingCycleEnd},${r.totalDue},${r.amountPaid},${r.balance},"${r.paymentStatus}","${r.paymentDate}","${r.paymentMode}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Monthly_Fee_Report_${lastInvoiceReportMeta.month}.csv`.replace(/\s+/g, '_');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function downloadInvoiceReportPDF() {
+    if (!lastInvoiceReportRecords || !lastInvoiceReportMeta) { alert("Generate a report first."); return; }
+
+    let rowsHtml = '';
+    lastInvoiceReportRecords.forEach(r => {
+        rowsHtml += `<tr>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${r.studentName} (${r.studentId})</td>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${r.invoiceId}</td>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">₹${r.totalDue.toFixed(2)}</td>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">₹${r.amountPaid.toFixed(2)}</td>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">₹${r.balance.toFixed(2)}</td>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${(r.paymentStatus || '').replace('_', ' ')}</td>
+        </tr>`;
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Monthly Fee Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; }
+      .header { text-align: center; border-bottom: 2px solid #cc0000; padding-bottom: 16px; margin-bottom: 20px; }
+      .header h1 { color: #cc0000; margin: 0; font-size: 24px; }
+      .meta { background: #f1f5f9; padding: 10px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+      table { width:100%; border-collapse:collapse; font-size:13px; }
+      th { background:#f1f5f9; text-align:left; padding:8px; border-bottom:1px solid #e2e8f0; }
+      .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #94a3b8; }
+      @media print { body { padding: 20px; } button { display: none; } }
+    </style></head><body>
+    <div class="header"><h1>KEMP FC</h1><p>Monthly Fee Report</p></div>
+    <div class="meta">Month: <strong>${lastInvoiceReportMeta.month}</strong> &nbsp;|&nbsp; Center: <strong>${lastInvoiceReportMeta.center}</strong></div>
+    <table><thead><tr><th>Student</th><th>Invoice ID</th><th>Total Due</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <div class="footer">
+      <p>Kemp FC Academy &nbsp;|&nbsp; Generated on ${new Date().toLocaleDateString('en-IN')}</p>
+      <p style="margin-top:16px;"><button onclick="window.print()" style="background:#cc0000; color:white; border:none; padding:10px 24px; border-radius:6px; cursor:pointer; font-size:14px;">🖨️ Print / Save as PDF</button></p>
+    </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
 }
 </script>
 

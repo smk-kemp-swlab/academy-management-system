@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Evaluation Report</title>
+    <?!= include('Styled_Branding_CSS'); ?>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            .container { max-width: 100% !important; box-shadow: none !important; }
+        }
+        .eval-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px; page-break-inside: avoid; }
+        .eval-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 2px solid #f1f5f9; }
+        .confidence-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+        .confidence-verified { background: #dcfce7; color: #166534; }
+        .confidence-unverified { background: #fef3c7; color: #92400e; }
+        .attr-group-title { font-weight: 700; font-size: 13px; color: #0f172a; margin: 14px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .attr-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f8fafc; font-size: 13px; }
+        .attr-label { color: #64748b; }
+        .attr-value { font-weight: 600; color: #1e293b; text-align: right; max-width: 60%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-panel no-print">
+        <h1 class="brand-name"></h1>
+        <h2>Student Evaluation Report</h2>
+    </div>
+
+    <div class="section-box no-print">
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+            <button type="button" id="modeMonthBtn" class="master-action-btn" style="flex:1; background:#0f172a; color:white;" onclick="switchReportMode('month')">📅 By Month</button>
+            <button type="button" id="modeStudentBtn" class="master-action-btn" style="flex:1; background:white; color:#64748b; border:1px solid #cbd5e1;" onclick="switchReportMode('student')">👤 By Student</button>
+        </div>
+
+        <div id="monthModePanel">
+            <div class="form-group">
+                <label>Select Month *</label>
+                <input type="month" id="monthSelect">
+            </div>
+            <button type="button" class="master-action-btn btn-commit" style="margin-top:10px;" onclick="loadMonthlyReport()">
+                📊 Generate Report
+            </button>
+        </div>
+        <div id="studentModePanel" style="display:none;">
+            <div class="form-group">
+                <label>Select Student *</label>
+                <select id="studentSelect">
+                    <option value="">-- Select Student --</option>
+                </select>
+            </div>
+            <button type="button" class="master-action-btn btn-commit" style="margin-top:10px;" onclick="loadStudentReport()">
+                📊 Generate Report
+            </button>
+        </div>
+    </div>
+
+    <div id="reportLoadingMsg" style="display:none; text-align:center; padding:20px; color:#64748b; font-size:13px;">
+        🔄 Gathering evaluations across all sessions...
+    </div>
+
+    <div id="reportContent" style="display:none;">
+        <div class="section-box" style="background:#f0fdf4; border:1px solid #bbf7d0; margin-bottom:16px;">
+            <div style="font-weight:700; font-size:16px; color:#15803d;" id="reportStudentName"></div>
+            <div style="font-size:12px; color:#64748b; margin-top:4px;" id="reportSummaryLine"></div>
+        </div>
+
+        <div id="evalCardsContainer"></div>
+
+        <div style="display:flex; gap:10px; margin-top:16px;" class="no-print">
+            <button class="master-action-btn" style="flex:1; background:#16a34a; color:white;" onclick="downloadReportCSV()">
+                ⬇️ CSV
+            </button>
+            <button class="master-action-btn" style="flex:1; background:#2563eb; color:white;" onclick="window.print()">
+                🖨️ PDF
+            </button>
+        </div>
+    </div>
+
+    <div id="noResultsMsg" style="display:none; text-align:center; padding:30px; color:#64748b;">
+        No evaluations found for this student across any session.
+    </div>
+</div>
+
+<script>
+let masterContextPayload = null;
+let currentSystemIsDemoMode = false;
+let lastEvalReportResult = null;
+let lastMonthlyReportResult = null;
+(function() {
+    const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
+    currentSystemIsDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (!cachedEmail) {
+        alert("Please log in through the main Performance Engine first.");
+        window.top.location.href = 'https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=eval';
+        return;
+    }
+    google.script.run
+        .withSuccessHandler(function(context) {
+            masterContextPayload = context;
+            populateStudentDropdown();
+        })
+        .withFailureHandler(function() {
+            alert("Failed to load student roster. Please refresh.");
+        })
+        .getPerformanceEngineContext(currentSystemIsDemoMode, cachedEmail);
+
+    switchReportMode('month'); // default view is Month-based
+
+    // Pre-fill the month picker with the current month so the field isn't blank on load
+    const todayMonthStr = new Date().toISOString().substring(0, 7); // yyyy-MM
+    document.getElementById('monthSelect').value = todayMonthStr;
+})();
+function switchReportMode(mode) {
+    document.getElementById('monthModePanel').style.display = mode === 'month' ? 'block' : 'none';
+    document.getElementById('studentModePanel').style.display = mode === 'student' ? 'block' : 'none';
+    document.getElementById('modeMonthBtn').style.background = mode === 'month' ? '#0f172a' : 'white';
+    document.getElementById('modeMonthBtn').style.color = mode === 'month' ? 'white' : '#64748b';
+    document.getElementById('modeStudentBtn').style.background = mode === 'student' ? '#0f172a' : 'white';
+    document.getElementById('modeStudentBtn').style.color = mode === 'student' ? 'white' : '#64748b';
+    document.getElementById('reportContent').style.display = 'none';
+    document.getElementById('noResultsMsg').style.display = 'none';
+    document.getElementById('noResultsMsg').innerText = ''; // NEW — clear stale text from a previous mode's empty-result message
+}
+
+function loadMonthlyReport() {
+    const monthVal = document.getElementById('monthSelect').value;
+    if (!monthVal) return;
+
+    document.getElementById('reportContent').style.display = 'none';
+    document.getElementById('noResultsMsg').style.display = 'none';
+    document.getElementById('reportLoadingMsg').style.display = 'block';
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            document.getElementById('reportLoadingMsg').style.display = 'none';
+            if (!result.success) { alert("Error: " + result.error); return; }
+            if (result.totalStudents === 0) {
+                document.getElementById('noResultsMsg').innerText = "No evaluations found for any student in this month.";
+                document.getElementById('noResultsMsg').style.display = 'block';
+                return;
+            }
+            renderMonthlyReport(result);
+        })
+        .withFailureHandler(function() {
+            document.getElementById('reportLoadingMsg').style.display = 'none';
+            alert("Connection failed. Please try again.");
+        })
+        .getMonthlyEvaluationReport(monthVal, currentSystemIsDemoMode);
+}
+
+function renderMonthlyReport(result) {
+    lastMonthlyReportResult = result;
+
+    document.getElementById('reportStudentName').innerText = `Monthly Report — ${result.month}`;
+    document.getElementById('reportSummaryLine').innerText =
+        `${result.totalStudents} student${result.totalStudents !== 1 ? 's' : ''} · ${result.totalEvaluations} evaluation${result.totalEvaluations !== 1 ? 's' : ''} total`;
+
+    let html = '';
+    result.students.forEach(group => {
+        html += `<div class="attr-group-title" style="font-size:15px; margin-top:20px;">${group.studentName}</div>`;
+        group.evaluations.forEach(ev => {
+            const isVerified = ev.matchConfidence.indexOf("Verified") === 0;
+            html += `<div class="eval-card">
+                <div class="eval-card-header">
+                    <div>
+                        <div style="font-weight:700; font-size:14px; color:#1e293b;">${ev.sessionTab}</div>
+                        <div style="font-size:12px; color:#64748b; margin-top:2px;">${ev.evaluationType || 'Custom'} &middot; ${ev.evaluationDate}</div>
+                    </div>
+                    <div class="confidence-badge ${isVerified ? 'confidence-verified' : 'confidence-unverified'}">${ev.matchConfidence}</div>
+                </div>
+                ${renderCustomFieldsHtml(ev.data)}
+            </div>`;
+        });
+    });
+
+    document.getElementById('evalCardsContainer').innerHTML = html;
+    document.getElementById('reportContent').style.display = 'block';
+}
+//to get the columns of the custom session during the report
+// Fields already shown elsewhere in the card — don't repeat them in the custom-fields list
+const KNOWN_EVAL_FIELDS = [
+    'TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib', 'Evaluation_Type',
+    'Evaluation_Cycle_Tag', 'Student_ID', 'Overall_Score', 'Recommended_Action',
+    'Assessor_Name', 'Major_Strengths', 'Improvement_Areas', 'Final_Comments',
+    'Assessment_Date', 'Logged_Coach_Email', 'Timestamp'
+];
+
+function renderCustomFieldsHtml(evalData) {
+    if (!evalData) return '';
+    const customEntries = Object.keys(evalData).filter(function(key) {
+        return KNOWN_EVAL_FIELDS.indexOf(key) === -1;
+    });
+    if (customEntries.length === 0) return '';
+
+    let html = `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0;">
+        <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px;">CUSTOM FIELDS</div>`;
+    customEntries.forEach(function(key) {
+        html += `<div style="display:flex; justify-content:space-between; font-size:12px; padding:3px 0;">
+            <span style="color:#64748b;">${key.replace(/_/g, ' ')}</span>
+            <span style="font-weight:600; color:#1e293b;">${evalData[key]}</span>
+        </div>`;
+    });
+    html += `</div>`;
+    return html;
+}
+function populateStudentDropdown() {
+    const sel = document.getElementById('studentSelect');
+    sel.innerHTML = '<option value="">-- Select Student --</option>';
+    (masterContextPayload.players || [])
+        .filter(p => p.Status === "Active")
+        .sort((a, b) => `${a.First_Name} ${a.Last_Name}`.localeCompare(`${b.First_Name} ${b.Last_Name}`))
+        .forEach(p => {
+            const fullName = `${p.First_Name} ${p.Last_Name}`;
+            sel.innerHTML += `<option value="${p.Student_ID}" data-name="${fullName}">${fullName} (${p.Student_ID})</option>`;
+        });
+}
+
+function loadStudentReport() {
+    const sel = document.getElementById('studentSelect');
+    const studentId = sel.value;
+    if (!studentId) { document.getElementById('reportContent').style.display = 'none'; return; }
+    const fullName = sel.options[sel.selectedIndex].getAttribute('data-name');
+
+    document.getElementById('reportContent').style.display = 'none';
+    document.getElementById('noResultsMsg').style.display = 'none';
+    document.getElementById('reportLoadingMsg').style.display = 'block';
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            document.getElementById('reportLoadingMsg').style.display = 'none';
+            if (!result.success) { alert("Error: " + result.error); return; }
+            if (result.totalEvaluations === 0) {
+                document.getElementById('noResultsMsg').style.display = 'block';
+                return;
+            }
+            renderReport(result);
+        })
+        .withFailureHandler(function() {
+            document.getElementById('reportLoadingMsg').style.display = 'none';
+            alert("Connection failed. Please try again.");
+        })
+        .getStudentEvaluationReport(studentId, fullName, currentSystemIsDemoMode);
+}
+
+const GROUP_PREFIXES = { tech: "Technical", tac: "Tactical", phys: "Physical", psych: "Psychological" };
+const SUMMARY_FIELDS = ["Overall_Score", "Recommended_Action", "Assessor_Name", "Major_Strengths", "Improvement_Areas", "Final_Comments"];
+const SKIP_FIELDS = ["TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag", "Assessment_Date", "Session_Date", "Logged_Coach_Email", "Timestamp"];
+
+function prettyLabel(key) {
+    return key.replace(/^(tech|tac|phys|psych)_/, '')
+              .replace(/_(Rating|Notes|NoPressure|UnderPressure)$/, m => ' (' + m.slice(1).replace(/([A-Z])/g, ' $1').trim() + ')')
+              .replace(/_/g, ' ')
+              .trim();
+}
+
+function renderReport(result) {
+    lastEvalReportResult = result;
+
+    document.getElementById('reportStudentName').innerText = result.studentName;
+    document.getElementById('reportSummaryLine').innerText =
+        `${result.totalEvaluations} evaluation${result.totalEvaluations !== 1 ? 's' : ''} found across all sessions`;
+
+    let html = '';
+    result.evaluations.forEach(ev => {
+        const data = ev.data;
+        const isVerified = ev.matchConfidence.indexOf("Verified") === 0;
+        const evalDate = data["Assessment_Date"] || data["Session_Date"] || "Date unavailable";
+
+        html += `<div class="eval-card">
+            <div class="eval-card-header">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${ev.sessionTab}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${ev.evaluationType || 'Custom'} &middot; ${evalDate}</div>
+                </div>
+                <div class="confidence-badge ${isVerified ? 'confidence-verified' : 'confidence-unverified'}">${ev.matchConfidence}</div>
+            </div>`;
+
+        const grouped = { Technical: [], Tactical: [], Physical: [], Psychological: [], Custom: [] };
+        Object.keys(data).forEach(key => {
+            if (SKIP_FIELDS.indexOf(key) !== -1 || SUMMARY_FIELDS.indexOf(key) !== -1) return;
+            if (data[key] === "" || data[key] === undefined) return;
+            const prefixMatch = key.match(/^(tech|tac|phys|psych)_/);
+            if (prefixMatch) {
+                grouped[GROUP_PREFIXES[prefixMatch[1]]].push({ key, val: data[key] });
+            } else {
+                grouped.Custom.push({ key, val: data[key] });
+            }
+        });
+
+        Object.keys(grouped).forEach(groupName => {
+            if (grouped[groupName].length === 0) return;
+            html += `<div class="attr-group-title">${groupName}</div>`;
+            grouped[groupName].forEach(item => {
+                html += `<div class="attr-row"><span class="attr-label">${prettyLabel(item.key)}</span><span class="attr-value">${item.val}</span></div>`;
+            });
+        });
+
+        const summaryItems = SUMMARY_FIELDS.filter(f => data[f] !== "" && data[f] !== undefined);
+        if (summaryItems.length > 0) {
+            html += `<div class="attr-group-title">Summary</div>`;
+            summaryItems.forEach(f => {
+                html += `<div class="attr-row"><span class="attr-label">${f.replace(/_/g, ' ')}</span><span class="attr-value">${data[f]}</span></div>`;
+            });
+        }
+
+        html += `</div>`;
+    });
+
+    document.getElementById('evalCardsContainer').innerHTML = html;
+    document.getElementById('reportContent').style.display = 'block';
+}
+
+function downloadReportCSV() {
+    if (!lastEvalReportResult) { alert("Please select a student first."); return; }
+
+    let csv = "Student_Name,Student_ID,Session,Evaluation_Type,Date,Match_Confidence,Details\n";
+
+    lastEvalReportResult.evaluations.forEach(ev => {
+        const data = ev.data;
+        const evalDate = data["Assessment_Date"] || data["Session_Date"] || "";
+
+        const detailParts = [];
+        Object.keys(data).forEach(key => {
+            if (SKIP_FIELDS.indexOf(key) !== -1) return;
+            if (data[key] === "" || data[key] === undefined) return;
+            detailParts.push(`${prettyLabel(key)}: ${data[key]}`);
+        });
+        const details = detailParts.join('; ').replace(/"/g, "'");
+
+        csv += `"${lastEvalReportResult.studentName}",${lastEvalReportResult.studentId},"${ev.sessionTab}","${ev.evaluationType || 'Custom'}","${evalDate}","${ev.matchConfidence}","${details}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Evaluation_Report_${lastEvalReportResult.studentName}_${new Date().toISOString().split('T')[0]}.csv`.replace(/\s+/g, '_');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+</script>
+
+</body>
+</html>

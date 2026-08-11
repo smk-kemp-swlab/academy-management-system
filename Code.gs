@@ -35,7 +35,9 @@ function doGet(e) {
   if (appModule === "billing")    fileName = "App_Financial_Dashboard";
   if (appModule === "onboarding") fileName = "App_Onboarding_Form";
   if (appModule === "staff")      fileName = "App_Staff_Board";
+ 
   if (appModule === "custom_session") fileName = "App_Custom_Session";
+  if (appModule === "eval_report")    fileName = "App_Evaluation_Report";
   
 var template = HtmlService.createTemplateFromFile(fileName);
   var branding = getBrandingConfig(academyId);
@@ -241,9 +243,9 @@ function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode, templa
     ];
 
     if (templateType === 'custom' && customColumns && customColumns.length > 0) {
-        var requiredCustomIdentity = ["TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib"];
-        systemHeaders = requiredCustomIdentity.concat(customColumns);
-      } else if (typeLower === "trial") {
+    var requiredCustomIdentity = ["TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Session_Date"];
+    systemHeaders = requiredCustomIdentity.concat(customColumns);
+} else if (typeLower === "trial") {
               // 🏃 Trial — full identity card + full scoring (technical included)
               systemHeaders = [
                   "TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag",
@@ -357,17 +359,6 @@ function parseColumnToFilteredArray(matrix, headerName) {
  * now also cross-checked against Staff_Registry so only currently Active staff can ever appear in the login list,
  * even if their IAM_Registry row is still sitting there from before.
  */
-<<<<<<< HEAD
-function fetchAuthorizedApplicationProfiles(appScopeKey) {
-  const vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID; 
-  const sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
-  const data = sheet.getDataRange().getValues();
-
-  // 🛡️ Build a set of currently Active staff emails from Staff_Registry (the real source of truth)
-  var activeStaffEmails = {};
-  try {
-    var hubSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID);
-=======
 function fetchAuthorizedApplicationProfiles(appScopeKey, isDemoMode) {
   const vaultId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CONFIG_IAM_MASTER_ID : GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
   const sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
@@ -377,7 +368,6 @@ function fetchAuthorizedApplicationProfiles(appScopeKey, isDemoMode) {
   try {
     var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
     var hubSS = SpreadsheetApp.openById(hubId);
->>>>>>> 8f1241a (demo moded add)
     var staffSheet = hubSS.getSheetByName("Staff_Registry");
     var staffData = staffSheet.getDataRange().getValues();
     var staffHeaders = staffData[0];
@@ -392,11 +382,6 @@ function fetchAuthorizedApplicationProfiles(appScopeKey, isDemoMode) {
       }
     }
   } catch (staffLookupError) {
-<<<<<<< HEAD
-    // If Staff_Registry can't be read for any reason, fail safe: treat as no active staff,
-    // so a broken lookup locks things down rather than silently granting broad access.
-=======
->>>>>>> 8f1241a (demo moded add)
     Logger.log("Staff_Registry cross-check failed: " + staffLookupError.toString());
   }
 
@@ -412,11 +397,6 @@ function fetchAuthorizedApplicationProfiles(appScopeKey, isDemoMode) {
     var isScopeApproved = (approvedApps.indexOf(appScopeKey) !== -1);
     var isActiveStaffMember = !!activeStaffEmails[emailCell];
 
-<<<<<<< HEAD
-    Logger.log("Row " + (i+1) + " -> Email: '" + emailCell + "' | IAM Active: " + isIamActive + " | Scope Match: " + isScopeApproved + " | Active Staff: " + isActiveStaffMember);
-
-=======
->>>>>>> 8f1241a (demo moded add)
     if (isIamActive && isScopeApproved && isActiveStaffMember) {
       verifiedProfileListing.push({
         email: emailCell,
@@ -425,11 +405,6 @@ function fetchAuthorizedApplicationProfiles(appScopeKey, isDemoMode) {
     }
   }
 
-<<<<<<< HEAD
-  Logger.log("Final Array Built for Frontend: " + JSON.stringify(verifiedProfileListing));
-
-=======
->>>>>>> 8f1241a (demo moded add)
   return verifiedProfileListing;
 }
 
@@ -522,6 +497,7 @@ function submitStaffAttendance(data) {
 
     var fullName = data.email;
     var roleType = "";
+    var assignedCenterId = "";
     try {
       var hubSS = SpreadsheetApp.openById(hubTargetId);
       var staffSheet = hubSS.getSheetByName("Staff_Registry");
@@ -530,16 +506,27 @@ function submitStaffAttendance(data) {
       var emailIdx = headers.indexOf("Email_Address");
       var nameIdx = headers.indexOf("Full_Name");
       var roleIdx = headers.indexOf("Role_Type");
+      var centerIdx = headers.indexOf("Assigned_Center_ID");
       
       for (var i = 1; i < staffData.length; i++) {
         if (staffData[i][emailIdx] && staffData[i][emailIdx].toString().toLowerCase().trim() === data.email.toLowerCase().trim()) {
           fullName = staffData[i][nameIdx] || data.email;
           roleType = staffData[i][roleIdx] || "";
+          assignedCenterId = staffData[i][centerIdx] || "";
           break;
         }
       }
     } catch(lookupError) {
       fullName = data.email;
+    }
+
+    // 🛡️ 500m geofence — server-side final authority. Skipped for Manual_Retro entries
+    // (those are backfilled by an admin, not a live GPS check-in).
+    if (data.actionType !== "Manual_Retro") {
+     var geoCheck = validateCoachLocation(assignedCenterId, data.latitude, data.longitude, data.isDemoMode);
+      if (!geoCheck.allowed) {
+        return { success: false, error: geoCheck.reason || "Location verification failed.", geofenceRejected: true, distanceMeters: geoCheck.distanceMeters };
+      }
     }
 
     var logId = "ATT_STF_" + new Date().getTime() + "_" + Math.floor(Math.random() * 1000);
@@ -548,31 +535,20 @@ function submitStaffAttendance(data) {
     var locationFlag = "Audit_Required";
     if (data.actionType === "Manual_Retro") {
       locationFlag = "Manual_Retro";
+    } else if (geoCheck && geoCheck.exempt) {
+      locationFlag = "Center_Exempt_ALL";
+    } else if (geoCheck && geoCheck.allowed && geoCheck.distanceMeters !== undefined) {
+      locationFlag = "Geofence_Verified_" + geoCheck.distanceMeters + "m";
     } else if (data.city !== "Unknown" && data.city !== "Manual") {
       locationFlag = "Regional_Match";
     }
-
     var attendanceDate = data.retroDate || Utilities.formatDate(new Date(), GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
 
-   var liveLocationLink = "";
+    var liveLocationLink = "";
     if (data.latitude && data.longitude) {
       liveLocationLink = "https://www.google.com/maps?q=" + data.latitude + "," + data.longitude;
     }
 
-    // sheet.appendRow([
-    //   logId,
-    //   data.email,
-    //   fullName,
-    //   roleType,
-    //   attendanceDate,
-    //   timestamp,
-    //   data.actionType,
-    //   data.ip,
-    //   data.isp || "",
-    //   data.locationName || (data.region ? data.city + ", " + data.region : data.city),
-    //   locationFlag,
-    //   liveLocationLink
-    // ]);
     sheet.appendRow([
       logId,
       data.email,
@@ -587,12 +563,11 @@ function submitStaffAttendance(data) {
       locationFlag,
       liveLocationLink
     ]);
-    return { success: true };
+    return { success: true, geofence: geoCheck };
   } catch (error) {
     return { success: false, error: error.toString() };
   }
 }
-
 // ========================================================================
 // 💳 SUBSCRIPTION FINANCIALS — BILLING LEDGER ENGINE
 // ========================================================================
@@ -965,11 +940,7 @@ function updateApplicationStatus(applicationId, newStatus, staffEmail, isDemoMod
   }
 }
 //delete the document 
-<<<<<<< HEAD
-function deleteEntityDocument(fileId, staffEmail) {
-=======
 function deleteEntityDocument(fileId, staffEmail, isDemoMode) {
->>>>>>> 8f1241a (demo moded add)
   try {
     try {
       var file = DriveApp.getFileById(fileId);
@@ -978,12 +949,8 @@ function deleteEntityDocument(fileId, staffEmail, isDemoMode) {
       // Continue even if the Drive file is already missing
     }
 
-<<<<<<< HEAD
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
-=======
     var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
->>>>>>> 8f1241a (demo moded add)
     var sheet = financeSS.getSheetByName("Document_Vault_Registry");
     if (!sheet) return { success: false, error: "Document_Vault_Registry tab not found." };
 
@@ -1004,8 +971,6 @@ function deleteEntityDocument(fileId, staffEmail, isDemoMode) {
     return { success: false, error: error.toString() };
   }
 }
-<<<<<<< HEAD
-=======
 //delete onboadung
 /**
  * Permanently deletes an application row from Onboarding_Pipeline.
@@ -1050,7 +1015,6 @@ function deleteApplication(applicationId, staffEmail, isDemoMode) {
     return { success: false, error: error.toString() };
   }
 }
->>>>>>> 8f1241a (demo moded add)
 /**
  * Generates the next sequential Academy Roster Student_ID (e.g. ACA-001, ACA-002...)
  */
@@ -1219,22 +1183,14 @@ function updateApplicationDetails(payload) {
 }
 //verification of the documnets
 
-<<<<<<< HEAD
-function updateDocumentVerificationStatus(fileId, newStatus, staffEmail, isAdmin) {
-=======
 function updateDocumentVerificationStatus(fileId, newStatus, staffEmail, isAdmin, isDemoMode) {
->>>>>>> 8f1241a (demo moded add)
   try {
     if (!isAdmin) {
       return { success: false, error: "Only Admin Directors can verify documents." };
     }
 
-<<<<<<< HEAD
-    var financeSS = SpreadsheetApp.openById(GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID);
-=======
     var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
->>>>>>> 8f1241a (demo moded add)
     var sheet = financeSS.getSheetByName("Document_Vault_Registry");
     if (!sheet) return { success: false, error: "Document_Vault_Registry tab not found." };
 
@@ -1304,8 +1260,6 @@ function submitLeaveRequest(payload) {
  */
 function updateLeaveStatus(leaveId, newStatus, staffEmail, isDemoMode) {
   try {
-<<<<<<< HEAD
-=======
     var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
     var hubSS = SpreadsheetApp.openById(hubId);
     var staffSheet = hubSS.getSheetByName("Staff_Registry");
@@ -1319,7 +1273,6 @@ function updateLeaveStatus(leaveId, newStatus, staffEmail, isDemoMode) {
       return { success: false, error: "Permission denied: you are not authorized to approve or reject leave requests." };
     }
 
->>>>>>> 8f1241a (demo moded add)
     var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Approved_Leave_Registry");
@@ -1812,6 +1765,33 @@ function getRolePermissions(roleType) {
     roleType: role
   };
 }
+
+/**
+ * Derives which apps a staff member should be able to log into, based purely
+ * on their Role_Type. Replaces the old manual "Grant Login Access To" checkboxes.
+ */
+function getAppAccessForRole(roleType) {
+  var role = (roleType || "").trim();
+  var isAdmin = (role === "Director" || role === "Admin");
+  var isAdminManager = (role === "Administrative_Manager");
+  var isAccounts = (role === "Accounts");
+  var isFieldStaff = (role === "Head_Coach" || role === "Coach" || role === "Team_Manager" || role === "Physio" || role === "Scout");
+
+  var access = [];
+
+  if (isAdmin || isAdminManager || isFieldStaff) {
+    access.push("eval");
+    access.push("attendance");
+  }
+  if (isAdmin || isAdminManager || isAccounts) {
+    access.push("billing");
+  }
+  if (isAdmin || isAdminManager) {
+    access.push("staff");
+  }
+
+  return access;
+}
 // ========================================================================
 // 🧑‍💼 STAFF BOARD — STAFF REGISTRY MANAGEMENT ENGINE
 // ========================================================================
@@ -1897,9 +1877,10 @@ function addStaffMember(payload) {
       "Active"
     ]);
 
-    // Optionally provision login access via IAM_Registry
-    if (payload.grantAppAccess && payload.grantAppAccess.length > 0) {
-      provisionIAMAccess(normalizedEmail, payload.grantAppAccess);
+    // Auto-derive login access from Role_Type
+    var derivedAccess = getAppAccessForRole(payload.roleType);
+    if (derivedAccess.length > 0) {
+      provisionIAMAccess(normalizedEmail, derivedAccess);
     }
 
     return { success: true, staffId: newStaffId };
@@ -1907,14 +1888,11 @@ function addStaffMember(payload) {
     return { success: false, error: error.toString() };
   }
 }
-<<<<<<< HEAD
-=======
 /**
  * Returns the current list of app scopes (e.g. ["eval","attendance"]) for a given email,
  * so the Edit Staff modal can pre-check the right boxes.
  */
 
->>>>>>> 8f1241a (demo moded add)
 /**
  * Edits an existing staff member's Full_Name, Role_Type, Assigned_Center_ID.
  * payload: { staffId, fullName, roleType, centerId }
@@ -1940,11 +1918,10 @@ function updateStaffMember(payload) {
         sheet.getRange(r + 1, roleIdx + 1).setValue(payload.roleType || "");
         sheet.getRange(r + 1, centerIdx + 1).setValue(payload.centerId || "");
 
-        // Update login access to exactly match the selected checkboxes (supports promotions/demotions)
-        if (payload.grantAppAccess) {
-          var staffEmail = data[r][emailIdx];
-          setIAMAccessExact(staffEmail, payload.grantAppAccess);
-        }
+        // Auto-derive login access from Role_Type — keeps access in sync automatically on any edit
+        var staffEmail = data[r][emailIdx];
+        var derivedAccess = getAppAccessForRole(payload.roleType);
+        setIAMAccessExact(staffEmail, derivedAccess);
 
         return { success: true };
       }
@@ -2084,8 +2061,6 @@ function getBrandingConfig(academyId) {
     return fallback;
   }
 }
-<<<<<<< HEAD
-=======
 /**
  * Returns the current list of app scopes (e.g. ["eval","attendance"]) for a given email,
  * so the Edit Staff modal can pre-check the right boxes.
@@ -2133,7 +2108,6 @@ function setIAMAccessExact(email, appScopesArray) {
     return { success: false, error: error.toString() };
   }
 }
->>>>>>> 8f1241a (demo moded add)
 function getCustomSessionColumns(sessionName, isDemoMode) {
   try {
     var ss = SpreadsheetApp.openById(
@@ -2164,7 +2138,7 @@ function saveCustomSessionEntry(sessionName, rowData, coachEmail, isDemoMode) {
     // Make sure the required identity columns exist, in the right order,
     // followed by any custom columns already present, followed by anything
     // new in rowData that isn't a header yet.
-    var requiredFirst = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib'];
+    var requiredFirst = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib', 'Session_Date'];
 
     var missingRequired = requiredFirst.filter(function(h) { return headers.indexOf(h) === -1; });
 
@@ -2222,7 +2196,7 @@ function getAllCustomSessions(isDemoMode) {
 
 function addColumnsToExistingSession(sessionName, newColumns, isDemoMode) {
   try {
-    var PROTECTED_COLUMNS = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib'];
+    var PROTECTED_COLUMNS = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib', 'Session_Date'];
     var blocked = newColumns.filter(function(c) { return PROTECTED_COLUMNS.indexOf(c) !== -1; });
     if (blocked.length > 0) {
       return { success: false, error: "These column names are reserved: " + blocked.join(', ') };
@@ -2248,7 +2222,7 @@ function addColumnsToExistingSession(sessionName, newColumns, isDemoMode) {
 }
 function removeColumnFromSession(sessionName, colName, isDemoMode) {
   try {
-    var PROTECTED_COLUMNS = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib'];
+    var PROTECTED_COLUMNS = ['TX_Signature_Token', 'Player_Name', 'Trial_Number_Or_Bib', 'Session_Date'];
     if (PROTECTED_COLUMNS.indexOf(colName) !== -1) {
       return { success: false, error: "This column is required and cannot be removed." };
     }
@@ -2267,6 +2241,546 @@ function removeColumnFromSession(sessionName, colName, isDemoMode) {
     return { success: true };
   } catch(e) {
     return { success: false, error: e.toString() };
+  }
+}
+function getAttendanceRecordsForReport(centerId, batchId, dateVal, monthVal, isDemoMode) {
+  try {
+    var targetId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_ATTENDANCE_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID;
+    var ss = SpreadsheetApp.openById(targetId);
+    var sheet = ss.getSheetByName("Student_Attendance_Log");
+    if (!sheet) return { success: false, error: "Student_Attendance_Log tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    // Columns written by submitStudentAttendance in order:
+    // [0] Log_ID, [1] Timestamp, [2] Center_ID, [3] Batch_ID, [4] Student_ID, [5] Status, [6] Logged_By
+    var records = [];
+
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var rowCenter = String(row[2] || "");
+      var rowBatch = String(row[3] || "");
+      var rowTimestamp = row[1];
+
+      if (rowCenter !== centerId) continue;
+      if (batchId && rowBatch !== batchId) continue;
+
+      var rowDateStr = "";
+      if (rowTimestamp instanceof Date) {
+        rowDateStr = Utilities.formatDate(rowTimestamp, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+      } else {
+        rowDateStr = String(rowTimestamp || "").substring(0, 10);
+      }
+
+      if (dateVal) {
+        if (rowDateStr !== dateVal) continue;
+      } else if (monthVal) {
+        if (rowDateStr.substring(0, 7) !== monthVal) continue;
+      }
+
+      records.push({
+        studentId: row[4],
+        batchId: rowBatch,
+        status: row[5]
+      });
+    }
+
+    return { success: true, records: records };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+function getStaffAttendanceRecordsForReport(dateVal, monthVal, isDemoMode) {
+  try {
+    var targetId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_ATTENDANCE_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID;
+    var ss = SpreadsheetApp.openById(targetId);
+    var sheet = ss.getSheetByName("Staff_Attendance_Log");
+    if (!sheet) return { success: false, error: "Staff_Attendance_Log tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var summary = {};
+
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var rowEmail = String(row[1] || "");
+      var rowName = String(row[2] || rowEmail);
+      var rowAttendanceDateRaw = row[4];
+      var rowTimestamp = row[5];
+
+      var rowDateStr = "";
+      if (rowAttendanceDateRaw instanceof Date) {
+        rowDateStr = Utilities.formatDate(rowAttendanceDateRaw, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+      } else if (rowAttendanceDateRaw) {
+        rowDateStr = String(rowAttendanceDateRaw).substring(0, 10);
+      } else if (rowTimestamp instanceof Date) {
+        rowDateStr = Utilities.formatDate(rowTimestamp, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+      } else if (rowTimestamp) {
+        rowDateStr = String(rowTimestamp).substring(0, 10);
+      }
+
+      if (!rowDateStr) continue;
+
+      if (dateVal) {
+        if (rowDateStr !== dateVal) continue;
+      } else if (monthVal) {
+        if (rowDateStr.substring(0, 7) !== monthVal) continue;
+      }
+
+      if (!summary[rowEmail]) {
+        summary[rowEmail] = { name: rowName, email: rowEmail, daysLogged: 0, dates: [] };
+      }
+      summary[rowEmail].daysLogged++;
+      summary[rowEmail].dates.push(rowDateStr);
+    }
+
+    return { success: true, summary: Object.values(summary) };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+function getStudentEvaluationReport(studentId, studentFullName, isDemoMode) {
+  try {
+    var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
+    var ss = SpreadsheetApp.openById(targetWarehouseId);
+    var normalizedTarget = (studentFullName || "").trim().toLowerCase();
+
+    if (!normalizedTarget) {
+      return { success: false, error: "No student name provided to match against." };
+    }
+
+    var evaluations = [];
+
+    ss.getSheets().forEach(function(sheet) {
+      var tabName = sheet.getName();
+      var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastRow < 2 || lastCol < 1) return;
+
+      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var playerNameIdx = headers.indexOf("Player_Name");
+      if (playerNameIdx === -1) return;
+
+      var evalTypeIdx = headers.indexOf("Evaluation_Type");
+      var isCustomTab = tabName.indexOf('CUSTOM_') === 0;
+      var rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+      rows.forEach(function(row) {
+        var rowPlayerName = String(row[playerNameIdx] || "").trim().toLowerCase();
+        if (rowPlayerName !== normalizedTarget) return;
+
+        var evalType = evalTypeIdx !== -1 ? String(row[evalTypeIdx] || "") : (isCustomTab ? "Custom" : "");
+        var isTrial = evalType.toLowerCase() === "trial";
+
+        var rowObject = {};
+        headers.forEach(function(header, i) {
+          var val = row[i];
+          if (val === "" || val === undefined || val === null) return;
+          if (val instanceof Date) {
+            val = Utilities.formatDate(val, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+          }
+          rowObject[header] = val;
+        });
+
+        evaluations.push({
+          sessionTab: tabName,
+          evaluationType: evalType,
+          matchConfidence: isCustomTab
+            ? "Unverified (Custom session — typed name match)"
+            : (isTrial ? "Unverified (Trial — typed name match)" : "Verified (Roster-linked)"),
+          data: rowObject
+        });
+      });
+    });
+
+    evaluations.sort(function(a, b) {
+      var rawA = a.data["Assessment_Date"] || a.data["Session_Date"];
+      var rawB = b.data["Assessment_Date"] || b.data["Session_Date"];
+      var dateA = rawA ? new Date(rawA) : null;
+      var dateB = rawB ? new Date(rawB) : null;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA - dateB;
+    });
+
+    return {
+      success: true,
+      studentId: studentId,
+      studentName: studentFullName,
+      totalEvaluations: evaluations.length,
+      evaluations: evaluations
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+// NEW — Monthly Evaluation Report: filters by date (Assessment_Date / Session_Date),
+// NOT by student name. Returns every evaluation from every student that falls
+// within the selected month, grouped by student for display purposes only.
+function getMonthlyEvaluationReport(monthVal, isDemoMode) {
+  try {
+    if (!monthVal) {
+      return { success: false, error: "No month provided." };
+    }
+
+    var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
+    var ss = SpreadsheetApp.openById(targetWarehouseId);
+
+    var allMatches = []; // flat list of every matching evaluation, across all students
+
+    ss.getSheets().forEach(function(sheet) {
+      var tabName = sheet.getName();
+      var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastRow < 2 || lastCol < 1) return;
+
+      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var playerNameIdx = headers.indexOf("Player_Name");
+      if (playerNameIdx === -1) return; // not an evaluation-shaped tab
+
+      var assessDateIdx = headers.indexOf("Assessment_Date");
+      var sessionDateIdx = headers.indexOf("Session_Date");
+      var evalTypeIdx = headers.indexOf("Evaluation_Type");
+      var isCustomTab = tabName.indexOf('CUSTOM_') === 0;
+
+      var rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+      rows.forEach(function(row) {
+        // Prefer Assessment_Date; fall back to Session_Date for custom sessions
+        var rawDate = (assessDateIdx !== -1 && row[assessDateIdx]) ? row[assessDateIdx]
+                     : (sessionDateIdx !== -1 ? row[sessionDateIdx] : null);
+        if (!rawDate) return; // no usable date on this row — can't place it in any month, skip
+
+        var dateStr = rawDate instanceof Date
+          ? Utilities.formatDate(rawDate, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd")
+          : String(rawDate).substring(0, 10);
+
+        if (dateStr.substring(0, 7) !== monthVal) return; // not in the selected month — skip
+
+        var rawPlayerName = String(row[playerNameIdx] || "").trim();
+        var displayName = rawPlayerName.replace(/\s*\([^)]*\)\s*$/, "").trim(); // strip stray "(ID)" suffix if present
+
+        var evalType = evalTypeIdx !== -1 ? String(row[evalTypeIdx] || "") : (isCustomTab ? "Custom" : "");
+        var isTrial = evalType.toLowerCase() === "trial";
+
+        var rowObject = {};
+        headers.forEach(function(header, i) {
+          var val = row[i];
+          if (val === "" || val === undefined || val === null) return;
+          if (val instanceof Date) {
+            val = Utilities.formatDate(val, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+          }
+          rowObject[header] = val;
+        });
+        allMatches.push({
+          studentName: displayName,
+          sessionTab: tabName,
+          evaluationType: evalType,
+          evaluationDate: dateStr,
+          matchConfidence: isCustomTab
+            ? "Unverified (Custom session)"
+            : (isTrial ? "Unverified (Trial)" : "Verified (Roster-linked)"),
+          data: rowObject
+        });
+      });
+    });
+
+    // Group by student name — purely for display, does NOT affect which rows were included
+    var studentGroups = {};
+    allMatches.forEach(function(ev) {
+      var key = ev.studentName.toLowerCase();
+      if (!studentGroups[key]) {
+        studentGroups[key] = { studentName: ev.studentName, evaluations: [] };
+      }
+      studentGroups[key].evaluations.push(ev);
+    });
+
+    // Sort each student's evaluations chronologically, and sort students alphabetically
+    var studentsList = Object.keys(studentGroups)
+      .map(function(key) { return studentGroups[key]; })
+      .sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
+
+    studentsList.forEach(function(group) {
+      group.evaluations.sort(function(a, b) { return a.evaluationDate.localeCompare(b.evaluationDate); });
+    });
+
+    return {
+      success: true,
+      month: monthVal,
+      totalEvaluations: allMatches.length,
+      totalStudents: studentsList.length,
+      students: studentsList
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+//filter by the billing_start date to create an invocie
+function getMonthlyInvoiceReport(selectedMonth, selectedCenter, isDemoMode, exactDate) {
+  try {
+    var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+
+    var financeSS = SpreadsheetApp.openById(financeId);
+    var invoiceSheet = financeSS.getSheetByName("Billing_Ledger_Invoices");
+    if (!invoiceSheet) return { success: false, error: "Billing_Ledger_Invoices tab not found." };
+
+    var invoices = parseSheetToObjects(invoiceSheet.getDataRange().getValues());
+
+    var hubSS = SpreadsheetApp.openById(hubId);
+    var rosterSheet = hubSS.getSheetByName("Academy_Roster");
+    var students = parseSheetToObjects(rosterSheet.getDataRange().getValues());
+    var studentLookup = {};
+    students.forEach(function(s) { studentLookup[s.Student_ID] = s; });
+
+    var matched = [];
+    var skippedInvalidDate = [];
+
+    invoices.forEach(function(inv) {
+      var rawDate = inv.Billing_Cycle_Start_Date;
+      var dateStr = "";
+
+      if (rawDate instanceof Date) {
+        dateStr = Utilities.formatDate(rawDate, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+      } else if (rawDate) {
+        dateStr = String(rawDate).substring(0, 10);
+      }
+
+      if (!dateStr) {
+        skippedInvalidDate.push(inv.Invoice_ID || "(unknown ID)");
+        return;
+      }
+
+      var invMonth = dateStr.substring(0, 7);
+      if (invMonth !== selectedMonth) return;
+
+      // Optional drill-down: exact Billing_Cycle_Start_Date match
+      if (exactDate && dateStr !== exactDate) return;
+
+      var student = studentLookup[inv.Student_ID];
+      var studentName = student ? (student.First_Name + " " + student.Last_Name) : inv.Student_ID;
+      var studentCenter = student ? student.Academy_Center_ID : "";
+
+      if (selectedCenter && studentCenter !== selectedCenter) return;
+
+      matched.push({
+        invoiceId: inv.Invoice_ID,
+        studentId: inv.Student_ID,
+        studentName: studentName,
+        centerId: studentCenter,
+        billingCycleStart: dateStr,
+        billingCycleEnd: inv.Billing_Cycle_End_Date instanceof Date
+          ? Utilities.formatDate(inv.Billing_Cycle_End_Date, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd")
+          : String(inv.Billing_Cycle_End_Date || ""),
+        totalDue: Number(inv.Total_Due) || 0,
+        amountPaid: Number(inv.Amount_Paid) || 0,
+        balance: (Number(inv.Total_Due) || 0) - (Number(inv.Amount_Paid) || 0),
+        paymentStatus: inv.Payment_Status || "",
+        paymentDate: inv.Payment_Date || "",
+        paymentMode: inv.Payment_Mode || ""
+      });
+    });
+
+    return JSON.parse(JSON.stringify({
+      success: true,
+      selectedMonth: selectedMonth,
+      selectedCenter: selectedCenter || "All Centers",
+      exactDate: exactDate || null,
+      records: matched,
+      skippedInvalidDateCount: skippedInvalidDate.length,
+      skippedInvalidDateIds: skippedInvalidDate
+    }));
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+const CENTERS = [
+  { id: "CTR_WHITEFIELD", name: "Whitefield Center", latitude: 12.9790278, longitude: 77.7114942 },
+  { id: "CTR_GAW", name: "GAW Center", latitude: 12.965468, longitude: 77.7322951 },
+  { id: "CTR_GAS", name: "GAS Center", latitude: 12.8976118, longitude: 77.6820773 },
+  { id: "CTR_VELOCT", name: "VeloCT Center", latitude: 12.90254566, longitude: 77.68686796 }
+];
+
+function calculateDistanceInMeters(lat1, lon1, lat2, lon2) {
+  var R = 6371000;
+  var toRad = function(deg) { return deg * Math.PI / 180; };
+  var dLat = toRad(lat2 - lat1);
+  var dLon = toRad(lon2 - lon1);
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Validates a coach's live GPS location against their assigned center.
+ * Returns { allowed: true/false, distanceMeters, centerId, centerName, reason }
+ * Staff assigned to "ALL" centers are exempt (no single center to check against).
+ */
+
+function parseCoordinatesFromToken(token) {
+  if (!token) return null;
+  var parts = String(token).split(",");
+  if (parts.length !== 2) return null;
+  var lat = parseFloat(parts[0].trim());
+  var lon = parseFloat(parts[1].trim());
+  if (isNaN(lat) || isNaN(lon)) return null;
+  return { latitude: lat, longitude: lon };
+}
+/**
+ * Validates a coach's live GPS location against their assigned center,
+ * using coordinates stored in Facilities_Matrix (Geographic_City_Boundary_Token: "lat,lon").
+ */
+function validateCoachLocation(centerId, latitude, longitude, isDemoMode) {
+  if (!centerId || centerId === "ALL") {
+    return { allowed: true, exempt: true, reason: "Staff assigned to all centers — geofence not applicable." };
+  }
+
+  var lat = Number(latitude);
+  var lon = Number(longitude);
+  if (isNaN(lat) || isNaN(lon)) {
+    return { allowed: false, reason: "Could not obtain a valid GPS location." };
+  }
+
+  var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+  var hubSS = SpreadsheetApp.openById(hubId);
+  var facilitySheet = hubSS.getSheetByName("Facilities_Matrix");
+  var facilities = parseSheetToObjects(facilitySheet.getDataRange().getValues());
+
+  var center = facilities.find(function(f) { return String(f.Center_ID).trim() === String(centerId).trim(); });
+  if (!center || !center.Geographic_City_Boundary_Token) {
+    return { allowed: false, reason: "Coordinates for center '" + centerId + "' not found in Facilities_Matrix." };
+  }
+
+  var coords = String(center.Geographic_City_Boundary_Token).split(",");
+  var centerLat = Number(coords[0]);
+  var centerLon = Number(coords[1]);
+  if (isNaN(centerLat) || isNaN(centerLon)) {
+    return { allowed: false, reason: "Invalid coordinate format stored for center '" + centerId + "'." };
+  }
+
+  var distance = calculateDistanceInMeters(lat, lon, centerLat, centerLon);
+  var allowed = distance <= 500;
+
+  return {
+    allowed: allowed,
+    distanceMeters: Math.round(distance),
+    centerId: center.Center_ID,
+    centerName: center.Center_Name,
+    reason: allowed ? "" : "You are approximately " + Math.round(distance) + " meters from " + center.Center_Name + ". You must be within 500 meters to mark attendance."
+  };
+}
+//for new academy to automatically enter all there data
+
+function bulkImportRosterStudents(rows, staffEmail, isDemoMode) {
+  try {
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffSheet = hubSS.getSheetByName("Staff_Registry");
+    var staffObjects = parseSheetToObjects(staffSheet.getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to import roster data." };
+    }
+
+    var rosterSheet = hubSS.getSheetByName("Academy_Roster");
+    if (!rosterSheet) return { success: false, error: "Academy_Roster tab not found." };
+
+    var existingRoster = parseSheetToObjects(rosterSheet.getDataRange().getValues());
+    var existingIds = {};
+    existingRoster.forEach(function(s) { existingIds[String(s.Student_ID)] = true; });
+
+    var facilitySheet = hubSS.getSheetByName("Facilities_Matrix");
+    var facilities = parseSheetToObjects(facilitySheet.getDataRange().getValues());
+    var validCenterIds = {};
+    facilities.forEach(function(f) { validCenterIds[String(f.Center_ID)] = true; });
+
+    var batchSheet = hubSS.getSheetByName("Batches_Registry");
+    var batches = parseSheetToObjects(batchSheet.getDataRange().getValues());
+    var validBatches = {};
+    batches.forEach(function(b) { validBatches[String(b.Batch_ID)] = String(b.Center_ID); });
+
+    var tz = GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE;
+    var today = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+
+    var importedCount = 0;
+    var skipped = [];
+    var newRows = [];
+    var workingRoster = existingRoster.slice(); // grows as we assign new IDs, so generateNextStudentId sees them
+
+    rows.forEach(function(row, index) {
+      var rowNum = index + 2;
+
+      var firstName = String(row.First_Name || "").trim();
+      var lastName = String(row.Last_Name || "").trim();
+      if (!firstName || !lastName) {
+        skipped.push("Row " + rowNum + ": missing First_Name or Last_Name.");
+        return;
+      }
+
+      var centerId = String(row.Academy_Center_ID || "").trim();
+      if (!centerId || !validCenterIds[centerId]) {
+        skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): invalid or missing Academy_Center_ID '" + centerId + "'.");
+        return;
+      }
+
+      var batchId = String(row.Academy_Batch_ID || "").trim();
+      if (!batchId || !validBatches[batchId]) {
+        skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): invalid or missing Academy_Batch_ID '" + batchId + "'.");
+        return;
+      }
+      if (validBatches[batchId] !== centerId) {
+        skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): Batch '" + batchId + "' does not belong to Center '" + centerId + "'.");
+        return;
+      }
+
+      var studentId = String(row.Student_ID || "").trim();
+      if (studentId) {
+        if (existingIds[studentId]) {
+          skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): Student_ID '" + studentId + "' already exists.");
+          return;
+        }
+      } else {
+        studentId = generateNextStudentId(workingRoster);
+      }
+      existingIds[studentId] = true;
+      workingRoster.push({ Student_ID: studentId }); // so next auto-generated ID accounts for this one
+
+      newRows.push([
+        studentId,
+        firstName,
+        lastName,
+        row.DOB || "",
+        row.Parent_Name || "",
+        row.Parent_Email || "",
+        row.Parent_Phone || "",
+        centerId,
+        batchId,
+        row.Kit_Size_Shirt || "",
+        row.Kit_Size_Shorts || "",
+        row.Medical_Alert_Flags || "None",
+        row.Onboarding_Date || today,
+        row.Status || "Active"
+      ]);
+      importedCount++;
+    });
+
+    if (newRows.length > 0) {
+      rosterSheet.getRange(rosterSheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+    }
+
+    return {
+      success: true,
+      importedCount: importedCount,
+      skippedCount: skipped.length,
+      skippedDetails: skipped
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
   }
 }
 function include(filename) {

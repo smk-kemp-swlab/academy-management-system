@@ -54,21 +54,35 @@
     <h2>Staff Board</h2>
 </div>
 
-    <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
-        <div class="form-group">
-            <label style="color:#15803d">Logged In As</label>
-            <div id="loggedInStaff" style="font-weight: 700; font-size: 15px; color: #1e293b;">--</div>
-        </div>
+   <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+    <div class="form-group">
+        <label style="color:#15803d">Logged In As</label>
+        <div id="loggedInStaff" style="font-weight: 700; font-size: 15px; color: #1e293b;">--</div>
     </div>
+</div>
 
-    <div id="notAdminNotice" style="display:none;" class="section-box">
+<div class="dashboard-grid" style="margin-bottom: 16px;">
+    <div class="hub-card active-hub" id="hub_staffmgmt" onclick="switchStaffModule('staffmgmt')">
+        <div class="icon">🧑‍💼</div>
+        <div class="title">Staff Management</div>
+        <div class="badge-mini">Active</div>
+    </div>
+    <div class="hub-card" id="hub_rosterimport" onclick="switchStaffModule('rosterimport')">
+        <div class="icon">📥</div>
+        <div class="title">Roster Import</div>
+        <div class="badge-mini">Active</div>
+    </div>
+</div>
+
+<div id="notAdminNotice" style="display:none;" class="section-box">
         <div style="text-align:center; padding:10px; color:#64748b; font-size:13px;">
             🔒 You have read-only access. Only Directors/Admins can add or edit staff.
         </div>
     </div>
 
-    <!-- Add New Staff Form (admin only) -->
-    <div id="addStaffFormWrapper" style="display:none;">
+    <div id="module_staffmgmt">
+<!-- Add New Staff Form (admin only) -->
+<div id="addStaffFormWrapper" style="display:none;">
         <div class="section-box">
             <h3 style="margin-top:0;">Add New Staff Member</h3>
             <div class="form-group">
@@ -101,24 +115,9 @@
                 </select>
             </div>
 
-            <div class="form-group" style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1;">
-              <label style="margin-bottom:8px;">Grant Login Access To:</label>
-              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
-                  <input type="checkbox" id="grantEval" value="eval" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Evaluations
-              </label>
-              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
-                  <input type="checkbox" id="grantAttendance" value="attendance" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Attendance
-              </label>
-              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
-                  <input type="checkbox" id="grantBilling" value="billing" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Fee Tracker / Billing
-              </label>
-              <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; cursor:pointer;">
-                  <input type="checkbox" id="grantStaff" value="staff" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Staff Board
-              </label>
-              <div style="font-size:11px; color:#94a3b8; margin-top:8px;">
-                  They'll set their own password the first time they log into each app.
-              </div>
-          </div>
+            <div style="font-size:11px; color:#94a3b8; margin-top:12px;">
+                App access is automatically granted based on the selected Role. They'll set their own password the first time they log into each app.
+            </div>
             <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewStaff()">✅ Add Staff Member</button>
         </div>
     </div>
@@ -140,14 +139,41 @@
     <div id="staffLoadingMsg" style="text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
         Loading staff...
     </div>
+</div>
+<!-- closes module_staffmgmt -->
 
-    <!-- Admin Sandbox Tray -->
-    <div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
-        <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
-            🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
-        </button>
+    <div id="module_rosterimport" style="display:none;">
+    <div id="rosterImportWrapper" style="display:none;">
+        <div class="section-box">
+            <h3 style="margin-top:0;">📥 Bulk Import Student Roster</h3>
+            <p style="font-size:12px; color:#64748b; margin-top:-8px; margin-bottom:14px;">
+                Upload a CSV of students to add them to the roster in one go. Rows with missing or invalid data (unknown Center/Batch, duplicate Student_ID) will be skipped and listed below.
+            </p>
+            <button class="master-action-btn" style="background:#0288d1; color:white;" onclick="downloadRosterTemplate()">⬇️ Download CSV Template</button>
+            <div class="form-group" style="margin-top:14px;">
+                <label>Upload Roster CSV</label>
+                <input type="file" id="rosterImportFile" accept=".csv">
+            </div>
+            <button class="master-action-btn btn-commit" id="rosterImportBtn" style="margin-top:12px;" onclick="submitRosterImport()">✅ Import Roster</button>
+            <div id="rosterImportResults" style="display:none; margin-top:14px; padding:12px; background:#f8fafc; border-radius:8px; font-size:13px;"></div>
+        </div>
+    </div>
+    <div id="rosterImportNotAdminNotice" style="display:none;" class="section-box">
+        <div style="text-align:center; padding:10px; color:#64748b; font-size:13px;">
+            🔒 Only Directors/Admins/Administrative Managers can import roster data.
+        </div>
     </div>
 </div>
+<!-- closes module_rosterimport -->
+
+<!-- Admin Sandbox Tray — page-level, visible regardless of active tab -->
+<div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
+    <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
+        🔒 Normal Use Mode (Tap to Change to Demo Sandbox)
+    </button>
+</div>
+</div>
+<!-- closes .container -->
 
 <!-- Edit Staff Modal -->
 <div id="editStaffModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
@@ -179,21 +205,7 @@
     </select>
 </div>
 
-<div class="form-group" style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1;">
-  <label style="margin-bottom:8px;">Grant Login Access To:</label>
-  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
-      <input type="checkbox" id="editGrantEval" value="eval" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Evaluations
-  </label>
-  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
-      <input type="checkbox" id="editGrantAttendance" value="attendance" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Attendance
-  </label>
-  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; margin-bottom:6px; cursor:pointer;">
-      <input type="checkbox" id="editGrantBilling" value="billing" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Fee Tracker / Billing
-  </label>
-  <label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13px; cursor:pointer;">
-      <input type="checkbox" id="editGrantStaff" value="staff" style="-webkit-appearance:checkbox !important; appearance:checkbox !important; width:18px !important; height:18px !important; flex:0 0 18px !important; margin:0 !important; padding:0 !important;"> Staff Board
-  </label>
-</div>
+
 
 <div class="btn-container" style="margin-top: 18px;">
             <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditModal()">Cancel</button>
@@ -330,13 +342,20 @@ function loadStaffBoardContext() {
             }
             contextPayload = ctx;
 
-            if (ctx.isAdmin) {
+            const canManageStaff = (ctx.permissions && ctx.permissions.canManageStaff) || ctx.isAdmin;
+            if (canManageStaff) {
                 document.getElementById('addStaffFormWrapper').style.display = 'block';
+                document.getElementById('rosterImportWrapper').style.display = 'block';
                 document.getElementById('notAdminNotice').style.display = 'none';
-                document.getElementById('adminSandboxTray').style.display = 'block';
+                document.getElementById('rosterImportNotAdminNotice').style.display = 'none';
             } else {
                 document.getElementById('addStaffFormWrapper').style.display = 'none';
+                document.getElementById('rosterImportWrapper').style.display = 'none';
                 document.getElementById('notAdminNotice').style.display = 'block';
+                document.getElementById('rosterImportNotAdminNotice').style.display = 'block';
+            }
+            if (ctx.isAdmin) {
+                document.getElementById('adminSandboxTray').style.display = 'block';
             }
 
             populateCenterDropdowns();
@@ -467,12 +486,6 @@ function submitNewStaff() {
         return;
     }
 
-    const grantAppAccess = [];
-    if (document.getElementById('grantEval').checked) grantAppAccess.push('eval');
-    if (document.getElementById('grantAttendance').checked) grantAppAccess.push('attendance');
-    if (document.getElementById('grantBilling').checked) grantAppAccess.push('billing');
-    if (document.getElementById('grantStaff').checked) grantAppAccess.push('staff');
-
     const btn = document.querySelector('#addStaffFormWrapper .btn-commit');
     btn.disabled = true;
     btn.innerText = "Adding...";
@@ -487,10 +500,6 @@ function submitNewStaff() {
                 document.getElementById('staffEmail').value = '';
                 document.getElementById('staffRoleType').value = '';
                 document.getElementById('staffCenterSelect').value = '';
-                document.getElementById('grantEval').checked = false;
-                document.getElementById('grantAttendance').checked = false;
-                document.getElementById('grantBilling').checked = false;
-                document.getElementById('grantStaff').checked = false;
                 loadStaffBoardContext();
             } else {
                 alert("Error: " + result.error);
@@ -506,7 +515,6 @@ function submitNewStaff() {
             email: email,
             roleType: roleType,
             centerId: centerId,
-            grantAppAccess: grantAppAccess,
             staffEmail: verifiedStaffEmail,
             isDemoMode: currentSystemIsDemoMode
         });
@@ -520,26 +528,7 @@ function openEditModal(staffId) {
     document.getElementById('editFullName').value = s.Full_Name;
     document.getElementById('editRoleType').value = s.Role_Type;
     document.getElementById('editCenterSelect').value = s.Assigned_Center_ID || '';
-
-    // Reset checkboxes while access is loading
-    ['editGrantEval', 'editGrantAttendance', 'editGrantBilling', 'editGrantStaff'].forEach(id => {
-        document.getElementById(id).checked = false;
-    });
-
     document.getElementById('editStaffModalOverlay').style.display = 'flex';
-
-    google.script.run
-        .withSuccessHandler(function(scopes) {
-            scopes = scopes || [];
-            document.getElementById('editGrantEval').checked = scopes.indexOf('eval') !== -1;
-            document.getElementById('editGrantAttendance').checked = scopes.indexOf('attendance') !== -1;
-            document.getElementById('editGrantBilling').checked = scopes.indexOf('billing') !== -1;
-            document.getElementById('editGrantStaff').checked = scopes.indexOf('staff') !== -1;
-        })
-        .withFailureHandler(function() {
-            // Silent fail — boxes just stay unchecked, admin can still re-grant manually
-        })
-        .getIAMAccessForEmail(s.Email_Address);
 }
 function closeEditModal() {
     document.getElementById('editStaffModalOverlay').style.display = 'none';
@@ -552,12 +541,6 @@ function submitStaffEdit() {
     const centerId = document.getElementById('editCenterSelect').value;
 
     if (!fullName || !roleType) { alert("Please fill Full Name and Role."); return; }
-
-    const grantAppAccess = [];
-    if (document.getElementById('editGrantEval').checked) grantAppAccess.push('eval');
-    if (document.getElementById('editGrantAttendance').checked) grantAppAccess.push('attendance');
-    if (document.getElementById('editGrantBilling').checked) grantAppAccess.push('billing');
-    if (document.getElementById('editGrantStaff').checked) grantAppAccess.push('staff');
 
     google.script.run
         .withSuccessHandler(function(result) {
@@ -576,7 +559,6 @@ function submitStaffEdit() {
             fullName: fullName,
             roleType: roleType,
             centerId: centerId,
-            grantAppAccess: grantAppAccess,
             isDemoMode: currentSystemIsDemoMode
         });
 }
@@ -626,6 +608,101 @@ function updateSandboxUI() {
         tray.style.borderTopColor = "#cbd5e1";
         btn.style.color = "#94a3b8";
     }
+}
+// ========== BULK ROSTER IMPORT ==========
+function downloadRosterTemplate() {
+    const headers = "Student_ID,First_Name,Last_Name,DOB,Parent_Name,Parent_Email,Parent_Phone,Academy_Center_ID,Academy_Batch_ID,Kit_Size_Shirt,Kit_Size_Shorts,Medical_Alert_Flags,Onboarding_Date,Status\n";
+    const exampleRow = ",Kyra,Seth Syed,2010-11-24,Vinita Seth,vinita@example.com,9886744267,CTR_VELOCT,B_VCT_O11,M,M,None,2026-08-08,Active\n";
+    const csv = headers + exampleRow;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Roster_Import_Template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function parseRosterCsv(text) {
+    const rows = text.split('\n').map(r => r.trim()).filter(r => r.length > 0);
+    if (rows.length < 2) return [];
+
+    const headers = rows[0].split(',').map(h => h.replace(/^["']|["']$/g, '').trim());
+    const records = [];
+
+    for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i].split(',');
+        const record = {};
+        headers.forEach((h, idx) => {
+            record[h] = cols[idx] ? cols[idx].replace(/^["']|["']$/g, '').trim() : '';
+        });
+        records.push(record);
+    }
+    return records;
+}
+
+function submitRosterImport() {
+    const fileInput = document.getElementById('rosterImportFile');
+    const file = fileInput.files[0];
+    if (!file) { alert("Please choose a CSV file first."); return; }
+
+    const btn = document.getElementById('rosterImportBtn');
+    btn.disabled = true;
+    btn.innerText = "Importing...";
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const records = parseRosterCsv(e.target.result);
+        if (records.length === 0) {
+            btn.disabled = false;
+            btn.innerText = "✅ Import Roster";
+            alert("No valid rows found in the CSV.");
+            return;
+        }
+
+        google.script.run
+            .withSuccessHandler(function(result) {
+                btn.disabled = false;
+                btn.innerText = "✅ Import Roster";
+                if (!result.success) {
+                    alert("Error: " + result.error);
+                    return;
+                }
+                renderRosterImportResults(result);
+                fileInput.value = '';
+            })
+            .withFailureHandler(function() {
+                btn.disabled = false;
+                btn.innerText = "✅ Import Roster";
+                alert("Connection failed. Please try again.");
+            })
+            .bulkImportRosterStudents(records, verifiedStaffEmail, currentSystemIsDemoMode);
+    };
+    reader.readAsText(file);
+}
+
+function renderRosterImportResults(result) {
+    const container = document.getElementById('rosterImportResults');
+    let html = `<div style="font-weight:700; color:#166534;">✅ Imported: ${result.importedCount}</div>`;
+    if (result.skippedCount > 0) {
+        html += `<div style="font-weight:700; color:#991b1b; margin-top:8px;">⚠️ Skipped: ${result.skippedCount}</div>`;
+        html += `<ul style="margin-top:6px; padding-left:18px; color:#64748b; font-size:12px;">`;
+        result.skippedDetails.forEach(reason => {
+            html += `<li>${reason}</li>`;
+        });
+        html += `</ul>`;
+    }
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+function switchStaffModule(module) {
+    document.querySelectorAll('.hub-card').forEach(c => c.classList.remove('active-hub'));
+    document.getElementById('hub_' + module).classList.add('active-hub');
+    document.getElementById('module_staffmgmt').style.display = module === 'staffmgmt' ? 'block' : 'none';
+    document.getElementById('module_rosterimport').style.display = module === 'rosterimport' ? 'block' : 'none';
 }
 </script>
 

@@ -215,6 +215,10 @@
                 if (context.isAdmin) {
                     document.getElementById("adminSandboxTray").style.display = "block";
                 }
+                const assessDateEl = document.getElementById('out_assessment_date');
+                if (assessDateEl && !assessDateEl.value) {
+                    assessDateEl.value = new Date().toISOString().split('T')[0];
+                }
                 
                 document.getElementById('evaluationConsolePanel').style.opacity = "1";
                 document.getElementById('evaluationConsolePanel').style.pointerEvents = "auto";
@@ -670,6 +674,11 @@
     return;
 }
 
+        if (!packet["Assessment_Date"] || packet["Assessment_Date"].trim() === "") {
+            alert("Evaluation Date is mandatory. Please select a date before saving.");
+            return;
+        }
+
         localTransmissionQueue.push({ 
             tab: sessionTabSel.value, 
             payload: packet, 
@@ -699,6 +708,9 @@ function clearFormLayoutInterface(currentFramework) {
         ["out_overall_score", "out_recommended_action", "out_assessor_name", "out_strengths", "out_improvements", "out_comments"].forEach(id => {
             const el = document.getElementById(id); if (el) el.value = '';
         });
+        // NEW — reset Evaluation Date to today instead of blanking it
+        const assessDateResetEl = document.getElementById('out_assessment_date');
+        if (assessDateResetEl) assessDateResetEl.value = new Date().toISOString().split('T')[0];
         window.scrollTo({top: 0, behavior: 'smooth'});
         switchFormWizardStepView(1);
     }
@@ -915,6 +927,7 @@ function toggleEntryMethod(method) {
 }
 function toggleDemoSandboxMode() {
     currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    localStorage.setItem('kemp_suite_verified_demo_mode', currentSystemIsDemoMode);
     const btn = document.getElementById('sandboxToggleBtn');
     const tray = document.getElementById('adminSandboxTray');
 

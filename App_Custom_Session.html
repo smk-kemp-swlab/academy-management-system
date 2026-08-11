@@ -30,16 +30,30 @@
             <h3 style="margin-top:0;">Player Data Entry</h3>
 
             <div class="form-group" style="margin-bottom:14px;">
-                <label style="font-weight:600; color:#334155;">Player Name *</label>
-                <input type="text" id="field_Player_Name" placeholder="Enter player name"
+                <label style="font-weight:600; color:#334155;">Filter by Center (optional)</label>
+                <select id="customSessionCenterFilter" onchange="populateCustomSessionBatchFilter(); populateCustomSessionStudentOptions();"
                     style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+                    <option value="">-- All Centers --</option>
+                </select>
             </div>
 
             <div class="form-group" style="margin-bottom:14px;">
-                <label style="font-weight:600; color:#334155;">Trial Number / Bib *</label>
-                <input type="text" id="field_Trial_Number_Or_Bib" placeholder="Enter bib or trial number"
+                <label style="font-weight:600; color:#334155;">Filter by Batch (optional)</label>
+                <select id="customSessionBatchFilter" onchange="populateCustomSessionStudentOptions();"
                     style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+                    <option value="">-- All Batches --</option>
+                </select>
             </div>
+
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="font-weight:600; color:#334155;">Player Name *</label>
+                <select id="field_Player_Name" disabled
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+                    <option value="">Loading roster...</option>
+                </select>
+            </div>
+
+            <input type="hidden" id="field_Trial_Number_Or_Bib">
 
             <div id="dynamicFieldsContainer"></div>
         </div>
@@ -67,9 +81,8 @@
     let coachEmail = '';
     let isDemoMode = false;
   
-    const HIDDEN_COLUMNS = ['TX_Signature_Token'];
+    const HIDDEN_COLUMNS = ['TX_Signature_Token', 'Student_ID'];
     const LOCKED_COLUMNS = ['Player_Name', 'Trial_Number_Or_Bib'];
-
 
     // Get URL params
     (function() {
@@ -87,7 +100,7 @@ const pageMode = '<?!= urlPageMode ?>';
         document.getElementById('sessionNameDisplay').innerText = sessionName;
         document.getElementById('coachEmailDisplay').innerText = coachEmail;
 
-        // Load columns from sheet
+// Load columns from sheet
         google.script.run
             .withSuccessHandler(function(columns) {
                 if (!columns || columns.length === 0) {
@@ -110,27 +123,110 @@ const pageMode = '<?!= urlPageMode ?>';
             .getCustomSessionColumns(sessionName, isDemoMode);
     })();
 
+    // ===== Roster dropdown for Player Name (added — reuses existing roster fetch) =====
+    let customSessionRoster = [];
+    let customSessionFacilities = [];
+    let customSessionBatches = [];
+
+    (function() {
+        google.script.run
+            .withSuccessHandler(function(ctx) {
+                customSessionRoster = (ctx && ctx.players) ? ctx.players.filter(function(p) { return p.Status === 'Active'; }) : [];
+                customSessionFacilities = (ctx && ctx.facilities) ? ctx.facilities : [];
+                customSessionBatches = (ctx && ctx.batches) ? ctx.batches : [];
+
+                const centerSel = document.getElementById('customSessionCenterFilter');
+                centerSel.innerHTML = '<option value="">-- All Centers --</option>';
+                customSessionFacilities.forEach(function(c) {
+                    centerSel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
+                });
+
+                populateCustomSessionStudentOptions();
+            })
+            .withFailureHandler(function() {
+                const studentSel = document.getElementById('field_Player_Name');
+                studentSel.innerHTML = '<option value="">-- Failed to load roster --</option>';
+            })
+            .getPerformanceEngineContext(isDemoMode, coachEmail);
+    })();
+
+    function populateCustomSessionBatchFilter() {
+        const centerVal = document.getElementById('customSessionCenterFilter').value;
+        const batchSel = document.getElementById('customSessionBatchFilter');
+        batchSel.innerHTML = '<option value="">-- All Batches --</option>';
+        customSessionBatches
+            .filter(function(b) { return !centerVal || b.Center_ID === centerVal; })
+            .forEach(function(b) {
+                batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+            });
+    }
+
+    function populateCustomSessionStudentOptions() {
+        const centerVal = document.getElementById('customSessionCenterFilter').value;
+        const batchVal = document.getElementById('customSessionBatchFilter').value;
+        const studentSel = document.getElementById('field_Player_Name');
+
+        const filtered = customSessionRoster.filter(function(p) {
+            if (centerVal && p.Academy_Center_ID !== centerVal) return false;
+            if (batchVal && p.Academy_Batch_ID !== batchVal) return false;
+            return true;
+        });
+
+        studentSel.innerHTML = '<option value="">-- Select Player --</option>';
+        filtered.forEach(function(p) {
+            studentSel.innerHTML += `<option value="${p.Student_ID}">${p.First_Name} ${p.Last_Name} (${p.Student_ID})</option>`;
+        });
+        studentSel.disabled = false;
+    }
+
     function buildForm(columns) {
-        const container = document.getElementById('dynamicFieldsContainer');
-        let html = '';
-        columns.forEach(function(col) {
+    const container = document.getElementById('dynamicFieldsContainer');
+    let html = '';
+    const todayStr = new Date().toISOString().split('T')[0]; // yyyy-MM-dd, matches <input type="date">
+
+    columns.forEach(function(col) {
+        if (col === 'Session_Date') {
+            html += `
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="font-weight:600; color:#334155;">Session Date *</label>
+                <input type="date" id="field_${col.replace(/\s+/g, '_')}"
+                    value="${todayStr}"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
+            </div>`;
+        } else {
             html += `
             <div class="form-group" style="margin-bottom:14px;">
                 <label style="font-weight:600; color:#334155;">${col}</label>
-                <input type="text" id="field_${col.replace(/\s+/g, '_')}" 
+                <input type="text" id="field_${col.replace(/\s+/g, '_')}"
                     placeholder="Enter ${col}"
                     style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; margin-top:4px; box-sizing:border-box;">
             </div>`;
-        });
-        container.innerHTML = html;
-    }
+        }
+        
+    });
+    container.innerHTML = html;
+}
 
     function submitCustomEntry() {
-    const playerName = document.getElementById('field_Player_Name').value.trim();
-    const bibNumber = document.getElementById('field_Trial_Number_Or_Bib').value.trim();
+    const selectedStudentId = document.getElementById('field_Player_Name').value;
 
-    if (!playerName || !bibNumber) {
-        alert("Please enter Player Name and Trial Number / Bib before saving.");
+    if (!selectedStudentId) {
+        alert("Please select a Player before saving.");
+        return;
+    }
+
+    const bibNumber = selectedStudentId; // Trial_Number_Or_Bib now auto-filled with Student_ID
+    document.getElementById('field_Trial_Number_Or_Bib').value = bibNumber;
+
+    const selectedStudent = customSessionRoster.find(function(p) { return p.Student_ID === selectedStudentId; });
+    const playerName = selectedStudent ? (selectedStudent.First_Name + ' ' + selectedStudent.Last_Name) : '';
+
+    // NEW — Session_Date is mandatory when this session has that column.
+    // Guarded with `sessionDateEl &&` so old sessions without this column
+    // (not yet backfilled) don't break — same graceful pattern used elsewhere.
+    var sessionDateEl = document.getElementById('field_Session_Date');
+    if (sessionDateEl && !sessionDateEl.value) {
+        alert("Please select a Session Date before saving.");
         return;
     }
 
@@ -146,34 +242,37 @@ const pageMode = '<?!= urlPageMode ?>';
         rowData[col] = val;
     });
 
-        const btn = document.querySelector('.master-action-btn.btn-commit');
-        btn.disabled = true;
-        btn.innerText = "Saving...";
+    const btn = document.querySelector('.master-action-btn.btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Saving...";
 
-        google.script.run
-            .withSuccessHandler(function(result) {
-                btn.disabled = false;
-                btn.innerText = "✅ Save Entry";
-                if (result.success) {
-                    alert("Entry saved successfully!");
-                    // Reset form for next player
-                    sheetColumns.forEach(function(col) {
-                        const fieldId = 'field_' + col.replace(/\s+/g, '_');
-                        const el = document.getElementById(fieldId);
-                        if (el) el.value = '';
-                    });
-                    document.getElementById('dynamicFieldsContainer').querySelector('input').focus();
-                } else {
-                    alert("Error: " + result.error);
-                }
-            })
-            .withFailureHandler(function() {
-                btn.disabled = false;
-                btn.innerText = "✅ Save Entry";
-                alert("Connection failed. Please try again.");
-            })
-            .saveCustomSessionEntry(sessionName, rowData, coachEmail, isDemoMode);
-    }
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Save Entry";
+            if (result.success) {
+                alert("Entry saved successfully!");
+                // Reset form for next player
+                const todayStr = new Date().toISOString().split('T')[0];
+                document.getElementById('field_Player_Name').value = '';
+                document.getElementById('field_Trial_Number_Or_Bib').value = '';
+                sheetColumns.forEach(function(col) {
+                    const fieldId = 'field_' + col.replace(/\s+/g, '_');
+                    const el = document.getElementById(fieldId);
+                    if (!el) return;
+                    el.value = (col === 'Session_Date') ? todayStr : '';
+                });
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Save Entry";
+            alert("Connection failed. Please try again.");
+        })
+        .saveCustomSessionEntry(sessionName, rowData, coachEmail, isDemoMode);
+}
 function toggleManageMode() {
     const url = new URL(window.location.href);
     const current = url.searchParams.get('mode');

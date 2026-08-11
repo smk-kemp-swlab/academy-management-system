@@ -110,6 +110,40 @@
         <div id="rosterLoadingMsg" style="display: none; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">
             Loading students...
         </div>
+
+        <!-- Attendance Report -->
+        <div class="section-box" style="margin-top:16px;">
+            <h3 style="margin-top:0;">📊 Attendance Report</h3>
+            <div class="form-group">
+                <label>Center *</label>
+                <select id="reportCenterSelect" onchange="populateReportBatches()">
+                    <option value="">-- Select Center --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Batch (optional)</label>
+                <select id="reportBatchSelect">
+                    <option value="">-- All Batches --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Month *</label>
+                <input type="month" id="reportMonth">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Specific Date (optional, narrows to one day)</label>
+                <input type="date" id="reportDate">
+            </div>
+            <button id="generateReportBtn" class="master-action-btn btn-sync" style="margin-top:12px;" onclick="generateAttendanceReport()">📊 Generate Report</button>
+        </div>
+
+        <div id="reportResultsContainer" style="display:none;" class="section-box">
+    <div id="reportTableWrapper"></div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="master-action-btn btn-commit" style="flex:1;" onclick="downloadReportCSV()">⬇️ CSV</button>
+        <button class="master-action-btn btn-sync" style="flex:1;" onclick="downloadReportPDF()">🖨️ PDF</button>
+    </div>
+</div>
     </div>
 
     <!-- Staff Attendance Module -->
@@ -131,6 +165,28 @@
                     <input type="date" id="retroDate">
                 </div>
                 <button class="master-action-btn" style="background: #475569; color: white; margin-top: 8px;" onclick="submitRetroAttendance()">Submit Retroactive Entry</button>
+            </div>
+        </div>
+
+        <!-- Staff Attendance Report -->
+        <div class="section-box" style="margin-top:16px;">
+            <h3 style="margin-top:0;">📊 Staff Attendance Report</h3>
+            <div class="form-group">
+                <label>Month *</label>
+                <input type="month" id="staffReportMonth">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Specific Date (optional, narrows to one day)</label>
+                <input type="date" id="staffReportDate">
+            </div>
+            <button id="generateStaffReportBtn" class="master-action-btn btn-sync" style="margin-top:12px;" onclick="generateStaffAttendanceReport()">📊 Generate Report</button>
+        </div>
+
+        <div id="staffReportResultsContainer" style="display:none;" class="section-box">
+            <div id="staffReportTableWrapper"></div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button class="master-action-btn btn-commit" style="flex:1;" onclick="downloadStaffReportCSV()">⬇️ CSV</button>
+                <button class="master-action-btn btn-sync" style="flex:1;" onclick="downloadStaffReportPDF()">🖨️ PDF</button>
             </div>
         </div>
     </div>
@@ -316,6 +372,7 @@ function populateCenters() {
             sel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
         });
     }
+    populateReportCenters();
 }
 
 //Loads the batches into the dropdown
@@ -610,7 +667,7 @@ function submitAttendance() {
 function markStaffAttendanceNow() {
     const btn = document.querySelector('#module_staff .master-action-btn.btn-commit');
     btn.disabled = true;
-    btn.innerText = "Getting Location...";
+    btn.innerText = "📍 Checking your location...";
 
     function withGpsTimeout(callback) {
         var settled = false;
@@ -629,30 +686,52 @@ function markStaffAttendanceNow() {
     }
 
     fetch('https://ipapi.co/json/')
-        .then(r => r.json())
-        .then(data => {
+        .then(function(r) {
+            if (!r.ok) throw new Error("IP lookup failed: " + r.status);
+            return r.json();
+        })
+        .then(function(data) {
             withGpsTimeout(function(lat, lon) {
+                if (!lat || !lon) {
+                    btn.disabled = false;
+                    btn.innerText = "📍 Mark Attendance Now";
+                    alert("Unable to verify your location.\n\nPlease enable location access in your browser and try again.");
+                    return;
+                }
                 finalizeMarkAttendance(data, lat, lon);
             });
         })
         .catch(function() {
             withGpsTimeout(function(lat, lon) {
+                if (!lat || !lon) {
+                    btn.disabled = false;
+                    btn.innerText = "📍 Mark Attendance Now";
+                    alert("Unable to verify your location.\n\nPlease enable location access in your browser and try again.");
+                    return;
+                }
                 finalizeMarkAttendance({ ip: 'Unknown', city: 'Unknown', region: 'Unknown', org: '' }, lat, lon);
             });
         });
-} 
-function finalizeMarkAttendance(data, gpsLat, gpsLon) {
+}
+
+
+function finalizeMarkAttendance(data, gpsLat, gpsLon, gpsAccuracy) {
     const btn = document.querySelector('#module_staff .master-action-btn.btn-commit');
-    btn.innerText = "Logging...";
+    btn.innerText = "Verifying & Logging...";
 
     google.script.run
         .withSuccessHandler(function(result) {
             btn.disabled = false;
             btn.innerText = "📍 Mark Attendance Now";
             if (result.success) {
-                alert("Staff attendance marked successfully!\nLocation: " + data.city + ", " + data.region);
+                let msg = "Staff attendance marked successfully!";
+                if (result.geofence && result.geofence.distanceMeters !== undefined) {
+                    msg += "\n\nLocation verified ✓\nYou are " + result.geofence.distanceMeters + " meters from " + result.geofence.centerName + ".";
+                }
+                alert(msg);
             } else {
-                alert("Error: " + result.error);
+                let msg = "Location verification failed.\n\n" + result.error;
+                alert(msg);
             }
         })
         .withFailureHandler(function() {
@@ -668,6 +747,7 @@ function finalizeMarkAttendance(data, gpsLat, gpsLon) {
           isp: data.org || '',
           latitude: gpsLat,
           longitude: gpsLon,
+          accuracy: gpsAccuracy,
           actionType: 'Live_Net',
           isDemoMode: currentSystemIsDemoMode
         });
@@ -719,6 +799,336 @@ function submitRetroAttendance() {
             isDemoMode: currentSystemIsDemoMode
         });
 }
+
+// ========== ATTENDANCE REPORT ==========
+var lastReportData = null;
+var lastReportMeta = null;
+
+function populateReportCenters() {
+    const sel = document.getElementById('reportCenterSelect');
+    if (!sel || !contextPayload) return;
+    sel.innerHTML = '<option value="">-- Select Center --</option>';
+    contextPayload.facilities.forEach(c => {
+        sel.innerHTML += `<option value="${c.Center_ID}">${c.Center_Name}</option>`;
+    });
+}
+
+function populateReportBatches() {
+    const centerVal = document.getElementById('reportCenterSelect').value;
+    const batchSel = document.getElementById('reportBatchSelect');
+    batchSel.innerHTML = '<option value="">-- All Batches --</option>';
+    if (!centerVal || !contextPayload) return;
+    contextPayload.batches.filter(b => b.Center_ID === centerVal).forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+    });
+}
+function generateAttendanceReport() {
+    const centerVal = document.getElementById('reportCenterSelect').value;
+    const batchVal = document.getElementById('reportBatchSelect').value;
+    const dateVal = document.getElementById('reportDate').value;
+    const monthVal = document.getElementById('reportMonth').value;
+
+    if (!centerVal) { alert("Please select a Center."); return; }
+    if (!monthVal) { alert("Please select a Month."); return; }
+    if (dateVal && dateVal.substring(0, 7) !== monthVal) { alert("The selected Date must fall within the selected Month."); return; }
+
+    const btn = document.getElementById('generateReportBtn');
+    btn.disabled = true;
+    btn.innerText = "Generating...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            if (!result.success) { alert("Error: " + result.error); return; }
+            renderReportTable(result.records, centerVal, batchVal);
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            alert("Connection failed. Please try again.");
+        })
+        .getAttendanceRecordsForReport(centerVal, batchVal, dateVal, monthVal, currentSystemIsDemoMode);
+}
+
+//for downloading the report
+function renderReportTable(records, centerVal, batchVal) {
+    const centerName = (contextPayload.facilities.find(c => c.Center_ID === centerVal) || {}).Center_Name || centerVal;
+    const monthVal = document.getElementById('reportMonth').value;
+    const dateVal = document.getElementById('reportDate').value;
+    const periodLabel = dateVal || monthVal || "";
+
+    // Roster: every active student in scope, so 0-attendance students still show up
+    const roster = contextPayload.players.filter(p =>
+        p.Academy_Center_ID === centerVal &&
+        p.Status === "Active" &&
+        (!batchVal || p.Academy_Batch_ID === batchVal)
+    );
+
+    const batchNameLookup = {};
+    contextPayload.batches.forEach(b => { batchNameLookup[b.Batch_ID] = b.Batch_Name; });
+
+    const summary = {};
+    roster.forEach(s => {
+        summary[s.Student_ID] = {
+            name: `${s.First_Name} ${s.Last_Name}`,
+            batchId: s.Academy_Batch_ID,
+            batchName: batchNameLookup[s.Academy_Batch_ID] || s.Academy_Batch_ID,
+            Present: 0, Absent: 0, Injured: 0
+        };
+    });
+
+    records.forEach(r => {
+        if (!summary[r.studentId]) {
+            summary[r.studentId] = {
+                name: r.studentId + " (not in active roster)",
+                batchId: r.batchId,
+                batchName: batchNameLookup[r.batchId] || r.batchId,
+                Present: 0, Absent: 0, Injured: 0
+            };
+        }
+        if (summary[r.studentId][r.status] !== undefined) summary[r.studentId][r.status]++;
+    });
+
+    lastReportData = summary;
+    lastReportMeta = { centerName, centerVal, periodLabel };
+
+    // Group students by batch so "All Batches" is readable
+    const byBatch = {};
+    Object.keys(summary).forEach(id => {
+        const s = summary[id];
+        if (!byBatch[s.batchName]) byBatch[s.batchName] = [];
+        byBatch[s.batchName].push(Object.assign({ id }, s));
+    });
+
+    let html = `<div style="margin-bottom:12px; font-size:14px;">
+        <strong>Center:</strong> ${centerName} &nbsp;|&nbsp; <strong>Period:</strong> ${periodLabel}
+    </div>`;
+
+    Object.keys(byBatch).forEach(batchName => {
+        html += `<div style="font-weight:700; margin:12px 0 6px; color:#1e293b;">Batch: ${batchName}</div>
+        <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:8px;">
+            <thead><tr style="background:#f1f5f9; text-align:left;">
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Student</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Present</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Absent</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Injured</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Total Logged</th>
+            </tr></thead><tbody>`;
+
+        byBatch[batchName].forEach(s => {
+            const total = s.Present + s.Absent + s.Injured;
+            html += `<tr>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.name}<br><span style="color:#94a3b8; font-size:11px;">${s.id}</span></td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Present}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Absent}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Injured}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${total}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+    });
+
+    document.getElementById('reportTableWrapper').innerHTML = html;
+    document.getElementById('reportResultsContainer').style.display = 'block';
+}
+
+function downloadReportCSV() {
+    if (!lastReportData || !lastReportMeta) { alert("Generate a report first."); return; }
+    let csv = "Center,Period,Batch,Student_ID,Student_Name,Present,Absent,Injured,Total_Logged\n";
+    Object.keys(lastReportData).forEach(id => {
+        const s = lastReportData[id];
+        const total = s.Present + s.Absent + s.Injured;
+        csv += `"${lastReportMeta.centerName}","${lastReportMeta.periodLabel}","${s.batchName}",${id},"${s.name}",${s.Present},${s.Absent},${s.Injured},${total}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Attendance_Report_${lastReportMeta.centerName}_${lastReportMeta.periodLabel}.csv`.replace(/\s+/g, '_');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function downloadReportPDF() {
+    if (!lastReportData || !lastReportMeta) { alert("Generate a report first."); return; }
+
+    const batchNameLookup = {};
+    contextPayload.batches.forEach(b => { batchNameLookup[b.Batch_ID] = b.Batch_Name; });
+
+    const byBatch = {};
+    Object.keys(lastReportData).forEach(id => {
+        const s = lastReportData[id];
+        if (!byBatch[s.batchName]) byBatch[s.batchName] = [];
+        byBatch[s.batchName].push(Object.assign({ id }, s));
+    });
+
+    let tablesHtml = '';
+    Object.keys(byBatch).forEach(batchName => {
+        tablesHtml += `<div style="font-weight:700; margin:16px 0 6px; color:#1e293b;">Batch: ${batchName}</div>
+        <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:10px;">
+            <thead><tr style="background:#f1f5f9; text-align:left;">
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Student</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Present</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Absent</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Injured</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Total Logged</th>
+            </tr></thead><tbody>`;
+
+        byBatch[batchName].forEach(s => {
+            const total = s.Present + s.Absent + s.Injured;
+            tablesHtml += `<tr>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.name} (${s.id})</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Present}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Absent}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Injured}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${total}</td>
+            </tr>`;
+        });
+        tablesHtml += `</tbody></table>`;
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Attendance Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 40px; color: #1e293b; max-width: 700px; margin: 0 auto; }
+      .header { text-align: center; border-bottom: 2px solid #cc0000; padding-bottom: 16px; margin-bottom: 20px; }
+      .header h1 { color: #cc0000; margin: 0; font-size: 24px; }
+      .meta { background: #f1f5f9; padding: 10px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+      .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #94a3b8; }
+      @media print { body { padding: 20px; } button { display: none; } }
+    </style></head><body>
+    <div class="header"><h1>KEMP FC</h1><p>Attendance Report</p></div>
+    <div class="meta">
+      Center: <strong>${lastReportMeta.centerName}</strong> &nbsp;|&nbsp;
+      Period: <strong>${lastReportMeta.periodLabel}</strong>
+    </div>
+    ${tablesHtml}
+    <div class="footer">
+      <p>Kemp FC Academy &nbsp;|&nbsp; Generated on ${new Date().toLocaleDateString('en-IN')}</p>
+      <p style="margin-top:16px;"><button onclick="window.print()" style="background:#cc0000; color:white; border:none; padding:10px 24px; border-radius:6px; cursor:pointer; font-size:14px;">🖨️ Print / Save as PDF</button></p>
+    </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+}
+// ========== STAFF ATTENDANCE REPORT ==========
+var lastStaffReportSummary = null;
+var lastStaffReportMeta = null;
+
+function generateStaffAttendanceReport() {
+    const dateVal = document.getElementById('staffReportDate').value;
+    const monthVal = document.getElementById('staffReportMonth').value;
+
+    if (!monthVal) { alert("Please select a Month."); return; }
+    if (dateVal && dateVal.substring(0, 7) !== monthVal) { alert("The selected Date must fall within the selected Month."); return; }
+
+    const btn = document.getElementById('generateStaffReportBtn');
+    btn.disabled = true;
+    btn.innerText = "Generating...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            if (!result.success) { alert("Error: " + result.error); return; }
+            renderStaffReportTable(result.summary, dateVal || monthVal);
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            alert("Connection failed. Please try again.");
+        })
+        .getStaffAttendanceRecordsForReport(dateVal, monthVal, currentSystemIsDemoMode);
+}
+
+function renderStaffReportTable(summary, periodLabel) {
+    lastStaffReportSummary = summary;
+    lastStaffReportMeta = { periodLabel };
+
+    let html = `<div style="margin-bottom:12px; font-size:14px;"><strong>Period:</strong> ${periodLabel}</div>`;
+
+    if (summary.length === 0) {
+        html += `<div style="text-align:center; padding:20px; color:#64748b;">No staff attendance records found for this period.</div>`;
+    } else {
+        html += `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="background:#f1f5f9; text-align:left;">
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Staff Member</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Days Logged</th>
+            </tr></thead><tbody>`;
+        summary.forEach(s => {
+            html += `<tr>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.name}<br><span style="color:#94a3b8; font-size:11px;">Staff ID: ${s.email}</span></td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.daysLogged}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+    }
+
+    document.getElementById('staffReportTableWrapper').innerHTML = html;
+    document.getElementById('staffReportResultsContainer').style.display = 'block';
+}
+
+function downloadStaffReportCSV() {
+    if (!lastStaffReportSummary || !lastStaffReportMeta) { alert("Generate a report first."); return; }
+    let csv = "Period,Staff_Name,Staff_ID,Days_Logged\n";
+    lastStaffReportSummary.forEach(s => {
+        csv += `"${lastStaffReportMeta.periodLabel}","${s.name}","${s.email}",${s.daysLogged}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Staff_Attendance_Report_${lastStaffReportMeta.periodLabel}.csv`.replace(/\s+/g, '_');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function downloadStaffReportPDF() {
+    if (!lastStaffReportSummary || !lastStaffReportMeta) { alert("Generate a report first."); return; }
+
+    let rowsHtml = '';
+    lastStaffReportSummary.forEach(s => {
+        rowsHtml += `<tr>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.name} (Staff ID: ${s.email})</td>
+            <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.daysLogged}</td>
+        </tr>`;
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Staff Attendance Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 40px; color: #1e293b; max-width: 700px; margin: 0 auto; }
+      .header { text-align: center; border-bottom: 2px solid #cc0000; padding-bottom: 16px; margin-bottom: 20px; }
+      .header h1 { color: #cc0000; margin: 0; font-size: 24px; }
+      .meta { background: #f1f5f9; padding: 10px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+      table { width:100%; border-collapse:collapse; font-size:13px; }
+      th { background:#f1f5f9; text-align:left; padding:8px; border-bottom:1px solid #e2e8f0; }
+      .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #94a3b8; }
+      @media print { body { padding: 20px; } button { display: none; } }
+    </style></head><body>
+    <div class="header"><h1>KEMP FC</h1><p>Staff Attendance Report</p></div>
+    <div class="meta">Period: <strong>${lastStaffReportMeta.periodLabel}</strong></div>
+    <table><thead><tr><th>Staff Member</th><th>Days Logged</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <div class="footer">
+      <p>Kemp FC Academy &nbsp;|&nbsp; Generated on ${new Date().toLocaleDateString('en-IN')}</p>
+      <p style="margin-top:16px;"><button onclick="window.print()" style="background:#cc0000; color:white; border:none; padding:10px 24px; border-radius:6px; cursor:pointer; font-size:14px;">🖨️ Print / Save as PDF</button></p>
+    </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+}
+</script>
 </script>
 
 </body>
