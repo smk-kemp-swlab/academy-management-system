@@ -83,8 +83,27 @@
   
     const HIDDEN_COLUMNS = ['TX_Signature_Token', 'Student_ID'];
     const LOCKED_COLUMNS = ['Player_Name', 'Trial_Number_Or_Bib'];
+const DEPLOYED_BASE_URL = '<?!= deployedUrl ?>';
 
-    // Get URL params
+function navigateToApp(appName) {
+    const baseUrl = DEPLOYED_BASE_URL || window.top.location.href.split('?')[0];
+    let url = baseUrl + '?app=' + appName;
+    const isDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (isDemoMode) url += '&demo=true';
+    window.top.location.href = url;
+}
+function goBackInApp() {
+    window.top.close();
+    // If the browser blocked the close (e.g. this tab wasn't opened via script),
+    // fall back to navigating to the Evaluation Engine instead of doing nothing.
+    setTimeout(function() {
+        navigateToApp('eval');
+    }, 300);
+}
+
+function goBack() {
+    goBackInApp();
+}   // Get URL params
     (function() {
        const urlParams = new URLSearchParams(window.location.search);
 sessionName = urlParams.get('session') || '<?!= urlSessionName ?>';
@@ -284,7 +303,7 @@ function toggleManageMode() {
     window.location.href = url.toString();
 }
     function goBack() {
-    window.top.location.href = 'https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=eval';
+    goBackInApp();
 }
 function toggleManageMode() {
     const urlParams = new URLSearchParams(window.location.search);

@@ -47,6 +47,12 @@
 <div id="loadingSpinnerElement" class="micro-status-indicator">🔄 Loading...</div>
 
 <div class="container">
+    <div style="margin-bottom:16px;">
+       <button onclick="goBackInApp()"
+    style="background:none; border:none; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 0;">
+    ← Back
+</button>
+    </div>
     <div class="header-panel">
     <? if (brandLogoUrl) { ?>
       <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
@@ -204,7 +210,23 @@ let globalRosterCache = [];
 let contextPayload = null;
 let verifiedStaffEmail = "";
 let currentSystemIsDemoMode = false;
+const DEPLOYED_BASE_URL = '<?!= deployedUrl ?>';
 
+function navigateToApp(appName) {
+    const currentApp = '<?!= currentAppName ?>' || 'eval';
+    sessionStorage.setItem('kemp_suite_previous_app', currentApp);
+
+    const baseUrl = DEPLOYED_BASE_URL || window.top.location.href.split('?')[0];
+    let url = baseUrl + '?app=' + appName;
+    const isDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (isDemoMode) url += '&demo=true';
+    window.top.location.href = url;
+}
+
+function goBackInApp() {
+    const previousApp = sessionStorage.getItem('kemp_suite_previous_app') || 'eval';
+    navigateToApp(previousApp);
+}
 // ========== AUTH ==========
 (function() {
     // Check if already authenticated via Performance Engine cache
@@ -858,6 +880,22 @@ function renderReportTable(records, centerVal, batchVal) {
     const dateVal = document.getElementById('reportDate').value;
     const periodLabel = dateVal || monthVal || "";
 
+    if (!records || records.length === 0) {
+        const html = `<div style="margin-bottom:12px; font-size:14px;">
+                <strong>Center:</strong> ${centerName} &nbsp;|&nbsp; <strong>Period:</strong> ${periodLabel}
+            </div>
+            <div style="text-align:center; padding:30px 20px; color:#64748b;">
+                <div style="font-size:28px; margin-bottom:8px;">🗓️</div>
+                <div style="font-weight:600; color:#475569;">No attendance recorded for this period</div>
+                <div style="font-size:12px; margin-top:4px;">Try a different month or check back once attendance has been logged.</div>
+            </div>`;
+        document.getElementById('reportTableWrapper').innerHTML = html;
+        document.getElementById('reportResultsContainer').style.display = 'block';
+        lastReportData = null;
+        lastReportMeta = { centerName, centerVal, periodLabel };
+        return;
+    }
+
     // Roster: every active student in scope, so 0-attendance students still show up
     const roster = contextPayload.players.filter(p =>
         p.Academy_Center_ID === centerVal &&
@@ -934,7 +972,7 @@ function renderReportTable(records, centerVal, batchVal) {
 }
 
 function downloadReportCSV() {
-    if (!lastReportData || !lastReportMeta) { alert("Generate a report first."); return; }
+    if (!lastReportData || !lastReportMeta) { alert("No attendance data to download for this period."); return; }
     let csv = "Center,Period,Batch,Student_ID,Student_Name,Present,Absent,Injured,Total_Logged\n";
     Object.keys(lastReportData).forEach(id => {
         const s = lastReportData[id];
@@ -954,7 +992,7 @@ function downloadReportCSV() {
 }
 
 function downloadReportPDF() {
-    if (!lastReportData || !lastReportMeta) { alert("Generate a report first."); return; }
+    if (!lastReportData || !lastReportMeta) { alert("No attendance data to download for this period."); return; }
 
     const batchNameLookup = {};
     contextPayload.batches.forEach(b => { batchNameLookup[b.Batch_ID] = b.Batch_Name; });
@@ -1128,7 +1166,6 @@ function downloadStaffReportPDF() {
     win.document.write(html);
     win.document.close();
 }
-</script>
 </script>
 
 </body>

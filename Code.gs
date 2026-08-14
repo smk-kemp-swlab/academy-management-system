@@ -58,6 +58,7 @@ template.urlCoachEmail = (e && e.parameter && e.parameter.coach) || "";
 template.urlIsDemoMode = (e && e.parameter && e.parameter.demo === "true");
 template.urlPageMode = (e && e.parameter && e.parameter.mode) || "entry";
 template.deployedUrl = ScriptApp.getService().getUrl();
+template.currentAppName = appModule;
 
   return template.evaluate()
       .setTitle(branding.Academy_Name + ' Management Suite')
@@ -182,6 +183,7 @@ function getIdentityVerificationPacket() {
   return verificationResult;
 }
 */
+
 function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode, templateType, customColumns) {
   try {
     var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
@@ -309,10 +311,21 @@ function getActiveEvaluationSessions(isDemoMode, frameworkType) {
     var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
     var ss = SpreadsheetApp.openById(targetWarehouseId);
     var typeLower = (frameworkType || "").toLowerCase();
+    var hasTypeFilter = typeLower !== "";
+
+    if (typeLower === 'custom') {
+      var customTabs = ss.getSheets().filter(function(sh) {
+        return sh.getName().indexOf('CUSTOM_') === 0;
+      }).map(function(sh) { return sh.getName(); });
+      return { success: true, tabs: customTabs };
+    }
 
     var matchingTabs = ss.getSheets().filter(function(sh) {
       var name = sh.getName();
       if (name.indexOf('CUSTOM_') === 0) return false;
+
+      // No type filter requested (e.g. main Performance Engine dropdown) — show every session.
+      if (!hasTypeFilter) return true;
 
       var metadata = sh.getDeveloperMetadata();
       var storedType = null;
@@ -2413,107 +2426,8 @@ function getStudentEvaluationReport(studentId, studentFullName, isDemoMode) {
     return { success: false, error: error.toString() };
   }
 }
-// NEW — Monthly Evaluation Report: filters by date (Assessment_Date / Session_Date),
-// NOT by student name. Returns every evaluation from every student that falls
-// within the selected month, grouped by student for display purposes only.
-function getMonthlyEvaluationReport(monthVal, isDemoMode) {
-  try {
-    if (!monthVal) {
-      return { success: false, error: "No month provided." };
-    }
 
-    var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
-    var ss = SpreadsheetApp.openById(targetWarehouseId);
 
-    var allMatches = []; // flat list of every matching evaluation, across all students
-
-    ss.getSheets().forEach(function(sheet) {
-      var tabName = sheet.getName();
-      var lastRow = sheet.getLastRow();
-      var lastCol = sheet.getLastColumn();
-      if (lastRow < 2 || lastCol < 1) return;
-
-      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-      var playerNameIdx = headers.indexOf("Player_Name");
-      if (playerNameIdx === -1) return; // not an evaluation-shaped tab
-
-      var assessDateIdx = headers.indexOf("Assessment_Date");
-      var sessionDateIdx = headers.indexOf("Session_Date");
-      var evalTypeIdx = headers.indexOf("Evaluation_Type");
-      var isCustomTab = tabName.indexOf('CUSTOM_') === 0;
-
-      var rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-
-      rows.forEach(function(row) {
-        // Prefer Assessment_Date; fall back to Session_Date for custom sessions
-        var rawDate = (assessDateIdx !== -1 && row[assessDateIdx]) ? row[assessDateIdx]
-                     : (sessionDateIdx !== -1 ? row[sessionDateIdx] : null);
-        if (!rawDate) return; // no usable date on this row — can't place it in any month, skip
-
-        var dateStr = rawDate instanceof Date
-          ? Utilities.formatDate(rawDate, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd")
-          : String(rawDate).substring(0, 10);
-
-        if (dateStr.substring(0, 7) !== monthVal) return; // not in the selected month — skip
-
-        var rawPlayerName = String(row[playerNameIdx] || "").trim();
-        var displayName = rawPlayerName.replace(/\s*\([^)]*\)\s*$/, "").trim(); // strip stray "(ID)" suffix if present
-
-        var evalType = evalTypeIdx !== -1 ? String(row[evalTypeIdx] || "") : (isCustomTab ? "Custom" : "");
-        var isTrial = evalType.toLowerCase() === "trial";
-
-        var rowObject = {};
-        headers.forEach(function(header, i) {
-          var val = row[i];
-          if (val === "" || val === undefined || val === null) return;
-          if (val instanceof Date) {
-            val = Utilities.formatDate(val, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
-          }
-          rowObject[header] = val;
-        });
-        allMatches.push({
-          studentName: displayName,
-          sessionTab: tabName,
-          evaluationType: evalType,
-          evaluationDate: dateStr,
-          matchConfidence: isCustomTab
-            ? "Unverified (Custom session)"
-            : (isTrial ? "Unverified (Trial)" : "Verified (Roster-linked)"),
-          data: rowObject
-        });
-      });
-    });
-
-    // Group by student name — purely for display, does NOT affect which rows were included
-    var studentGroups = {};
-    allMatches.forEach(function(ev) {
-      var key = ev.studentName.toLowerCase();
-      if (!studentGroups[key]) {
-        studentGroups[key] = { studentName: ev.studentName, evaluations: [] };
-      }
-      studentGroups[key].evaluations.push(ev);
-    });
-
-    // Sort each student's evaluations chronologically, and sort students alphabetically
-    var studentsList = Object.keys(studentGroups)
-      .map(function(key) { return studentGroups[key]; })
-      .sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
-
-    studentsList.forEach(function(group) {
-      group.evaluations.sort(function(a, b) { return a.evaluationDate.localeCompare(b.evaluationDate); });
-    });
-
-    return {
-      success: true,
-      month: monthVal,
-      totalEvaluations: allMatches.length,
-      totalStudents: studentsList.length,
-      students: studentsList
-    };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
 //filter by the billing_start date to create an invocie
 function getMonthlyInvoiceReport(selectedMonth, selectedCenter, isDemoMode, exactDate) {
   try {
@@ -2712,39 +2626,44 @@ function bulkImportRosterStudents(rows, staffEmail, isDemoMode) {
     var newRows = [];
     var workingRoster = existingRoster.slice(); // grows as we assign new IDs, so generateNextStudentId sees them
 
+var REQUIRED_FIELDS = ["First_Name", "Last_Name", "DOB", "Parent_Name", "Parent_Email", "Parent_Phone",
+  "Kit_Size_Shirt", "Kit_Size_Shorts", "Medical_Alert_Flags", "Onboarding_Date", "Status"];
+
     rows.forEach(function(row, index) {
       var rowNum = index + 2;
+      var rowIssues = [];
 
       var firstName = String(row.First_Name || "").trim();
       var lastName = String(row.Last_Name || "").trim();
-      if (!firstName || !lastName) {
-        skipped.push("Row " + rowNum + ": missing First_Name or Last_Name.");
-        return;
-      }
+
+      REQUIRED_FIELDS.forEach(function(field) {
+        var val = String(row[field] || "").trim();
+        if (!val) rowIssues.push("missing " + field);
+      });
 
       var centerId = String(row.Academy_Center_ID || "").trim();
-      if (!centerId || !validCenterIds[centerId]) {
-        skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): invalid or missing Academy_Center_ID '" + centerId + "'.");
-        return;
-      }
+      if (!centerId || !validCenterIds[centerId]) rowIssues.push("invalid or missing Academy_Center_ID '" + centerId + "'");
 
       var batchId = String(row.Academy_Batch_ID || "").trim();
-      if (!batchId || !validBatches[batchId]) {
-        skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): invalid or missing Academy_Batch_ID '" + batchId + "'.");
-        return;
-      }
-      if (validBatches[batchId] !== centerId) {
-        skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): Batch '" + batchId + "' does not belong to Center '" + centerId + "'.");
-        return;
+      if (!batchId || !validBatches[batchId]) rowIssues.push("invalid or missing Academy_Batch_ID '" + batchId + "'");
+
+      // Only meaningful if both IDs were individually valid — avoid a redundant/confusing message otherwise
+      if (centerId && validCenterIds[centerId] && batchId && validBatches[batchId] && validBatches[batchId] !== centerId) {
+        rowIssues.push("Batch '" + batchId + "' does not belong to Center '" + centerId + "'");
       }
 
       var studentId = String(row.Student_ID || "").trim();
-      if (studentId) {
-        if (existingIds[studentId]) {
-          skipped.push("Row " + rowNum + " (" + firstName + " " + lastName + "): Student_ID '" + studentId + "' already exists.");
-          return;
-        }
-      } else {
+      if (studentId && existingIds[studentId]) {
+        rowIssues.push("Student_ID '" + studentId + "' already exists");
+      }
+
+      if (rowIssues.length > 0) {
+        var label = (firstName || lastName) ? (firstName + " " + lastName).trim() : "unnamed";
+        skipped.push("Row " + rowNum + " (" + label + "): " + rowIssues.join("; ") + ".");
+        return;
+      }
+
+      if (!studentId) {
         studentId = generateNextStudentId(workingRoster);
       }
       existingIds[studentId] = true;
@@ -2754,17 +2673,17 @@ function bulkImportRosterStudents(rows, staffEmail, isDemoMode) {
         studentId,
         firstName,
         lastName,
-        row.DOB || "",
-        row.Parent_Name || "",
-        row.Parent_Email || "",
-        row.Parent_Phone || "",
+        row.DOB,
+        row.Parent_Name,
+        row.Parent_Email,
+        row.Parent_Phone,
         centerId,
         batchId,
-        row.Kit_Size_Shirt || "",
-        row.Kit_Size_Shorts || "",
-        row.Medical_Alert_Flags || "None",
-        row.Onboarding_Date || today,
-        row.Status || "Active"
+        row.Kit_Size_Shirt,
+        row.Kit_Size_Shorts,
+        row.Medical_Alert_Flags,
+        row.Onboarding_Date,
+        row.Status
       ]);
       importedCount++;
     });
@@ -2773,11 +2692,100 @@ function bulkImportRosterStudents(rows, staffEmail, isDemoMode) {
       rosterSheet.getRange(rosterSheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
     }
 
+   var summaryMessage = "";
+    if (skipped.length === 1) {
+      summaryMessage = "1 row was skipped due to missing or invalid data.";
+    } else if (skipped.length > 1) {
+      summaryMessage = skipped.length + " rows are missing required data or have invalid values.";
+    }
+
     return {
       success: true,
       importedCount: importedCount,
       skippedCount: skipped.length,
-      skippedDetails: skipped
+      skippedDetails: skipped,
+      summaryMessage: summaryMessage
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+/**
+ * Returns every evaluation row in a single session tab, unfiltered by date.
+ * Used by the "By Session" report view.
+ */
+function getSessionEvaluationReport(sessionTab, isDemoMode) {
+  try {
+    if (!sessionTab) return { success: false, error: "No session provided." };
+
+    var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
+    var ss = SpreadsheetApp.openById(targetWarehouseId);
+    var sheet = ss.getSheetByName(sessionTab);
+    if (!sheet) return { success: false, error: "Session tab '" + sessionTab + "' not found." };
+
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) {
+      return { success: true, sessionTab: sessionTab, totalEvaluations: 0, evaluations: [] };
+    }
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var playerNameIdx = headers.indexOf("Player_Name");
+    var assessDateIdx = headers.indexOf("Assessment_Date");
+    var sessionDateIdx = headers.indexOf("Session_Date");
+    var evalTypeIdx = headers.indexOf("Evaluation_Type");
+    var isCustomTab = sessionTab.indexOf('CUSTOM_') === 0;
+
+    var rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var evaluations = [];
+
+    rows.forEach(function(row) {
+      var rawPlayerName = playerNameIdx !== -1 ? String(row[playerNameIdx] || "").trim() : "";
+      if (!rawPlayerName) return; // skip fully blank rows
+
+      var displayName = rawPlayerName.replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+      var rawDate = (assessDateIdx !== -1 && row[assessDateIdx]) ? row[assessDateIdx]
+                   : (sessionDateIdx !== -1 ? row[sessionDateIdx] : null);
+      var dateStr = "";
+      if (rawDate instanceof Date) {
+        dateStr = Utilities.formatDate(rawDate, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+      } else if (rawDate) {
+        dateStr = String(rawDate).substring(0, 10);
+      }
+
+      var evalType = evalTypeIdx !== -1 ? String(row[evalTypeIdx] || "") : (isCustomTab ? "Custom" : "");
+      var isTrial = evalType.toLowerCase() === "trial";
+
+      var rowObject = {};
+      headers.forEach(function(header, i) {
+        var val = row[i];
+        if (val === "" || val === undefined || val === null) return;
+        if (val instanceof Date) {
+          val = Utilities.formatDate(val, GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
+        }
+        rowObject[header] = val;
+      });
+
+      evaluations.push({
+        studentName: displayName,
+        sessionTab: sessionTab,
+        evaluationType: evalType,
+        evaluationDate: dateStr,
+        matchConfidence: isCustomTab
+          ? "Unverified (Custom session)"
+          : (isTrial ? "Unverified (Trial)" : "Verified (Roster-linked)"),
+        data: rowObject
+      });
+    });
+
+    evaluations.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
+
+    return {
+      success: true,
+      sessionTab: sessionTab,
+      totalEvaluations: evaluations.length,
+      evaluations: evaluations
     };
   } catch (error) {
     return { success: false, error: error.toString() };

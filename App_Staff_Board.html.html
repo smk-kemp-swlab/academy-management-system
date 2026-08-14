@@ -46,6 +46,12 @@
 
 <!-- Main App -->
 <div class="container">
+    <div style="margin-bottom:16px;">
+        <button onclick="goBackInApp()"
+            style="background:none; border:none; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 0;">
+            ← Back
+        </button>
+    </div>
     <div class="header-panel">
     <? if (brandLogoUrl) { ?>
       <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
@@ -220,6 +226,23 @@ let contextPayload = null;
 let verifiedStaffEmail = "";
 let currentSystemIsDemoMode = false;
 
+const DEPLOYED_BASE_URL = <?!= JSON.stringify(deployedUrl) ?>;
+
+function navigateToApp(appName) {
+    const currentApp = '<?!= currentAppName ?>' || 'eval';
+    sessionStorage.setItem('kemp_suite_previous_app', currentApp);
+
+    const baseUrl = DEPLOYED_BASE_URL || window.top.location.href.split('?')[0];
+    let url = baseUrl + '?app=' + appName;
+    const isDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (isDemoMode) url += '&demo=true';
+    window.top.location.href = url;
+}
+
+function goBackInApp() {
+    const previousApp = sessionStorage.getItem('kemp_suite_previous_app') || 'eval';
+    navigateToApp(previousApp);
+}
 // ========== AUTH (reuses cached session from the rest of the suite) ==========
 (function() {
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
@@ -688,7 +711,7 @@ function renderRosterImportResults(result) {
     const container = document.getElementById('rosterImportResults');
     let html = `<div style="font-weight:700; color:#166534;">✅ Imported: ${result.importedCount}</div>`;
     if (result.skippedCount > 0) {
-        html += `<div style="font-weight:700; color:#991b1b; margin-top:8px;">⚠️ Skipped: ${result.skippedCount}</div>`;
+        html += `<div style="font-weight:700; color:#991b1b; margin-top:8px;">⚠️ ${result.summaryMessage}</div>`;
         html += `<ul style="margin-top:6px; padding-left:18px; color:#64748b; font-size:12px;">`;
         result.skippedDetails.forEach(reason => {
             html += `<li>${reason}</li>`;

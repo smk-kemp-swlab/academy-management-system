@@ -95,9 +95,9 @@
         </div>
 
     </div>
-    <button type="button" class="master-action-btn btn-sync" style="width:100%; margin-bottom:16px;" onclick="window.open('https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=eval_report', '_blank')">
-        📄 View / Download Evaluation Reports
-    </button>
+    <button type="button" class="master-action-btn btn-sync" style="width:100%; margin-bottom:16px;" onclick="navigateToApp('eval_report')">
+    📄 View / Download Evaluation Reports
+</button>
 
 
     <div class="dashboard-grid">
@@ -106,22 +106,23 @@
             <div class="title">Evaluations</div>
             <div class="badge-mini">Active Engine</div>
         </div>
-        <div class="hub-card" id="hub_attendance" onclick="window.open('https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=attendance', '_blank')">
-          <div class="icon">⏱️</div>
-          <div class="title">Attendance</div>
-          <div class="badge-mini">Active</div>
-        </div>
-        <div class="hub-card" id="hub_payments" onclick="window.open('https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=billing', '_blank')">
-            <div class="icon">💳</div>
-            <div class="title">Fee Tracker</div>
+        <div class="hub-card" id="hub_attendance" onclick="navigateToApp('attendance')">
+            <div class="icon">⏱️</div>
+            <div class="title">Attendance</div>
             <div class="badge-mini">Active</div>
-        </div>
-        <div class="hub-card" id="hub_staff" onclick="window.open('https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=staff', '_blank')">
-          <div class="icon">👥</div>
-          <div class="title">Staff Board</div>
-          <div class="badge-mini">Active</div>
+          </div>
+          <div class="hub-card" id="hub_payments" onclick="navigateToApp('billing')">
+              <div class="icon">💳</div>
+              <div class="title">Fee Tracker</div>
+              <div class="badge-mini">Active</div>
+          </div>
+          <div class="hub-card" id="hub_staff" onclick="navigateToApp('staff')">
+            <div class="icon">👥</div>
+            <div class="title">Staff Board</div>
+            <div class="badge-mini">Active</div>
 </div>
     </div>
+
 
     <button type="button" id="globalViewToggler" class="toggle-guide-btn" onclick="handleViewStateToggle()">📖 Open Operational User Guide</button>
 
@@ -138,12 +139,12 @@
             <div class="section-box">
                 <div class="form-group">
                     <label>2. Select Evaluation Session Type *</label>
-                    <select id="evalTypeFramework" onchange="handleFrameworkLayoutShift(this.value)">
+                      <select id="evalTypeFramework" onchange="handleFrameworkLayoutShift(this.value)">
                         <option value="default">--- Choose Evaluation Session Type ---</option>
                         <option value="Trial">Open Trials (External/Unverified Tracking)</option>
                         <option value="Academy">Academy (Periodic Developmental Logs)</option>
                         <option value="Club">Club Teams (Tournament/Squad Camp Logging)</option>
-                    </select>
+                    </select>   
                 </div>
                 <div class="form-group" style="margin-top:14px;">
                     <label>3. Choose Existing Session *</label>
@@ -360,6 +361,21 @@ let globalRosterCacheMatrix = [];
 let authIsDemoMode = false;
 const TARGET_APPLICATION_SCOPE = "eval";
 
+function navigateToApp(appName) {
+    const currentApp = '<?!= currentAppName ?>' || 'eval';
+    sessionStorage.setItem('kemp_suite_previous_app', currentApp);
+
+    const baseUrl = DEPLOYED_BASE_URL || window.top.location.href.split('?')[0];
+    let url = baseUrl + '?app=' + appName;
+    const isDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (isDemoMode) url += '&demo=true';
+    window.top.location.href = url;
+}
+
+function goBackInApp() {
+    const previousApp = sessionStorage.getItem('kemp_suite_previous_app') || 'eval';
+    navigateToApp(previousApp);
+}
 (function() {
     // Check if already authenticated via another app in the suite
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');

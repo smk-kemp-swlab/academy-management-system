@@ -24,34 +24,62 @@
 <body>
 
 <div class="container">
+    <div class="no-print" style="margin-bottom:16px;">
+        <button onclick="goBackInApp()"
+            style="background:none; border:none; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 0;">
+            ← Back
+        </button>
+    </div>
     <div class="header-panel no-print">
         <h1 class="brand-name"></h1>
         <h2>Student Evaluation Report</h2>
     </div>
 
     <div class="section-box no-print">
-        <div style="display:flex; gap:8px; margin-bottom:14px;">
-            <button type="button" id="modeMonthBtn" class="master-action-btn" style="flex:1; background:#0f172a; color:white;" onclick="switchReportMode('month')">📅 By Month</button>
-            <button type="button" id="modeStudentBtn" class="master-action-btn" style="flex:1; background:white; color:#64748b; border:1px solid #cbd5e1;" onclick="switchReportMode('student')">👤 By Student</button>
+        <div style="display:flex; gap:8px; margin-bottom:18px;">
+            <button type="button" id="modeSessionBtn" onclick="switchReportMode('session')"
+                style="flex:1; padding:12px 10px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#64748b; font-weight:700; font-size:13px; cursor:pointer; transition:all 0.15s;">
+                📋 BY SESSION
+            </button>
+            <button type="button" id="modeStudentBtn" onclick="switchReportMode('student')"
+                style="flex:1; padding:12px 10px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#64748b; font-weight:700; font-size:13px; cursor:pointer; transition:all 0.15s;">
+                👤 BY STUDENT
+            </button>
         </div>
 
-        <div id="monthModePanel">
-            <div class="form-group">
-                <label>Select Month *</label>
-                <input type="month" id="monthSelect">
+        <div id="sessionModePanel" style="display:none;">
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="display:block; font-weight:600; color:#334155; font-size:12px; letter-spacing:0.3px; margin-bottom:6px;">SESSION TYPE *</label>
+                <select id="sessionTypeSelect" onchange="loadSessionsForType()"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box; background:white;">
+                    <option value="">-- Choose Type --</option>
+                    <option value="trial">Trial</option>
+                    <option value="academy">Academy</option>
+                    <option value="club">Club</option>
+                    <option value="custom">Custom</option>
+                </select>
             </div>
-            <button type="button" class="master-action-btn btn-commit" style="margin-top:10px;" onclick="loadMonthlyReport()">
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="display:block; font-weight:600; color:#334155; font-size:12px; letter-spacing:0.3px; margin-bottom:6px;">SESSION *</label>
+                <select id="sessionSelect"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box; background:white;">
+                    <option value="">-- Select Type First --</option>
+                </select>
+            </div>
+            <button type="button" id="generateSessionReportBtn" class="master-action-btn btn-commit" style="width:100%;" onclick="loadSessionReport()">
                 📊 Generate Report
             </button>
         </div>
+
         <div id="studentModePanel" style="display:none;">
-            <div class="form-group">
-                <label>Select Student *</label>
-                <select id="studentSelect">
+            <div class="form-group" style="margin-bottom:14px;">
+                <label style="display:block; font-weight:600; color:#334155; font-size:12px; letter-spacing:0.3px; margin-bottom:6px;">SELECT STUDENT *</label>
+                <select id="studentSelect"
+                    style="width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box; background:white;">
                     <option value="">-- Select Student --</option>
                 </select>
             </div>
-            <button type="button" class="master-action-btn btn-commit" style="margin-top:10px;" onclick="loadStudentReport()">
+            <button type="button" class="master-action-btn btn-commit" style="width:100%;" onclick="loadStudentReport()">
                 📊 Generate Report
             </button>
         </div>
@@ -89,12 +117,27 @@ let masterContextPayload = null;
 let currentSystemIsDemoMode = false;
 let lastEvalReportResult = null;
 let lastMonthlyReportResult = null;
+const DEPLOYED_BASE_URL = '<?!= deployedUrl ?>';
+function navigateToApp(appName) {
+    const currentApp = '<?!= currentAppName ?>' || 'eval';
+    sessionStorage.setItem('kemp_suite_previous_app', currentApp);
+
+    const baseUrl = DEPLOYED_BASE_URL || window.top.location.href.split('?')[0];
+    let url = baseUrl + '?app=' + appName;
+    const isDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (isDemoMode) url += '&demo=true';
+    window.top.location.href = url;
+}
+function goBackInApp() {
+    const previousApp = sessionStorage.getItem('kemp_suite_previous_app') || 'eval';
+    navigateToApp(previousApp);
+}
 (function() {
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');
     currentSystemIsDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
     if (!cachedEmail) {
         alert("Please log in through the main Performance Engine first.");
-        window.top.location.href = 'https://script.google.com/macros/s/AKfycbzmfYzAAFcxJKJQHHv2H5dVB3pT27Es2-hTVQIeZiVp95n4S4waQVcWQScEizDCcVxp/exec?app=eval';
+        navigateToApp('eval');
         return;
     }
     google.script.run
@@ -107,78 +150,100 @@ let lastMonthlyReportResult = null;
         })
         .getPerformanceEngineContext(currentSystemIsDemoMode, cachedEmail);
 
-    switchReportMode('month'); // default view is Month-based
-
-    // Pre-fill the month picker with the current month so the field isn't blank on load
-    const todayMonthStr = new Date().toISOString().substring(0, 7); // yyyy-MM
-    document.getElementById('monthSelect').value = todayMonthStr;
+     switchReportMode('session');
 })();
 function switchReportMode(mode) {
-    document.getElementById('monthModePanel').style.display = mode === 'month' ? 'block' : 'none';
     document.getElementById('studentModePanel').style.display = mode === 'student' ? 'block' : 'none';
-    document.getElementById('modeMonthBtn').style.background = mode === 'month' ? '#0f172a' : 'white';
-    document.getElementById('modeMonthBtn').style.color = mode === 'month' ? 'white' : '#64748b';
+    document.getElementById('sessionModePanel').style.display = mode === 'session' ? 'block' : 'none';
     document.getElementById('modeStudentBtn').style.background = mode === 'student' ? '#0f172a' : 'white';
     document.getElementById('modeStudentBtn').style.color = mode === 'student' ? 'white' : '#64748b';
+    document.getElementById('modeSessionBtn').style.background = mode === 'session' ? '#0f172a' : 'white';
+    document.getElementById('modeSessionBtn').style.color = mode === 'session' ? 'white' : '#64748b';
     document.getElementById('reportContent').style.display = 'none';
     document.getElementById('noResultsMsg').style.display = 'none';
-    document.getElementById('noResultsMsg').innerText = ''; // NEW — clear stale text from a previous mode's empty-result message
+    document.getElementById('noResultsMsg').innerText = '';
 }
-
-function loadMonthlyReport() {
-    const monthVal = document.getElementById('monthSelect').value;
-    if (!monthVal) return;
-
-    document.getElementById('reportContent').style.display = 'none';
-    document.getElementById('noResultsMsg').style.display = 'none';
-    document.getElementById('reportLoadingMsg').style.display = 'block';
+function loadSessionsForType() {
+    const typeVal = document.getElementById('sessionTypeSelect').value;
+    const sel = document.getElementById('sessionSelect');
+    sel.innerHTML = '<option value="">-- Loading... --</option>';
+    if (!typeVal) {
+        sel.innerHTML = '<option value="">-- Select Type First --</option>';
+        return;
+    }
 
     google.script.run
         .withSuccessHandler(function(result) {
-            document.getElementById('reportLoadingMsg').style.display = 'none';
+            sel.innerHTML = '<option value="">-- Select Session --</option>';
             if (!result.success) { alert("Error: " + result.error); return; }
-            if (result.totalStudents === 0) {
-                document.getElementById('noResultsMsg').innerText = "No evaluations found for any student in this month.";
+            result.tabs.forEach(function(tab) {
+                sel.innerHTML += `<option value="${tab}">${tab}</option>`;
+            });
+        })
+        .withFailureHandler(function() {
+            sel.innerHTML = '<option value="">-- Failed to load --</option>';
+        })
+        .getActiveEvaluationSessions(currentSystemIsDemoMode, typeVal);
+}
+
+function loadSessionReport() {
+    const sessionVal = document.getElementById('sessionSelect').value;
+    if (!sessionVal) { alert("Please select a Session."); return; }
+
+    document.getElementById('reportContent').style.display = 'none';
+    document.getElementById('noResultsMsg').style.display = 'none';
+
+    const btn = document.getElementById('generateSessionReportBtn');
+    btn.disabled = true;
+    btn.innerText = "Generating...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
+            if (!result.success) { alert("Error: " + result.error); return; }
+            if (result.totalEvaluations === 0) {
+                document.getElementById('noResultsMsg').innerText = "No evaluations found in this session.";
                 document.getElementById('noResultsMsg').style.display = 'block';
                 return;
             }
-            renderMonthlyReport(result);
+            renderSessionReport(result);
         })
         .withFailureHandler(function() {
-            document.getElementById('reportLoadingMsg').style.display = 'none';
+            btn.disabled = false;
+            btn.innerText = "📊 Generate Report";
             alert("Connection failed. Please try again.");
         })
-        .getMonthlyEvaluationReport(monthVal, currentSystemIsDemoMode);
+        .getSessionEvaluationReport(sessionVal, currentSystemIsDemoMode);
 }
 
-function renderMonthlyReport(result) {
-    lastMonthlyReportResult = result;
+function renderSessionReport(result) {
+    lastEvalReportResult = result;
 
-    document.getElementById('reportStudentName').innerText = `Monthly Report — ${result.month}`;
+    document.getElementById('reportStudentName').innerText = `Session Report — ${result.sessionTab}`;
     document.getElementById('reportSummaryLine').innerText =
-        `${result.totalStudents} student${result.totalStudents !== 1 ? 's' : ''} · ${result.totalEvaluations} evaluation${result.totalEvaluations !== 1 ? 's' : ''} total`;
+        `${result.totalEvaluations} evaluation${result.totalEvaluations !== 1 ? 's' : ''} found`;
 
     let html = '';
-    result.students.forEach(group => {
-        html += `<div class="attr-group-title" style="font-size:15px; margin-top:20px;">${group.studentName}</div>`;
-        group.evaluations.forEach(ev => {
-            const isVerified = ev.matchConfidence.indexOf("Verified") === 0;
-            html += `<div class="eval-card">
-                <div class="eval-card-header">
-                    <div>
-                        <div style="font-weight:700; font-size:14px; color:#1e293b;">${ev.sessionTab}</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">${ev.evaluationType || 'Custom'} &middot; ${ev.evaluationDate}</div>
-                    </div>
-                    <div class="confidence-badge ${isVerified ? 'confidence-verified' : 'confidence-unverified'}">${ev.matchConfidence}</div>
+    result.evaluations.forEach(ev => {
+        const isVerified = ev.matchConfidence.indexOf("Verified") === 0;
+        html += `<div class="attr-group-title" style="font-size:15px; margin-top:20px;">${ev.studentName}</div>
+        <div class="eval-card">
+            <div class="eval-card-header">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${ev.sessionTab}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${ev.evaluationType || 'Custom'} &middot; ${ev.evaluationDate}</div>
                 </div>
-                ${renderCustomFieldsHtml(ev.data)}
-            </div>`;
-        });
+                <div class="confidence-badge ${isVerified ? 'confidence-verified' : 'confidence-unverified'}">${ev.matchConfidence}</div>
+            </div>
+            ${renderCustomFieldsHtml(ev.data)}
+        </div>`;
     });
 
     document.getElementById('evalCardsContainer').innerHTML = html;
     document.getElementById('reportContent').style.display = 'block';
 }
+
 //to get the columns of the custom session during the report
 // Fields already shown elsewhere in the card — don't repeat them in the custom-fields list
 const KNOWN_EVAL_FIELDS = [
@@ -233,6 +298,7 @@ function loadStudentReport() {
             document.getElementById('reportLoadingMsg').style.display = 'none';
             if (!result.success) { alert("Error: " + result.error); return; }
             if (result.totalEvaluations === 0) {
+                document.getElementById('noResultsMsg').innerText = "No evaluations found for this student across any session.";
                 document.getElementById('noResultsMsg').style.display = 'block';
                 return;
             }

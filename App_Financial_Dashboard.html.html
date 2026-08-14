@@ -48,6 +48,12 @@
 <div id="loadingSpinnerElement" class="micro-status-indicator">🔄 Loading...</div>
 
 <div class="container">
+    <div style="margin-bottom:16px;">
+        <button onclick="goBackInApp()"
+            style="background:none; border:none; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 0;">
+            ← Back
+        </button>
+    </div>
     <div class="header-panel">
     <? if (brandLogoUrl) { ?>
       <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
@@ -91,8 +97,9 @@
 </div>
 
 
-    <!-- ============= GENERATE INVOICE MODULE ============= -->
+   <!-- ============= GENERATE INVOICE MODULE ============= -->
     <div id="module_generate">
+        
         <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
             <div class="form-group">
                 <label style="color:#15803d">Logged In As</label>
@@ -150,6 +157,7 @@
 
     <!-- ============= INVOICE LEDGER MODULE ============= -->
     <div id="module_ledger" style="display: none;">
+    
     <button id="bulkReminderBtn" class="master-action-btn" style="background:#0288d1; color:white; margin-bottom:12px;" onclick="sendBulkReminders()">📧 Send Reminders to All Unpaid</button>
 
     <div class="section-box">
@@ -194,6 +202,7 @@
     </div>
     <!-- ============= APPLICATIONS MODULE ============= -->
 <div id="module_applications" style="display: none;">
+   
     <div class="section-box">
         <div class="form-group">
             <label>Filter By Status</label>
@@ -214,6 +223,7 @@
 
 <!-- ============= LEAVE REQUESTS MODULE ============= -->
 <div id="module_leave" style="display: none;">
+    
     <div class="section-box">
         <h3 style="margin-top:0;">Submit New Leave Request</h3>
         <div class="form-group">
@@ -266,8 +276,8 @@
 </div>
 
 <!-- ============= FEE CONFIG MODULE ============= -->
-<!-- ============= FEE CONFIG MODULE ============= -->
 <div id="module_feeconfig" style="display: none;">
+    
     <div class="section-box" style="background:#fefce8; border:1px solid #fef08a;">
         <div style="font-weight:700; color:#92400e; font-size:13px;">⚙️ Admin Only — Fee Configuration</div>
     </div>
@@ -461,7 +471,32 @@ let contextPayload = null;
 let verifiedStaffEmail = "";
 let activeInvoiceIdForPayment = null;
 let currentSystemIsDemoMode = false;
+const DEPLOYED_BASE_URL = '<?!= deployedUrl ?>';
 
+function navigateToApp(appName) {
+    const currentApp = '<?!= currentAppName ?>' || 'eval';
+    sessionStorage.setItem('kemp_suite_previous_app', currentApp);
+
+    const baseUrl = DEPLOYED_BASE_URL || window.top.location.href.split('?')[0];
+    let url = baseUrl + '?app=' + appName;
+    const isDemoMode = localStorage.getItem('kemp_suite_verified_demo_mode') === 'true';
+    if (isDemoMode) url += '&demo=true';
+    window.top.location.href = url;
+}
+
+function goBackInApp() {
+    const previousApp = sessionStorage.getItem('kemp_suite_previous_app') || 'eval';
+    navigateToApp(previousApp);
+}
+function backToModuleGrid() {
+    document.querySelectorAll('.hub-card').forEach(c => c.classList.remove('active-hub'));
+    document.getElementById('module_generate').style.display = 'none';
+    document.getElementById('module_ledger').style.display = 'none';
+    document.getElementById('module_applications').style.display = 'none';
+    document.getElementById('module_feeconfig').style.display = 'none';
+    document.getElementById('module_leave').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 // ========== AUTH (reuses cached session from Performance Engine / Attendance) ==========
 (function() {
     const cachedEmail = localStorage.getItem('kemp_suite_verified_session_email');

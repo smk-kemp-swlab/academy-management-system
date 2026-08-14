@@ -214,6 +214,26 @@
                 
                 if (context.isAdmin) {
                     document.getElementById("adminSandboxTray").style.display = "block";
+
+                    // NEW — sync the toggle button's label/color to match the ACTUAL
+                    // loaded mode, since the button starts hardcoded as "Normal" in the
+                    // HTML and previously only updated when clicked — causing it to lie
+                    // if currentSystemIsDemoMode was already true from a previous session.
+                    const btn = document.getElementById('sandboxToggleBtn');
+                    const tray = document.getElementById('adminSandboxTray');
+                    if (btn && tray) {
+                        if (currentSystemIsDemoMode) {
+                            btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+                            tray.style.background = "#fef3c7";
+                            tray.style.borderTopColor = "#f59e0b";
+                            btn.style.color = "#92400e";
+                        } else {
+                            btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+                            tray.style.background = "#f8fafc";
+                            tray.style.borderTopColor = "#cbd5e1";
+                            btn.style.color = "#94a3b8";
+                        }
+                    }
                 }
                 const assessDateEl = document.getElementById('out_assessment_date');
                 if (assessDateEl && !assessDateEl.value) {
@@ -322,10 +342,9 @@
                 document.getElementById('evalSessionTabSelect').innerHTML = '<option value="">-- Connection failed --</option>';
                 alert("Connection failed while loading evaluation sessions: " + err);
             })
-            .getActiveEvaluationSessions(currentSystemIsDemoMode, document.getElementById('evalTypeFramework').value);
+            .getActiveEvaluationSessions(currentSystemIsDemoMode);
     }
 }
-
     function handleFrameworkLayoutShift(selectedFramework) {
         refreshActiveInstanceTabs();
 
