@@ -555,6 +555,7 @@ function submitStaffAttendance(data) {
     } else if (data.city !== "Unknown" && data.city !== "Manual") {
       locationFlag = "Regional_Match";
     }
+    var displayLocation = data.locationName ? data.locationName : (data.region ? data.city + ", " + data.region : data.city);
     var attendanceDate = data.retroDate || Utilities.formatDate(new Date(), GLOBAL_SYSTEM_CONFIG.GLOBAL_TIMEZONE, "yyyy-MM-dd");
 
     var liveLocationLink = "";
@@ -562,7 +563,9 @@ function submitStaffAttendance(data) {
       liveLocationLink = "https://www.google.com/maps?q=" + data.latitude + "," + data.longitude;
     }
 
-    sheet.appendRow([
+    var loggedCenterId = (geoCheck && geoCheck.centerId) ? geoCheck.centerId : assignedCenterId;
+
+   sheet.appendRow([
       logId,
       data.email,
       fullName,
@@ -572,10 +575,14 @@ function submitStaffAttendance(data) {
       data.actionType,
       data.ip,
       data.isp || "",
-      data.region ? data.city + ", " + data.region : data.city,
+      loggedCenterId,
+      displayLocation,
       locationFlag,
       liveLocationLink
+      
     ]);
+      
+ 
     return { success: true, geofence: geoCheck };
   } catch (error) {
     return { success: false, error: error.toString() };
@@ -2546,10 +2553,6 @@ function parseCoordinatesFromToken(token) {
  * using coordinates stored in Facilities_Matrix (Geographic_City_Boundary_Token: "lat,lon").
  */
 function validateCoachLocation(centerId, latitude, longitude, isDemoMode) {
-  if (!centerId || centerId === "ALL") {
-    return { allowed: true, exempt: true, reason: "Staff assigned to all centers — geofence not applicable." };
-  }
-
   var lat = Number(latitude);
   var lon = Number(longitude);
   if (isNaN(lat) || isNaN(lon)) {
@@ -2561,27 +2564,41 @@ function validateCoachLocation(centerId, latitude, longitude, isDemoMode) {
   var facilitySheet = hubSS.getSheetByName("Facilities_Matrix");
   var facilities = parseSheetToObjects(facilitySheet.getDataRange().getValues());
 
-  var center = facilities.find(function(f) { return String(f.Center_ID).trim() === String(centerId).trim(); });
-  if (!center || !center.Geographic_City_Boundary_Token) {
-    return { allowed: false, reason: "Coordinates for center '" + centerId + "' not found in Facilities_Matrix." };
+  // Check distance against EVERY center, not just the staff member's assigned one —
+  // a staff member covering a different center today should still be able to check in
+  // there, as long as they're physically within range of SOME real center.
+  var nearest = null;
+
+  facilities.forEach(function(center) {
+    if (!center.Geographic_City_Boundary_Token) return;
+    var coords = String(center.Geographic_City_Boundary_Token).split(",");
+    var centerLat = Number(coords[0]);
+    var centerLon = Number(coords[1]);
+    if (isNaN(centerLat) || isNaN(centerLon)) return;
+
+    var distance = calculateDistanceInMeters(lat, lon, centerLat, centerLon);
+    if (!nearest || distance < nearest.distance) {
+      nearest = { distance: distance, center: center };
+    }
+  });
+
+  if (!nearest) {
+    return { allowed: false, reason: "No centers with valid coordinates found in Facilities_Matrix." };
   }
 
-  var coords = String(center.Geographic_City_Boundary_Token).split(",");
-  var centerLat = Number(coords[0]);
-  var centerLon = Number(coords[1]);
-  if (isNaN(centerLat) || isNaN(centerLon)) {
-    return { allowed: false, reason: "Invalid coordinate format stored for center '" + centerId + "'." };
-  }
-
-  var distance = calculateDistanceInMeters(lat, lon, centerLat, centerLon);
-  var allowed = distance <= 500;
+  // Every staff member — including "ALL"-assigned roaming staff — must be within
+  // 500m of SOME real center. "ALL" only means they're not locked to one fixed
+  // center; it should never mean the geofence is skipped entirely.
+  var allowed = nearest.distance <= 500;
+  var isAssignedCenter = !centerId || centerId === "ALL" ? true : String(nearest.center.Center_ID).trim() === String(centerId).trim();
 
   return {
     allowed: allowed,
-    distanceMeters: Math.round(distance),
-    centerId: center.Center_ID,
-    centerName: center.Center_Name,
-    reason: allowed ? "" : "You are approximately " + Math.round(distance) + " meters from " + center.Center_Name + ". You must be within 500 meters to mark attendance."
+    distanceMeters: Math.round(nearest.distance),
+    centerId: nearest.center.Center_ID,
+    centerName: nearest.center.Center_Name,
+    isAssignedCenter: isAssignedCenter,
+    reason: allowed ? "" : "You are approximately " + Math.round(nearest.distance) + " meters from your nearest center (" + nearest.center.Center_Name + "). You must be within 500 meters of a center to mark attendance."
   };
 }
 //for new academy to automatically enter all there data
