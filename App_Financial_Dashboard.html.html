@@ -51,7 +51,7 @@
     <div style="margin-bottom:16px;">
         <button onclick="goBackInApp()"
             style="background:none; border:none; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; padding:8px 0;">
-            ← Back
+            ← Back to Home
         </button>
     </div>
     <div class="header-panel">
@@ -83,10 +83,10 @@
     <div class="title">Registration</div>
     <div class="badge-mini">Active</div>
 </div>
-<div class="hub-card" id="hub_feeconfig" onclick="switchModule('feeconfig')" style="display:none;">
+<div class="hub-card" id="hub_feeconfig" onclick="switchModule('feeconfig')" style="opacity:0.5; pointer-events:none; cursor:default; transition:opacity 0.2s;">
     <div class="icon">⚙️</div>
     <div class="title">Fee Config</div>
-    <div class="badge-mini">Admin Only</div>
+    <div class="badge-mini" id="feeConfigBadge">Loading...</div>
 </div>
 </div> <!-- closes dashboard-grid -->
 
@@ -646,8 +646,12 @@ function loadDashboardContext() {
 
             const perms = ctx.permissions || { isAdmin: ctx.isAdmin, canManageFeeConfig: ctx.isAdmin, canUseDemoToggle: ctx.isAdmin };
 
-            // Fee Config card visible to everyone; Add-forms only for those who can manage it
-            document.getElementById('hub_feeconfig').style.display = 'block';
+                       // Fee Config card visible to everyone; Add-forms only for those who can manage it
+            const feeConfigCard = document.getElementById('hub_feeconfig');
+            feeConfigCard.style.opacity = '1';
+            feeConfigCard.style.pointerEvents = 'auto';
+            feeConfigCard.style.cursor = 'pointer';
+            document.getElementById('feeConfigBadge').innerText = 'Admin Only';
             document.getElementById('addFeeConfigFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
             document.getElementById('addDiscountFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
             if (!perms.canGenerateInvoice) {
