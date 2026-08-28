@@ -417,10 +417,9 @@
         // Re-attach CSV listener because innerHTML rebuild destroys old listeners
         document.getElementById('csvFileInput').addEventListener('change', handleCsvUpload);
             toggleSectionVisibility('technicalMetricsWrapper', 'block');
-       } else {
-    cascadeContainer.style.display = 'block';
-
+           } else {
     const isClub = selectedFramework === "Club";
+    cascadeContainer.style.display = isClub ? 'none' : 'block'; // NEW — Club uses CSV/Manual entry directly, doesn't need the Center/Batch roster filter (that's Academy-only)
 
     identityCard.innerHTML = `
         <div class="section-box" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px;">

@@ -70,36 +70,6 @@
     <h2>Performance Workspace Engine</h2>
 </div>
 
-    <div id="identityBridgeCard" class="section-box" style="background: #f8fafc; border: 2px solid var(--border); padding: 16px;">
-        <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 24px; margin-right: 12px;" id="identityIconMarker">👤</div>
-            <div>
-                <label style="margin-bottom: 2px; color: #475569;">Coach Assessor Logged In</label>
-               <div id="identityEmailLabel" style="font-weight: 700; font-size: 16px; color: var(--dark);">Resolving Google Session Token...</div>
-                <a href="#" onclick="logoutAndSwitchAccount(); return false;" style="font-size:11px; color:#64748b; text-decoration:underline; cursor:pointer;">Switch Account / Logout</a>
-            </div>
-        </div>
-        <div id="identityStatusAlert" style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px; background: #e2e8f0; color: #475569;">
-            🔄 Verifying coach profile credentials...
-        </div>
-        <div id="identityActionDeck" style="display: flex; flex-direction: column; gap: 10px;">
-            <button type="button" id="identityConfirmSyncBtn" class="master-action-btn btn-sync" style="margin-top:0; padding: 14px;" onclick="triggerExplicitDataSync()" disabled>
-                ⚡ Confirm Profile & Sync Data
-            </button>
-            <a id="identitySwitchAccountLink" href="#" target="_top" style="display: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; padding: 10px; border: 1px solid var(--primary); border-radius: 8px; background: #fef2f2;">
-                🔄 Switch Google Account
-            </a>
-            <button type="button" id="identityOfflineOverrideBtn" class="master-action-btn" style="display: none; margin-top:0; background: #64748b; color: white; padding: 10px; font-size: 13px; font-weight: 700;" onclick="activateOfflineWorkspaceOverride()">
-                📦 Work Offline (Use Device Cache Only)
-            </button>
-        </div>
-
-    </div>
-    <button type="button" class="master-action-btn btn-sync" style="width:100%; margin-bottom:16px;" onclick="navigateToApp('eval_report')">
-    📄 View / Download Evaluation Reports
-</button>
-
-
     <div class="dashboard-grid">
         <div class="hub-card" id="hub_evals" onclick="switchActivePortalWorkspace('evals')">
             <div class="icon">📊</div>
@@ -113,7 +83,7 @@
           </div>
           <div class="hub-card" id="hub_payments" onclick="navigateToApp('billing')">
               <div class="icon">💳</div>
-              <div class="title">Fee Tracker</div>
+              <div class="title">Academy Administration</div>
               <div class="badge-mini">Active</div>
           </div>
           <div class="hub-card" id="hub_staff" onclick="navigateToApp('staff')">
@@ -123,10 +93,44 @@
 </div>
     </div>
 
+    
+
+    
+
 
     <button type="button" id="globalViewToggler" class="toggle-guide-btn" onclick="handleViewStateToggle()">📖 Open Operational User Guide</button>
 
-    <div id="workspacePanel_evals" class="workspace-panel fade-element">
+        <div id="workspacePanel_evals" class="workspace-panel fade-element">
+
+        <div id="identityBridgeCard" class="section-box" style="background: #f8fafc; border: 2px solid var(--border); padding: 16px;">
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="font-size: 24px; margin-right: 12px;" id="identityIconMarker">👤</div>
+                <div>
+                    <label style="margin-bottom: 2px; color: #475569;">Coach Assessor Logged In</label>
+                   <div id="identityEmailLabel" style="font-weight: 700; font-size: 16px; color: var(--dark);">Resolving Google Session Token...</div>
+                    <a href="#" onclick="logoutAndSwitchAccount(); return false;" style="font-size:11px; color:#64748b; text-decoration:underline; cursor:pointer;">Switch Account / Logout</a>
+                </div>
+            </div>
+            <div id="identityStatusAlert" style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px; background: #e2e8f0; color: #475569;">
+                🔄 Verifying coach profile credentials...
+            </div>
+            <div id="identityActionDeck" style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" id="identityConfirmSyncBtn" class="master-action-btn btn-sync" style="margin-top:0; padding: 14px;" onclick="triggerExplicitDataSync()" disabled>
+                    ⚡ Confirm Profile & Sync Data
+                </button>
+                <a id="identitySwitchAccountLink" href="#" target="_top" style="display: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; padding: 10px; border: 1px solid var(--primary); border-radius: 8px; background: #fef2f2;">
+                    🔄 Switch Google Account
+                </a>
+                <button type="button" id="identityOfflineOverrideBtn" class="master-action-btn" style="display: none; margin-top:0; background: #64748b; color: white; padding: 10px; font-size: 13px; font-weight: 700;" onclick="activateOfflineWorkspaceOverride()">
+                    📦 Work Offline (Use Device Cache Only)
+                </button>
+            </div>
+        </div>
+
+        <button type="button" class="master-action-btn btn-sync" style="width:100%; margin-bottom:16px;" onclick="navigateToApp('eval_report')">
+            📄 View / Download Evaluation Reports
+        </button>
+
         <div id="evaluationConsolePanel" style="opacity: 0.4; pointer-events: none;">
             
             <div class="section-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
