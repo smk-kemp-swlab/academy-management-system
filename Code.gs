@@ -85,7 +85,8 @@ function getPerformanceEngineContext(isDemoMode, staffEmail) {
     var currentStaff = staffObjects.find(function(s) {
         return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (userEmail || "").toLowerCase().trim();
     });
-    var isAdminUser = currentStaff && (currentStaff.Role_Type === "Director" || currentStaff.Role_Type === "Admin");
+        var isAdminUser = currentStaff && (currentStaff.Role_Type === "Director" || currentStaff.Role_Type === "Admin");
+    var rolePermissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
     
     var masterPayload = {
       coaches: parseColumnToFilteredArray(staffValues, "Email_Address"),
@@ -95,6 +96,7 @@ function getPerformanceEngineContext(isDemoMode, staffEmail) {
       
       currentUserEmailTrace: userEmail,
       isAdmin: isAdminUser || false,
+      permissions: rolePermissions,
       isIdentityWarm: hasValidEmail,
       isHealthyPayload: true,
       environmentModeActive: isDemoMode ? "DEMO_SANDBOX" : "LIVE_PRODUCTION"
@@ -184,8 +186,19 @@ function getIdentityVerificationPacket() {
 }
 */
 
-function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode, templateType, customColumns) {
+function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode, templateType, customColumns, loggedInStaffEmail) {
   try {
+    var hubIdForCheck = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSSForCheck = SpreadsheetApp.openById(hubIdForCheck);
+    var staffObjectsForCheck = parseSheetToObjects(hubSSForCheck.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var loggedInStaff = staffObjectsForCheck.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (loggedInStaffEmail || "").toLowerCase().trim();
+    });
+    var evalPermissions = getRolePermissions(loggedInStaff ? loggedInStaff.Role_Type : "");
+    if (!evalPermissions.canConductEvaluations) {
+      return { success: false, error: "Permission denied: you are not authorized to create evaluation sessions." };
+    }
+
     var targetWarehouseId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
     var ss = SpreadsheetApp.openById(targetWarehouseId);
     
@@ -276,8 +289,19 @@ function provisionNewEvaluationTab(newTabName, frameworkType, isDemoMode, templa
   }
 }
 
-function streamEvaluationToSpoke(playerData, selectedSessionTab, txId, isDemoMode) {
+function streamEvaluationToSpoke(playerData, selectedSessionTab, txId, isDemoMode, loggedInStaffEmail) {
   try {
+    var hubIdForCheck = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSSForCheck = SpreadsheetApp.openById(hubIdForCheck);
+    var staffObjectsForCheck = parseSheetToObjects(hubSSForCheck.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var loggedInStaff = staffObjectsForCheck.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (loggedInStaffEmail || "").toLowerCase().trim();
+    });
+    var evalPermissions = getRolePermissions(loggedInStaff ? loggedInStaff.Role_Type : "");
+    if (!evalPermissions.canConductEvaluations) {
+      return { success: false, error: "Permission denied: you are not authorized to save evaluations.", transactionId: txId };
+    }
+
     var targetSpokeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_EVALUATIONS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_EVALUATIONS_ID;
     var ss = SpreadsheetApp.openById(targetSpokeId);
     var sheet = ss.getSheetByName(selectedSessionTab);
@@ -406,8 +430,8 @@ function fetchAuthorizedApplicationProfiles(appScopeKey, isDemoMode) {
     var passwordCell = String(data[i][2]).trim();
     var approvedApps = String(data[i][3]).toLowerCase().trim();
 
-    var isIamActive = (statusCell === "Active");
-    var isScopeApproved = (approvedApps.indexOf(appScopeKey) !== -1);
+        var isIamActive = (statusCell === "Active");
+    var isScopeApproved = (appScopeKey === "any") || (approvedApps.indexOf(appScopeKey) !== -1);
     var isActiveStaffMember = !!activeStaffEmails[emailCell];
 
     if (isIamActive && isScopeApproved && isActiveStaffMember) {
@@ -468,6 +492,18 @@ function validateExistingUserCredentials(targetEmail, typedPasswordString, isDem
 }
 function submitStudentAttendance(records, isDemoMode) {
   try {
+    var staffEmail = (records && records[0] && records[0].loggedBy) || "";
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+    var staffObjects = parseSheetToObjects(hubSS.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === staffEmail.toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canTakeStudentAttendance) {
+      return { success: false, error: "Permission denied: you are not authorized to take student attendance." };
+    }
+
     var targetId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_ATTENDANCE_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_ATTENDANCE_ID;
     var ss = SpreadsheetApp.openById(targetId);
     var sheet = ss.getSheetByName("Student_Attendance_Log");
@@ -532,6 +568,8 @@ function submitStaffAttendance(data) {
     } catch(lookupError) {
       fullName = data.email;
     }
+
+    
 
     // 🛡️ 500m geofence — server-side final authority. Skipped for Manual_Retro entries
     // (those are backfilled by an admin, not a live GPS check-in).
@@ -1441,6 +1479,17 @@ function getDocumentsForEntity(entityId, isDemoMode) {
 }
 function saveFeeConfiguration(payload) {
   try {
+    var hubIdCheck = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSSCheck = SpreadsheetApp.openById(hubIdCheck);
+    var staffDataCheck = parseSheetToObjects(hubSSCheck.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var callerStaff = staffDataCheck.find(function(s) {
+        return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (payload.staffEmail || "").toLowerCase().trim();
+    });
+    var callerPermissions = getRolePermissions(callerStaff ? callerStaff.Role_Type : "");
+    if (!callerPermissions.canManageFeeConfig) {
+      return { success: false, error: "Permission denied: you are not authorized to manage fee configurations." };
+    }
+
     var financeId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Fee_Configuration_Matrix");
@@ -1467,6 +1516,17 @@ function saveFeeConfiguration(payload) {
 
 function saveDiscountConfiguration(payload) {
   try {
+    var hubIdCheck = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSSCheck = SpreadsheetApp.openById(hubIdCheck);
+    var staffDataCheck = parseSheetToObjects(hubSSCheck.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var callerStaff = staffDataCheck.find(function(s) {
+        return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (payload.staffEmail || "").toLowerCase().trim();
+    });
+    var callerPermissions = getRolePermissions(callerStaff ? callerStaff.Role_Type : "");
+    if (!callerPermissions.canManageDiscounts) {
+      return { success: false, error: "Permission denied: only Admins/Directors can manage discounts." };
+    }
+
     var financeId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Discount_Registry");
@@ -1487,6 +1547,17 @@ function saveDiscountConfiguration(payload) {
 
 function deleteInvoice(invoiceId, staffEmail, isDemoMode) {
   try {
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+    var staffObjects = parseSheetToObjects(hubSS.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.isAdmin) {
+      return { success: false, error: "Permission denied: only Admins/Directors can delete invoices." };
+    }
+
     var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Billing_Ledger_Invoices");
@@ -1507,6 +1578,17 @@ function deleteInvoice(invoiceId, staffEmail, isDemoMode) {
 }
 function deleteFeeConfig(feeConfigId, staffEmail, isDemoMode) {
   try {
+    var hubIdCheck = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSSCheck = SpreadsheetApp.openById(hubIdCheck);
+    var staffDataCheck = parseSheetToObjects(hubSSCheck.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var callerStaff = staffDataCheck.find(function(s) {
+        return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (staffEmail || "").toLowerCase().trim();
+    });
+    var callerPermissions = getRolePermissions(callerStaff ? callerStaff.Role_Type : "");
+    if (!callerPermissions.canManageFeeConfig) {
+      return { success: false, error: "Permission denied: you are not authorized to delete fee configurations." };
+    }
+
     var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Fee_Configuration_Matrix");
@@ -1528,6 +1610,17 @@ function deleteFeeConfig(feeConfigId, staffEmail, isDemoMode) {
 
 function deleteDiscount(discountId, staffEmail, isDemoMode) {
   try {
+    var hubIdCheck = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSSCheck = SpreadsheetApp.openById(hubIdCheck);
+    var staffDataCheck = parseSheetToObjects(hubSSCheck.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var callerStaff = staffDataCheck.find(function(s) {
+        return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (staffEmail || "").toLowerCase().trim();
+    });
+    var callerPermissions = getRolePermissions(callerStaff ? callerStaff.Role_Type : "");
+    if (!callerPermissions.canManageDiscounts) {
+      return { success: false, error: "Permission denied: only Admins/Directors can delete discounts." };
+    }
+
     var financeId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_SPOKE_FINANCIALS_ID : GLOBAL_SYSTEM_CONFIG.SPOKE_FINANCIALS_ID;
     var financeSS = SpreadsheetApp.openById(financeId);
     var sheet = financeSS.getSheetByName("Discount_Registry");
@@ -1771,17 +1864,26 @@ function getRolePermissions(roleType) {
   var isAdminManager = (role === "Administrative_Manager");
   var isAccounts = (role === "Accounts");
   var isHeadCoach = (role === "Head_Coach");
+  var isFieldStaff = (role === "Head_Coach" || role === "Coach" || role === "Team_Manager" || role === "Physio" || role === "Scout");
 
   return {
     isAdmin: isAdmin,
     canManageStaff: isAdmin || isAdminManager,
     canManageApplications: isAdmin || isAdminManager,
     canManageFeeConfig: isAdmin || isAccounts,
-    canManageDiscounts: isAdmin,  // ← Admin only, unlike Fee Config
+    canManageDiscounts: isAdmin || isAccounts,
     canViewInvoices: isAdmin || isAdminManager || isAccounts,
     canGenerateInvoice: isAdmin || isAdminManager || isAccounts,
     canApproveLeave: isAdmin || isAdminManager || isHeadCoach,
     canUseDemoToggle: isAdmin,
+        // Evaluation is a coaching task, restricted the same way Attendance-taking is —
+    // Accounts can see the module but cannot act in it.
+    canConductEvaluations: isAdmin || isAdminManager || isFieldStaff,
+    // Student Attendance (marking which students are present) is restricted the same way.
+    canTakeStudentAttendance: isAdmin || isAdminManager || isFieldStaff,
+    // Staff Attendance (checking YOURSELF in/out) is available to every staff member,
+    // since every role is staff and needs to log their own attendance.
+    canMarkOwnStaffAttendance: true,
     roleType: role
   };
 }
@@ -1791,26 +1893,11 @@ function getRolePermissions(roleType) {
  * on their Role_Type. Replaces the old manual "Grant Login Access To" checkboxes.
  */
 function getAppAccessForRole(roleType) {
-  var role = (roleType || "").trim();
-  var isAdmin = (role === "Director" || role === "Admin");
-  var isAdminManager = (role === "Administrative_Manager");
-  var isAccounts = (role === "Accounts");
-  var isFieldStaff = (role === "Head_Coach" || role === "Coach" || role === "Team_Manager" || role === "Physio" || role === "Scout");
-
-  var access = [];
-
-  if (isAdmin || isAdminManager || isFieldStaff) {
-    access.push("eval");
-    access.push("attendance");
-  }
-  if (isAdmin || isAdminManager || isAccounts) {
-    access.push("billing");
-  }
-  if (isAdmin || isAdminManager) {
-    access.push("staff");
-  }
-
-  return access;
+  // Per the required access model: every internal staff role can SEE/log into
+  // every module. What each role can actually DO inside a module is controlled
+  // separately by getRolePermissions() at the action level, not by blocking
+  // login to the app itself.
+  return ["eval", "attendance", "billing", "staff"];
 }
 // ========================================================================
 // 🧑‍💼 STAFF BOARD — STAFF REGISTRY MANAGEMENT ENGINE
@@ -1900,7 +1987,7 @@ function addStaffMember(payload) {
     // Auto-derive login access from Role_Type
     var derivedAccess = getAppAccessForRole(payload.roleType);
     if (derivedAccess.length > 0) {
-      provisionIAMAccess(normalizedEmail, derivedAccess);
+      provisionIAMAccess(normalizedEmail, derivedAccess, payload.isDemoMode);
     }
 
     return { success: true, staffId: newStaffId };
@@ -1941,7 +2028,7 @@ function updateStaffMember(payload) {
         // Auto-derive login access from Role_Type — keeps access in sync automatically on any edit
         var staffEmail = data[r][emailIdx];
         var derivedAccess = getAppAccessForRole(payload.roleType);
-        setIAMAccessExact(staffEmail, derivedAccess);
+                setIAMAccessExact(staffEmail, derivedAccess, payload.isDemoMode);
 
         return { success: true };
       }
@@ -2012,9 +2099,9 @@ function deleteStaffMember(staffId, staffEmail, isDemoMode) {
  * on first login), matching the existing State-A onboarding flow.
  * appScopesArray e.g. ["eval","attendance","billing","staff"]
  */
-function provisionIAMAccess(email, appScopesArray) {
+function provisionIAMAccess(email, appScopesArray, isDemoMode) {
   try {
-    var vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
+    var vaultId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CONFIG_IAM_MASTER_ID : GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
     var sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
     var data = sheet.getDataRange().getValues();
     var normalizedEmail = email.toLowerCase().trim();
@@ -2106,9 +2193,9 @@ function getIAMAccessForEmail(email) {
  * Sets a staff member's app access to exactly the given scopes (replaces, does not merge).
  * Used by Edit Staff so removing a checkbox actually revokes that access.
  */
-function setIAMAccessExact(email, appScopesArray) {
+function setIAMAccessExact(email, appScopesArray, isDemoMode) {
   try {
-    var vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
+    var vaultId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CONFIG_IAM_MASTER_ID : GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
     var sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
     var data = sheet.getDataRange().getValues();
     var normalizedEmail = (email || "").toLowerCase().trim();

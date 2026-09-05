@@ -247,6 +247,8 @@
                 document.getElementById('identityBridgeCard').style.padding = "8px 12px";
                 document.getElementById('identityActionDeck').style.display = "none";
                 document.getElementById('identityStatusAlert').style.display = "none";
+
+                applyEvaluationPermissions(context.permissions || {});
             })
             .withFailureHandler(function() {
                 alert("Database Mapping Error: Connection failed. Bypassing to standalone offline mode.");
@@ -334,7 +336,7 @@
                     alert("Could not load evaluation sessions: " + result.error + (currentSystemIsDemoMode ? "\n\n(This may be a Demo Sandbox data access issue.)" : ""));
                     return;
                 }
-                const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '';
+                const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '<option value="">-- Select Session --</option>';
                 result.tabs.forEach(tabName => { select.innerHTML += `<option value="${tabName}">${tabName}</option>`; });
                 updateBadgeTrackerDisplay();
             })
@@ -346,8 +348,6 @@
     }
 }
     function handleFrameworkLayoutShift(selectedFramework) {
-        refreshActiveInstanceTabs();
-
         const cascadeContainer = document.getElementById('cascadingWrapperBox');
         const identityCard = document.getElementById('playerIdentityInformationCard');
 
@@ -359,8 +359,13 @@
                     ℹ️ Please select an evaluation session framework above to inflate data fields.
                 </div>
             `;
+            // Reset the session dropdown too, matching the "-- Select Type First --" pattern
+            const sessionSel = document.getElementById('evalSessionTabSelect');
+            if (sessionSel) sessionSel.innerHTML = '<option value="">-- Select Type First --</option>';
             return; // Halt execution early
-        }      
+        }
+
+        refreshActiveInstanceTabs();    
         
         if (selectedFramework === "Trial") {
             cascadeContainer.style.display = 'none';
@@ -586,7 +591,7 @@
             document.getElementById('newTabCreationBtn').disabled = false;
             if(res.success) { alert("Session sheet deployed successfully."); refreshActiveInstanceTabs(); }
             else { alert("Deployment Error: " + res.error); }
-        }).provisionNewEvaluationTab(name, selectedType, currentSystemIsDemoMode);
+        }).provisionNewEvaluationTab(name, selectedType, currentSystemIsDemoMode, undefined, undefined, localStorage.getItem('kemp_suite_verified_session_email'));
     }
 }
 
@@ -697,7 +702,7 @@
             return;
         }
 
-        localTransmissionQueue.push({ 
+                localTransmissionQueue.push({ 
             tab: sessionTabSel.value, 
             payload: packet, 
             txId: packet["TX_Signature_Token"],
@@ -705,6 +710,8 @@
         });
         localStorage.setItem('kemp_suite_eval_queue', JSON.stringify(localTransmissionQueue));
         updateBadgeTrackerDisplay();
+
+        alert("✅ Evaluation saved successfully!"); // shows immediately — data is queued locally right here, cloud sync happens in the background
 
         clearFormLayoutInterface(frameworkSel.value);
         executeNextQueueTransmission();
@@ -752,7 +759,7 @@ function clearFormLayoutInterface(currentFramework) {
                     }
                 })
                 .withFailureHandler(function() { handleFallbackFailureState(); })
-                .streamEvaluationToSpoke(targetPackage.payload, targetPackage.tab, targetPackage.txId, targetPackage.isDemo || false);
+                .streamEvaluationToSpoke(targetPackage.payload, targetPackage.tab, targetPackage.txId, targetPackage.isDemo || false, localStorage.getItem('kemp_suite_verified_session_email'));
         } else {
             handleFallbackFailureState();
         }
@@ -965,6 +972,27 @@ function toggleDemoSandboxMode() {
     // Reload everything under the new mode
     triggerExplicitDataSync();
 }
+// Shows the Evaluation module read-only for roles without canConductEvaluations —
+// matches the "visible tabs, restricted actions" pattern used elsewhere in the suite.
+function applyEvaluationPermissions(permissions) {
+    const canAct = !!permissions.canConductEvaluations;
+    const saveBtn = document.getElementById('commitFormBtn');
+    const createSessionBtns = document.querySelectorAll('[onclick="openSessionCreationModal()"]');
+
+    if (!canAct) {
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; saveBtn.title = 'You do not have permission to save evaluations.'; }
+        createSessionBtns.forEach(btn => { btn.disabled = true; btn.style.opacity = '0.5'; btn.title = 'You do not have permission to create sessions.'; });
+
+        const consolePanel = document.getElementById('evaluationConsolePanel');
+        if (consolePanel && !document.getElementById('evalReadOnlyNotice')) {
+            const notice = document.createElement('div');
+            notice.id = 'evalReadOnlyNotice';
+            notice.style.cssText = 'text-align:center; padding:10px; color:#64748b; font-size:13px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px;';
+            notice.innerText = '🔒 You have view-only access to Evaluations. You cannot save or create sessions.';
+            consolePanel.insertBefore(notice, consolePanel.firstChild);
+        }
+    }
+}
 // ========== SESSION CREATION MODAL ==========
 let selectedSessionTemplate = 'standard';
 let customColumns = [];
@@ -1158,7 +1186,8 @@ function confirmCreateSession() {
             frameworkSel ? frameworkSel.value : 'Trial',
             currentSystemIsDemoMode,
             selectedSessionTemplate,
-            customColumns
+            customColumns,
+            localStorage.getItem('kemp_suite_verified_session_email')
         );
 }
 function switchSessionTab(tab) {

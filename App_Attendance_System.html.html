@@ -351,11 +351,29 @@ function initAttendanceApp() {
         if (ctx.isAdmin) {
             document.getElementById("adminSandboxTray").style.display = "block";
         }
+        applyAttendancePermissions(ctx.permissions || {});
     })
         .withFailureHandler(function() {
             alert("Failed to load data. Please refresh.");
         })
         .getPerformanceEngineContext(currentSystemIsDemoMode, verifiedStaffEmail);
+}
+
+// Student Attendance is restricted to Admin/Administrative Manager/coaching field staff.
+// Staff Attendance (marking your own check-in) stays open to everyone — no gating needed there.
+function applyAttendancePermissions(permissions) {
+    const canActOnStudents = !!permissions.canTakeStudentAttendance;
+
+    const studentSubmitBtn = document.querySelector('#module_student .btn-commit');
+
+    if (!canActOnStudents) {
+        if (studentSubmitBtn) { studentSubmitBtn.disabled = true; studentSubmitBtn.style.opacity = '0.5'; studentSubmitBtn.title = 'You do not have permission to take student attendance.'; }
+
+        const notice = document.createElement('div');
+        notice.style.cssText = 'text-align:center; padding:10px; color:#64748b; font-size:13px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px;';
+        notice.innerText = '🔒 You have view-only access to Student Attendance. You cannot record student attendance.';
+        document.getElementById('module_student').insertBefore(notice, document.getElementById('module_student').firstChild);
+    }
 }
 
 function toggleDemoSandboxMode() {
@@ -430,6 +448,8 @@ function loadStudentRoster() {
 
 function buildRosterGrid(students) {
     document.getElementById('rosterLoadingMsg').style.display = 'none';
+    const canAct = !!(contextPayload && contextPayload.permissions && contextPayload.permissions.canTakeStudentAttendance);
+    const disabledAttr = canAct ? '' : 'disabled style="opacity:0.4; cursor:not-allowed;"';
 
     if (students.length === 0) {
         document.getElementById('rosterGrid').innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No active students found for this batch.</div>';
@@ -446,11 +466,11 @@ function buildRosterGrid(students) {
                 <div style="font-size: 12px; color: #64748b;">${s.Student_ID}</div>
             </div>
             <div style="display: flex; gap: 6px;">
-                <button onclick="setStatus('${s.Student_ID}', 'Present', this)" 
+                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Present', this)" 
                     style="padding: 8px 12px; border-radius: 8px; border: 2px solid #16a34a; background: #16a34a; color: white; font-weight: 700; font-size: 13px; cursor: pointer;">P</button>
-                <button onclick="setStatus('${s.Student_ID}', 'Absent', this)" 
+                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Absent', this)" 
                     style="padding: 8px 12px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer;">A</button>
-                <button onclick="setStatus('${s.Student_ID}', 'Injured', this)" 
+                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Injured', this)" 
                     style="padding: 8px 12px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer;">I</button>
             </div>
         </div>`;

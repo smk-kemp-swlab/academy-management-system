@@ -315,6 +315,7 @@ const GROUP_PREFIXES = { tech: "Technical", tac: "Tactical", phys: "Physical", p
 const SUMMARY_FIELDS = ["Overall_Score", "Recommended_Action", "Assessor_Name", "Major_Strengths", "Improvement_Areas", "Final_Comments"];
 const SKIP_FIELDS = ["TX_Signature_Token", "Player_Name", "Trial_Number_Or_Bib", "Evaluation_Type", "Evaluation_Cycle_Tag", "Assessment_Date", "Session_Date", "Logged_Coach_Email", "Timestamp"];
 
+
 function prettyLabel(key) {
     return key.replace(/^(tech|tac|phys|psych)_/, '')
               .replace(/_(Rating|Notes|NoPressure|UnderPressure)$/, m => ' (' + m.slice(1).replace(/([A-Z])/g, ' $1').trim() + ')')

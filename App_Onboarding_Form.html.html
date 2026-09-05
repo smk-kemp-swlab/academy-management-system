@@ -104,6 +104,15 @@
             <div id="payNowQrSection" style="text-align:center; margin-top:16px; padding:16px; background:white; border:1px solid #bbf7d0; border-radius:10px;">
                 <div style="font-size:13px; font-weight:700; color:#15803d; margin-bottom:10px;">Scan to Pay via UPI</div>
               <img src="https://lh3.googleusercontent.com/d/1HCS6RVqiAhDIlK4pTTtoVZ3oJj7GBKSt" alt="Kemp FC Payment QR Code" style="max-width:280px; width:100%; border-radius:8px; border:1px solid #e2e8f0;">
+                <div style="margin-top:12px; font-size:11px; font-weight:700; color:#15803d;">UPI ID</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:6px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 10px;">
+                    <input type="text" id="upiIdDisplay" value="KEMPF9902.09@cmsidfc" readonly
+                        style="flex:1; border:none; background:transparent; font-size:13px; font-weight:600; color:#1e293b; text-align:center;">
+                    <button type="button" onclick="copyUpiId()"
+                        style="padding:6px 12px; border-radius:6px; border:none; background:#16a34a; color:white; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap;">
+                        📋 Copy
+                    </button>
+                </div>
                 <div class="form-group" style="margin-top:14px; text-align:left;">
                     <label>Upload Payment Screenshot *</label>
                     <input type="file" id="docPaymentScreenshot" accept=".pdf,.jpg,.jpeg,.png">
@@ -364,6 +373,21 @@ function uploadDocPromise(entityId, playerName, centerName, documentType, base64
                 fileName: fileName,
                 isDemoMode: currentSystemIsDemoMode
             });
+    });
+}
+// to get id of the qr image
+function copyUpiId() {
+    const input = document.getElementById('upiIdDisplay');
+    input.select();
+    input.setSelectionRange(0, 99999); // for mobile
+    navigator.clipboard.writeText(input.value).then(function() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = '✓ Copied';
+        setTimeout(function() { btn.innerText = originalText; }, 1500);
+    }).catch(function() {
+        document.execCommand('copy');
+        alert('UPI ID copied to clipboard.');
     });
 }
 </script>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Kemp Financial Dashboard</title>
+    <title>Kemp Academy Administration</title>
     <?!= include('Styled_Branding_CSS'); ?>
    
 </head>
@@ -13,7 +13,7 @@
     <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; box-sizing: border-box; border: 1px solid #e2e8f0;">
         <div style="text-align: center; margin-bottom: 24px;">
             <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
-            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Financial Portal</h2>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Academy Administration Portal</h2>
             <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
         </div>
         <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
@@ -59,7 +59,7 @@
       <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
     <? } ?>
     <h1 class="brand-name"></h1>
-    <h2>Financial Dashboard</h2>
+    <h2>Academy Administration</h2>
 </div>
 
 <div id="dashboardLoadingIndicator" style="text-align:center; padding:16px; color:#64748b; font-size:13px; font-weight:600;">
@@ -368,9 +368,18 @@
                 </select>
             </div>
 
-            <div id="paymentQrSection" style="display:none; text-align:center; margin-top:14px; padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
+                <div id="paymentQrSection" style="display:none; text-align:center; margin-top:14px; padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
                 <div style="font-size:12px; font-weight:700; color:#15803d; margin-bottom:8px;">Scan to Pay via UPI</div>
                 <img src="https://lh3.googleusercontent.com/d/1HCS6RVqiAhDIlK4pTTtoVZ3oJj7GBKSt" alt="Payment QR Code" style="max-width:220px; width:100%; border-radius:8px; border:1px solid #e2e8f0;">
+                <div style="margin-top:12px; font-size:11px; font-weight:700; color:#15803d;">UPI ID</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:6px; background:white; border:1px solid #bbf7d0; border-radius:8px; padding:8px 10px;">
+                    <input type="text" id="upiIdDisplay" value="KEMPF9902.09@cmsidfc" readonly
+                        style="flex:1; border:none; background:transparent; font-size:13px; font-weight:600; color:#1e293b; text-align:center;">
+                    <button type="button" onclick="copyUpiId()"
+                        style="padding:6px 12px; border-radius:6px; border:none; background:#16a34a; color:white; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap;">
+                        📋 Copy
+                    </button>
+                </div>
             </div>
             <div class="form-group" style="margin-top:12px;">
                 <label>Transaction Reference No. *</label>
@@ -653,7 +662,7 @@ function loadDashboardContext() {
             feeConfigCard.style.cursor = 'pointer';
             document.getElementById('feeConfigBadge').innerText = 'Admin Only';
             document.getElementById('addFeeConfigFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
-            document.getElementById('addDiscountFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
+            document.getElementById('addDiscountFormWrapper').style.display = perms.canManageDiscounts ? 'block' : 'none';
             if (!perms.canGenerateInvoice) {
               const genBadge = document.querySelector('#hub_generate .badge-mini');
               if (genBadge) {
@@ -949,12 +958,12 @@ function renderInvoiceList() {
                   <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
                       ${(inv.Payment_Status || '').replace('_', ' ')}
                   </div>
-            ${contextPayload.isAdmin ? `
+              ${contextPayload.permissions.canViewInvoices ? `
             <div style="position:relative;">
                     <button onclick="toggleInvoiceMenu('${inv.Invoice_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                   <div id="menu_${inv.Invoice_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:140px;">
-                <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📄 Download</div>
-                <div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; ${contextPayload.isAdmin ? 'border-bottom:1px solid #f1f5f9;' : ''}">📄 Download</div>
+                ${contextPayload.isAdmin ? `<div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>` : ''}
 
                     </div>
                 </div>` : ''}
@@ -1087,7 +1096,7 @@ function renderApplicationsList() {
                     </div>
                     <button class="master-action-btn btn-sync" style="margin-top:10px; padding:8px; font-size:12px;" onclick="toggleDocumentsPanel('${app.Application_ID}')">📁 View Documents</button>
                     <div id="docsPanel_${app.Application_ID}" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border-radius:8px;"></div>
-                ${app.Review_Status === 'Pending_Review' && contextPayload.isAdmin ? `
+                ${app.Review_Status === 'Pending_Review' && contextPayload.permissions.canManageApplications ? `
                         <div style="display:flex;gap:8px;margin-top:12px;">
                             <button onclick="updateAppStatus('${app.Application_ID}','Approved')"
                                 style="flex:1;padding:10px;border-radius:8px;border:none;background:#16a34a;color:white;font-weight:700;font-size:13px;cursor:pointer;">✅ Approve</button>
@@ -1096,7 +1105,7 @@ function renderApplicationsList() {
                             <button onclick="updateAppStatus('${app.Application_ID}','Waitlisted')"
                                 style="flex:1;padding:10px;border-radius:8px;border:none;background:#d97706;color:white;font-weight:700;font-size:13px;cursor:pointer;">⏳ Waitlist</button>
                         </div>` : ''}
-                ${app.Review_Status === 'Waitlisted' && contextPayload.isAdmin ? `
+                ${app.Review_Status === 'Waitlisted' && contextPayload.permissions.canManageApplications ? `
                         <div style="display:flex;gap:8px;margin-top:12px;">
                             <button onclick="updateAppStatus('${app.Application_ID}','Approved')"
                                 style="flex:1;padding:10px;border-radius:8px;border:none;background:#16a34a;color:white;font-weight:700;font-size:13px;cursor:pointer;">✅ Approve</button>
@@ -1280,7 +1289,7 @@ function renderFeeConfigList() {
                         <div>Reg: <strong>₹${c.Registration_Fee_Amount || 0}</strong></div>
                     </div>
                 </div>
-                ${contextPayload.isAdmin ? `
+                ${contextPayload.permissions.canManageFeeConfig ? `
                 <div style="position:relative;">
                     <button onclick="toggleMenu('feeMenu_${idx}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                     <div id="feeMenu_${idx}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
@@ -1364,7 +1373,7 @@ function renderDiscountList() {
                 <div style="background:#f0fdf4; color:#166534; font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px;">
                     ${d.Discount_ID}
                 </div>
-                ${contextPayload.isAdmin ? `
+                ${contextPayload.permissions.canManageDiscounts ? `
                 <div style="position:relative;">
                     <button onclick="toggleMenu('discMenu_${d.Discount_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                     <div id="discMenu_${d.Discount_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
@@ -1406,7 +1415,7 @@ function saveDiscount() {
             btn.innerText = "✅ Save Discount";
             alert("Connection failed.");
         })
-        .saveDiscountConfiguration({ name: name, percentage: pct, isDemoMode: currentSystemIsDemoMode });
+        .saveDiscountConfiguration({ name: name, percentage: pct, staffEmail: verifiedStaffEmail, isDemoMode: currentSystemIsDemoMode });
 }
 // ========== LEAVE REQUESTS ==========
 function populateLeaveStudentDropdown() {
@@ -1540,7 +1549,7 @@ function renderLeaveList() {
                         </div>
                     </div>
                     <div style="margin-top:8px; font-size:12px; color:#475569;">Reason: ${lv.Leave_Reason}</div>
-                    ${lv.Approval_Status === 'Pending' && contextPayload.isAdmin ? `
+                    ${lv.Approval_Status === 'Pending' && contextPayload.permissions.canApproveLeave ? `
                     <div style="display:flex; gap:8px; margin-top:12px;">
                         <button class="master-action-btn btn-commit" style="flex:1; padding:8px; font-size:12px;" onclick="updateLeave('${lv.Leave_ID}', 'Approved')">✅ Approve</button>
                         <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#dc2626; color:white;" onclick="updateLeave('${lv.Leave_ID}', 'Rejected')">❌ Reject</button>
@@ -2123,6 +2132,22 @@ function downloadInvoiceReportPDF() {
     const win = window.open('', '_blank');
     win.document.write(html);
     win.document.close();
+}
+// to get the id of the qr image 
+function copyUpiId() {
+    const input = document.getElementById('upiIdDisplay');
+    input.select();
+    input.setSelectionRange(0, 99999); // for mobile
+    navigator.clipboard.writeText(input.value).then(function() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = '✓ Copied';
+        setTimeout(function() { btn.innerText = originalText; }, 1500);
+    }).catch(function() {
+        // Fallback for older browsers
+        document.execCommand('copy');
+        alert('UPI ID copied to clipboard.');
+    });
 }
 </script>
 
