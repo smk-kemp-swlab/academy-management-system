@@ -456,7 +456,7 @@ function commitNewUserPasswordCredential(targetEmail, plainPasswordString, isDem
       if (String(data[i][2]).trim() !== "") {
         return { isAuthenticated: false, errorMessage: "Security Breach: Profile credentials already initialized." };
       }
-      sheet.getRange(i + 1, 3).setValue(plainPasswordString);
+      sheet.getRange(i + 1, 3).setValue(hashPasswordString(plainPasswordString));
       sheet.getRange(i + 1, 5).setValue(new Date());
       SpreadsheetApp.flush();
       return { isAuthenticated: true, verifiedEmail: searchEmail };
@@ -479,7 +479,16 @@ function validateExistingUserCredentials(targetEmail, typedPasswordString, isDem
       if (accountStatus !== "Active") {
         return { isAuthenticated: false, errorMessage: "Profile Status: Suspended. Contact System Administrator." };
       }
-      if (storedPassword === typedPasswordString) {
+      var isHashedRow = storedPassword.indexOf("SHA256:") === 0;
+      var passwordMatches = isHashedRow
+        ? (storedPassword === hashPasswordString(typedPasswordString))
+        : (storedPassword === typedPasswordString);
+
+      if (passwordMatches) {
+        // 🔒 Silent migration: if this row was still plain-text, upgrade it to a hash now
+        if (!isHashedRow) {
+          sheet.getRange(i + 1, 3).setValue(hashPasswordString(typedPasswordString));
+        }
         sheet.getRange(i + 1, 5).setValue(new Date());
         SpreadsheetApp.flush();
         return { isAuthenticated: true, verifiedEmail: searchEmail };
@@ -2891,6 +2900,457 @@ function getSessionEvaluationReport(sessionTab, isDemoMode) {
       totalEvaluations: evaluations.length,
       evaluations: evaluations
     };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+
+}
+
+
+// ========================================================================
+// 🔑 LIVE MODE — SELF-SERVICE PASSWORD RESET (OTP FLOW)
+// Uses Reset_OTP (col F) and Reset_OTP_Expiry (col G) in IAM_Registry.
+// Live mode ONLY — Demo mode never calls these.
+// ========================================================================
+
+function requestPasswordResetOTP(email) {
+  try {
+    var vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
+    var sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
+    var data = sheet.getDataRange().getValues();
+    var searchEmail = (email || "").toLowerCase().trim();
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).toLowerCase().trim() === searchEmail) {
+        if (String(data[i][1]).trim() !== "Active") {
+          return { success: false, error: "Profile Status: Suspended. Contact System Administrator." };
+        }
+
+        var otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+        var expiry = new Date(new Date().getTime() + 10 * 60 * 1000); // 10 min validity
+
+        sheet.getRange(i + 1, 6).setValue(otp);     // Column F
+        sheet.getRange(i + 1, 7).setValue(expiry);  // Column G
+        SpreadsheetApp.flush();
+
+        MailApp.sendEmail({
+          to: searchEmail,
+          subject: "Kemp FC Academy Portal — Password Reset Code",
+          htmlBody: "<p>Your password reset code is:</p><h2>" + otp + "</h2>" +
+                     "<p>This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>"
+        });
+
+        return { success: true, message: "A reset code has been sent to your email." };
+      }
+    }
+    return { success: false, error: "Profile handle not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function verifyOTPAndSetNewPassword(email, typedOTP, newPassword) {
+  try {
+    var vaultId = GLOBAL_SYSTEM_CONFIG.CONFIG_IAM_MASTER_ID;
+    var sheet = SpreadsheetApp.openById(vaultId).getSheetByName("IAM_Registry");
+    var data = sheet.getDataRange().getValues();
+    var searchEmail = (email || "").toLowerCase().trim();
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).toLowerCase().trim() === searchEmail) {
+        var storedOTP = String(data[i][5] || "").trim();
+        var expiry = data[i][6];
+
+        if (!storedOTP) {
+          return { isAuthenticated: false, error: "No reset request found. Please request a new code." };
+        }
+        if (!(expiry instanceof Date) || new Date() > expiry) {
+          return { isAuthenticated: false, error: "This code has expired. Please request a new one." };
+        }
+        if (storedOTP !== String(typedOTP).trim()) {
+          return { isAuthenticated: false, error: "Incorrect reset code." };
+        }
+
+        sheet.getRange(i + 1, 3).setValue(hashPasswordString(newPassword)); // Plain_Password (now stores hash)
+        sheet.getRange(i + 1, 6).setValue("");           // clear OTP
+        sheet.getRange(i + 1, 7).setValue("");           // clear expiry
+        sheet.getRange(i + 1, 5).setValue(new Date());   // Last_Login_Date
+        SpreadsheetApp.flush();
+
+        return { isAuthenticated: true, verifiedEmail: searchEmail };
+      }
+    }
+    return { isAuthenticated: false, error: "Profile handle not found." };
+  } catch (error) {
+    return { isAuthenticated: false, error: error.toString() };
+  }
+}
+// ========================================================================
+// 📜 TERMS & CONDITIONS — PDF GENERATION
+// ========================================================================
+
+function getTermsAndConditionsPDF() {
+  try {
+    var html = buildTermsHtmlDocument();
+    var blob = Utilities.newBlob(html, "text/html", "Kemp_FC_Terms_and_Conditions.html").getAs("application/pdf");
+    return {
+      success: true,
+      base64Data: Utilities.base64Encode(blob.getBytes()),
+      fileName: "Kemp_FC_Terms_and_Conditions.pdf"
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function buildTermsHtmlDocument() {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    body { font-family: Arial, sans-serif; padding: 30px; color:#1e293b; font-size:12px; line-height:1.6; }
+    h1 { color:#cc0000; font-size:20px; margin-bottom:2px; }
+    h3 { font-size:11px; color:#64748b; margin-top:0; margin-bottom:18px; text-transform:uppercase; letter-spacing:0.5px; }
+    h2 { font-size:13px; margin-top:18px; margin-bottom:6px; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:3px; }
+    p { margin:4px 0 10px 0; }
+  </style></head><body>
+  <h1>Kemp FC Academy</h1>
+  <h3>Terms and Conditions</h3>
+
+  <h2>Purpose and Acceptance</h2>
+  <p>These Terms and Conditions govern enrollment, participation, coaching, facilities usage, fee payments, attendance, and player conduct for students enrolled in Kemp FC Academy training programmes. By registering a student, the student and parent or legal guardian agree to comply with these Terms and Conditions.</p>
+
+  <h2>Registration and Enrollment</h2>
+  <p>Enrollment is confirmed only after submission of the required registration details, supporting documents, and payment of applicable registration or programme fees. The Academy may refuse, suspend, or cancel enrollment where information provided is incomplete, inaccurate, or where continued participation is not considered appropriate for safety, discipline, or operational reasons.</p>
+
+  <h2>Fees and Payment</h2>
+  <p>All fees must be paid on or before the due date communicated by the Academy. If fees remain unpaid for more than one week after the due date, a late fee of Rs. 500 per day will apply until the outstanding amount is fully paid.</p>
+  <p>The Academy reserves the right to suspend training access, deny participation in sessions, matches, events, or withhold renewals and certificates until all outstanding dues, including late fees, are cleared. Fees paid are non-refundable except where the Academy expressly confirms otherwise in writing.</p>
+
+  <h2>Refunds and Unused Sessions</h2>
+  <p>Refunds will be provided only if the player is relocating to a location that is more than 15 kilometres away from any Kemp FC Academy centre. The Academy may require reasonable proof of relocation before processing any refund request.</p>
+  <p>In all other cases, refunds will not be provided for unused paid sessions. Where a player has paid for sessions that have not been used, the Academy may issue a voucher in digital or paper form for the value of the unused sessions.</p>
+  <p>Any such voucher must be used within 24 months from the date of issue and may be redeemed at any Kemp FC Academy centre, subject to programme availability and applicable scheduling procedures at the chosen centre. Vouchers are non-cash, non-interest bearing, and may not be exchanged for cash except where the Academy expressly agrees otherwise in writing or where required by applicable law.</p>
+
+  <h2>Attendance and Punctuality</h2>
+  <p>Students are expected to attend sessions regularly and arrive on time in proper training attire with required equipment, including appropriate footwear, shin guards, and water. Repeated lateness, absenteeism, or early departure may affect player development opportunities, squad placement, and eligibility for internal assessments, matches, or special programmes.</p>
+  <p>Parents and students must inform the Academy in advance whenever a student will miss a session, except in emergencies. The Academy may maintain attendance records for administration, planning, and player development purposes.</p>
+
+  <h2>Compensatory Sessions</h2>
+  <p>Compensatory sessions are not automatic and are subject to scheduling availability, batch capacity, and approval by the Academy. Compensatory sessions will be allowed only for: examinations, planned travel, school or college attendance conflicts, or medical issues (with valid medical certificates or a doctor's letter).</p>
+  <p>For examinations, travel, and school or college attendance conflicts, no more than 4 sessions, equivalent to two weeks of absence, may be compensated in any one quarter. Requests should be made within a reasonable time and may lapse if not scheduled within the period specified by the Academy.</p>
+  <p>Medical-related compensatory sessions will be considered only on submission of satisfactory medical documentation. The Academy may request additional information where required to assess the request.</p>
+
+  <h2>Breaks and Re-registration</h2>
+  <p>If a student misses more than 4 sessions, equivalent to two weekends, in a row, the student will be considered to be on a break. During a break, the Academy is not obliged to hold the student's preferred slot, batch placement, coach allocation, or any promotional pricing unless expressly confirmed otherwise.</p>
+  <p>If the break continues for more than one month, the student must pay the applicable re-registration fee before resuming sessions. Rejoining will be subject to seat availability, current fee structures, and any updated Academy policies in force at that time.</p>
+
+  <h2>Medical Fitness and Injury</h2>
+  <p>Students should participate only when medically fit to train. Parents or guardians must disclose any injury, medical condition, allergy, medication requirement, or physical limitation that may affect safe participation.</p>
+  <p>The Academy, its coaches, staff, and affiliates are not responsible for complications arising from undisclosed medical conditions. In the event of illness or injury during training, the Academy may provide basic first response and contact the parent or guardian or emergency contact as necessary.</p>
+
+  <h2>Safety and Risk Acknowledgement</h2>
+  <p>Football is a physical sport that carries inherent risks, including accidental injury, falls, collisions, and other incidents that may occur during training, matches, travel, or related activities. By participating, the student and parent or guardian acknowledge these risks and agree to follow all safety instructions issued by coaches and staff.</p>
+  <p>The Academy may remove any student from a session if, in the Academy's view, the student is injured, unwell, improperly equipped, or behaving in a manner that creates a safety risk. Use of Academy premises and equipment must always be in accordance with staff instructions.</p>
+
+  <h2>Code of Conduct</h2>
+  <p>Students are expected to behave respectfully toward coaches, teammates, opponents, referees, staff, and other parents at all times. Abuse, bullying, discrimination, harassment, violence, damage to property, use of foul language, or disruptive conduct may lead to warning, suspension, or termination of enrolment.</p>
+  <p>Parents and guardians are also expected to maintain appropriate behaviour on the sidelines and in all Academy communications. Coaching instructions, player selection decisions, and administrative policies must be respected.</p>
+
+  <h2>Coaching and Programme Changes</h2>
+  <p>The Academy may revise coaching groups, session schedules, venues, training plans, coaches, player pathways, and programme structures as reasonably required for operational, developmental, weather-related, safety, or logistical reasons. The Academy will try to communicate material changes in advance where practicable.</p>
+  <p>Participation in training does not guarantee selection for matches, tournaments, trials, scholarships, or squads. Such decisions remain at the sole discretion of the Academy and coaching staff.</p>
+
+  <h2>Weather and Unforeseen Disruptions</h2>
+  <p>Training sessions may be rescheduled, relocated, modified, or cancelled due to rain, unsafe ground conditions, force majeure events, public restrictions, facility issues, coach unavailability, or other circumstances beyond the Academy's reasonable control. In such cases, the Academy may decide whether any make-up session, adjustment, or alternative arrangement is appropriate.</p>
+
+  <h2>Photos, Videos, and Media</h2>
+  <p>The Academy may take photographs or videos during training, matches, events, or related activities for coaching review, documentation, promotional use, and social media or website content, unless the parent or guardian has expressly notified the Academy in writing that consent is withheld. The Academy will use such content responsibly and in a manner consistent with the student's participation in Academy activities.</p>
+
+  <h2>Personal Belongings</h2>
+  <p>Students are responsible for their own belongings, including clothing, footwear, valuables, and equipment brought to the training venue. The Academy is not liable for loss, theft, or damage to personal property except where required by applicable law.</p>
+
+  <h2>Termination and Suspension</h2>
+  <p>The Academy may suspend or terminate a student's participation for non-payment of fees, repeated absence without communication, misconduct, unsafe behaviour, breach of these Terms and Conditions, or any situation where continued participation is not in the best interests of the student, other participants, or the Academy. In such cases, fees already paid may be forfeited unless the Academy decides otherwise.</p>
+
+  <h2>Communication</h2>
+  <p>Parents and students must ensure that the Academy has current contact details, including phone numbers, email addresses, and emergency contacts. Notices, reminders, schedule updates, and fee communications sent to the last provided contact details will be treated as duly communicated.</p>
+
+  <h2>Governing Interpretation</h2>
+  <p>These Terms and Conditions are intended to support safe, fair, and orderly functioning of the Academy. The Academy reserves the right to interpret and apply these Terms and Conditions in good faith and to update them from time to time, with revised versions taking effect once communicated to students and parents.</p>
+
+  </body></html>`;
+}
+// 🔒 NEW: Password hashing helper (SHA-256, built into Apps Script — no external library needed)
+function hashPasswordString(plainText) {
+  var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, plainText, Utilities.Charset.UTF_8);
+  var hexHash = rawHash.map(function(byte) {
+    var v = (byte < 0) ? byte + 256 : byte;
+    return ("0" + v.toString(16)).slice(-2);
+  }).join("");
+  return "SHA256:" + hexHash; // prefixed so we can distinguish hashed vs legacy plain-text rows
+}
+// ========================================================================
+// 🏢 CENTERS & BATCHES — MANAGE FACILITIES_MATRIX AND BATCHES_REGISTRY
+// ========================================================================
+
+function getCentersAndBatches(isDemoMode) {
+  try {
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+    var facilities = parseSheetToObjects(hubSS.getSheetByName("Facilities_Matrix").getDataRange().getValues());
+    var batches = parseSheetToObjects(hubSS.getSheetByName("Batches_Registry").getDataRange().getValues());
+    return JSON.parse(JSON.stringify({ success: true, facilities: facilities, batches: batches }));
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function addNewCenter(payload) {
+  try {
+    var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffSheet = hubSS.getSheetByName("Staff_Registry");
+    var staffObjects = parseSheetToObjects(staffSheet.getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (payload.staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to add a new center." };
+    }
+
+    var sheet = hubSS.getSheetByName("Facilities_Matrix");
+    if (!sheet) return { success: false, error: "Facilities_Matrix tab not found." };
+
+    var centerId = String(payload.centerId || "").trim();
+    if (!centerId) return { success: false, error: "Center ID is required." };
+
+    var existing = parseSheetToObjects(sheet.getDataRange().getValues());
+    var alreadyExists = existing.some(function(f) { return String(f.Center_ID).trim() === centerId; });
+    if (alreadyExists) return { success: false, error: "A center with ID '" + centerId + "' already exists." };
+
+    var boundaryToken = "";
+    if (payload.latitude && payload.longitude) {
+      boundaryToken = payload.latitude + "," + payload.longitude;
+    }
+
+    sheet.appendRow([
+      centerId,
+      payload.centerName || "",
+      payload.cityRegion || "",
+      payload.staticIpGateway || "",
+      boundaryToken
+    ]);
+
+    return { success: true, centerId: centerId };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+//batch registry
+function addNewBatch(payload) {
+  try {
+    var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffSheet = hubSS.getSheetByName("Staff_Registry");
+    var staffObjects = parseSheetToObjects(staffSheet.getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (payload.staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to add a new batch." };
+    }
+
+    var facilitySheet = hubSS.getSheetByName("Facilities_Matrix");
+    var facilities = parseSheetToObjects(facilitySheet.getDataRange().getValues());
+    var centerId = String(payload.centerId || "").trim();
+    var centerExists = facilities.some(function(f) { return String(f.Center_ID).trim() === centerId; });
+    if (!centerId || !centerExists) {
+      return { success: false, error: "Please select a valid, existing Center." };
+    }
+
+    var sheet = hubSS.getSheetByName("Batches_Registry");
+    if (!sheet) return { success: false, error: "Batches_Registry tab not found." };
+
+    var batchId = String(payload.batchId || "").trim();
+    if (!batchId) return { success: false, error: "Batch ID is required." };
+
+    var existing = parseSheetToObjects(sheet.getDataRange().getValues());
+    var alreadyExists = existing.some(function(b) { return String(b.Batch_ID).trim() === batchId; });
+    if (alreadyExists) return { success: false, error: "A batch with ID '" + batchId + "' already exists." };
+
+    sheet.appendRow([
+      batchId,
+      centerId,
+      payload.batchName || "",
+      payload.scheduledDays || "",
+      payload.targetAgeGroup || ""
+    ]);
+
+    return { success: true, batchId: batchId };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+// ========================================================================
+// 🏢 CENTERS & BATCHES — EDIT / DELETE
+// ========================================================================
+
+function updateCenter(payload) {
+  try {
+    var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffObjects = parseSheetToObjects(hubSS.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (payload.staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to edit centers." };
+    }
+
+    var sheet = hubSS.getSheetByName("Facilities_Matrix");
+    if (!sheet) return { success: false, error: "Facilities_Matrix tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Center_ID");
+    var nameIdx = headers.indexOf("Center_Name");
+    var cityIdx = headers.indexOf("City_Region");
+    var ipIdx = headers.indexOf("Static_IP_Gateway");
+    var tokenIdx = headers.indexOf("Geographic_City_Boundary_Token");
+
+    var boundaryToken = "";
+    if (payload.latitude && payload.longitude) {
+      boundaryToken = payload.latitude + "," + payload.longitude;
+    }
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(payload.centerId)) {
+        var rowNum = r + 1;
+        if (nameIdx !== -1) sheet.getRange(rowNum, nameIdx + 1).setValue(payload.centerName || "");
+        if (cityIdx !== -1) sheet.getRange(rowNum, cityIdx + 1).setValue(payload.cityRegion || "");
+        if (ipIdx !== -1) sheet.getRange(rowNum, ipIdx + 1).setValue(payload.staticIpGateway || "");
+        if (tokenIdx !== -1) sheet.getRange(rowNum, tokenIdx + 1).setValue(boundaryToken);
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Center not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function deleteCenter(centerId, staffEmail, isDemoMode) {
+  try {
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffObjects = parseSheetToObjects(hubSS.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to delete centers." };
+    }
+
+    var sheet = hubSS.getSheetByName("Facilities_Matrix");
+    if (!sheet) return { success: false, error: "Facilities_Matrix tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Center_ID");
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(centerId)) {
+        sheet.deleteRow(r + 1);
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Center not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function updateBatch(payload) {
+  try {
+    var hubId = payload.isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffObjects = parseSheetToObjects(hubSS.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (payload.staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to edit batches." };
+    }
+
+    var facilities = parseSheetToObjects(hubSS.getSheetByName("Facilities_Matrix").getDataRange().getValues());
+    var centerExists = facilities.some(function(f) { return String(f.Center_ID).trim() === String(payload.centerId).trim(); });
+    if (!payload.centerId || !centerExists) {
+      return { success: false, error: "Please select a valid, existing Center." };
+    }
+
+    var sheet = hubSS.getSheetByName("Batches_Registry");
+    if (!sheet) return { success: false, error: "Batches_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Batch_ID");
+    var centerIdx = headers.indexOf("Center_ID");
+    var nameIdx = headers.indexOf("Batch_Name");
+    var daysIdx = headers.indexOf("Scheduled_Days");
+    var ageIdx = headers.indexOf("Target_Age_Group");
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(payload.batchId)) {
+        var rowNum = r + 1;
+        if (centerIdx !== -1) sheet.getRange(rowNum, centerIdx + 1).setValue(payload.centerId || "");
+        if (nameIdx !== -1) sheet.getRange(rowNum, nameIdx + 1).setValue(payload.batchName || "");
+        if (daysIdx !== -1) sheet.getRange(rowNum, daysIdx + 1).setValue(payload.scheduledDays || "");
+        if (ageIdx !== -1) sheet.getRange(rowNum, ageIdx + 1).setValue(payload.targetAgeGroup || "");
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Batch not found." };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+function deleteBatch(batchId, staffEmail, isDemoMode) {
+  try {
+    var hubId = isDemoMode ? GLOBAL_SYSTEM_CONFIG.DEMO_CORE_HUB_ID : GLOBAL_SYSTEM_CONFIG.CORE_HUB_ID;
+    var hubSS = SpreadsheetApp.openById(hubId);
+
+    var staffObjects = parseSheetToObjects(hubSS.getSheetByName("Staff_Registry").getDataRange().getValues());
+    var currentStaff = staffObjects.find(function(s) {
+      return s.Email_Address && s.Email_Address.toString().toLowerCase().trim() === (staffEmail || "").toLowerCase().trim();
+    });
+    var permissions = getRolePermissions(currentStaff ? currentStaff.Role_Type : "");
+    if (!permissions.canManageStaff) {
+      return { success: false, error: "You do not have permission to delete batches." };
+    }
+
+    var sheet = hubSS.getSheetByName("Batches_Registry");
+    if (!sheet) return { success: false, error: "Batches_Registry tab not found." };
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var idIdx = headers.indexOf("Batch_ID");
+
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idIdx]) === String(batchId)) {
+        sheet.deleteRow(r + 1);
+        return { success: true };
+      }
+    }
+    return { success: false, error: "Batch not found." };
   } catch (error) {
     return { success: false, error: error.toString() };
   }

@@ -139,6 +139,67 @@
                 <input type="file" id="docWaiver" accept=".pdf,.jpg,.jpeg,.png">
             </div>
         </div>
+                <div class="section-box" style="background:#f8fafc;">
+            <h3 style="margin-top:0;">Terms and Conditions</h3>
+            <div style="display:flex; gap:10px; margin-bottom:14px;">
+                <button type="button" onclick="openTermsModal()" style="flex:1; padding:10px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#0f172a; font-weight:700; font-size:13px; cursor:pointer;">📜 View Full Terms</button>
+                <button type="button" onclick="downloadTermsPDF()" id="downloadTermsBtn" style="flex:1; padding:10px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">⬇️ Download as PDF</button>
+            </div>
+            <style>
+                #termsAgreeCheckbox {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 20px;
+                    height: 20px;
+                    min-width: 20px;
+                    border: 2px solid #cbd5e1;
+                    border-radius: 5px;
+                    background: white;
+                    cursor: pointer;
+                    position: relative;
+                    margin: 0;
+                    outline: none;
+                    transition: all 0.15s ease;
+                }
+                #termsAgreeCheckbox:hover {
+                    border-color: #16a34a;
+                }
+                #termsAgreeCheckbox:checked {
+                    background: #16a34a;
+                    border-color: #16a34a;
+                }
+                #termsAgreeCheckbox:checked::after {
+                    content: "";
+                    position: absolute;
+                    left: 50%;
+                    top: 45%;
+                    width: 5px;
+                    height: 10px;
+                    border: solid white;
+                    border-width: 0 2px 2px 0;
+                    transform: translate(-50%, -50%) rotate(45deg);
+                }
+            </style>
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:#334155; line-height:1.5;">
+                <input type="checkbox" id="termsAgreeCheckbox" style="margin-top:2px;">
+                <span>I have read and agree to the Kemp FC Academy <strong>Terms and Conditions</strong>. *</span>
+            </label>
+        </div>
+
+        <!-- 📜 NEW: Terms Modal -->
+        <div id="termsModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center;">
+            <div style="background:white; border-radius:16px; padding:24px; width:90%; max-width:520px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+                <h3 style="margin-top:0; margin-bottom:12px;">Kemp FC Academy — Terms and Conditions</h3>
+                <div id="termsScrollBody" style="overflow-y:auto; flex:1; font-size:12px; color:#334155; line-height:1.6; border:1px solid #e2e8f0; border-radius:8px; padding:14px; background:#f8fafc;">
+                    Loading terms...
+                </div>
+                <div style="display:flex; gap:10px; margin-top:16px;">
+                    <button type="button" onclick="downloadTermsPDF()" style="flex:1; padding:10px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#0f172a; font-weight:700; font-size:13px; cursor:pointer;">⬇️ Download PDF</button>
+                    <button type="button" onclick="closeTermsModal()" style="flex:1; padding:10px; border-radius:8px; border:none; background:#0f172a; color:white; font-weight:700; font-size:13px; cursor:pointer;">Close</button>
+                </div>
+            </div>
+        </div>
+
         <div class="btn-container" style="margin-top: 16px;">
             <button class="master-action-btn btn-commit" id="submitBtn" onclick="submitApplication()">✅ Submit Registration</button>
         </div>
@@ -259,8 +320,13 @@ async function submitApplication() {
     const waiverFile = document.getElementById('docWaiver').files[0];
     const paymentScreenshotFile = document.getElementById('docPaymentScreenshot').files[0];
 
-    if (!firstName || !lastName || !dob || !centerId || !batchId || !kitShirt || !kitShorts || !parentName || !parentEmail || !parentPhone) {
+        if (!firstName || !lastName || !dob || !centerId || !batchId || !kitShirt || !kitShorts || !parentName || !parentEmail || !parentPhone) {
         alert("Please fill in all required fields marked with *.");
+        return;
+    }
+
+    if (!document.getElementById('termsAgreeCheckbox').checked) {
+        alert("Please read and agree to the Terms and Conditions before submitting.");
         return;
     }
 
@@ -389,6 +455,121 @@ function copyUpiId() {
         document.execCommand('copy');
         alert('UPI ID copied to clipboard.');
     });
+}
+
+// 📜 NEW: Terms & Conditions modal + PDF download handlers
+function openTermsModal() {
+    document.getElementById('termsModalOverlay').style.display = 'flex';
+    const body = document.getElementById('termsScrollBody');
+    body.innerHTML = `
+        <p><strong>Purpose and acceptance</strong><br>
+        These Terms and Conditions govern enrollment, participation, coaching, facilities usage, fee payments, attendance, and player conduct for students enrolled in Kemp FC Academy training programmes. By registering a student, the student and parent or legal guardian agree to comply with these Terms and Conditions.</p>
+
+        <p><strong>Registration and enrollment</strong><br>
+        Enrollment is confirmed only after submission of the required registration details, supporting documents, and payment of applicable registration or programme fees. The Academy may refuse, suspend, or cancel enrollment where information provided is incomplete, inaccurate, or where continued participation is not considered appropriate for safety, discipline, or operational reasons.</p>
+
+        <p><strong>Fees and payment</strong><br>
+        All fees must be paid on or before the due date communicated by the Academy. If fees remain unpaid for more than one week after the due date, a late fee of Rs. 500 per day will apply until the outstanding amount is fully paid.<br><br>
+        The Academy reserves the right to suspend training access, deny participation in sessions, matches, events, or withhold renewals and certificates until all outstanding dues, including late fees, are cleared. Fees paid are non-refundable except where the Academy expressly confirms otherwise in writing.</p>
+
+        <p><strong>Refunds and unused sessions</strong><br>
+        Refunds will be provided only if the player is relocating to a location that is more than 15 kilometres away from any Kemp FC Academy centre. The Academy may require reasonable proof of relocation before processing any refund request.<br><br>
+        In all other cases, refunds will not be provided for unused paid sessions. Where a player has paid for sessions that have not been used, the Academy may issue a voucher in digital or paper form for the value of the unused sessions.<br><br>
+        Any such voucher must be used within 24 months from the date of issue and may be redeemed at any Kemp FC Academy centre, subject to programme availability and applicable scheduling procedures at the chosen centre. Vouchers are non-cash, non-interest bearing, and may not be exchanged for cash except where the Academy expressly agrees otherwise in writing or where required by applicable law.</p>
+
+        <p><strong>Attendance and punctuality</strong><br>
+        Students are expected to attend sessions regularly and arrive on time in proper training attire with required equipment, including appropriate footwear, shin guards, and water. Repeated lateness, absenteeism, or early departure may affect player development opportunities, squad placement, and eligibility for internal assessments, matches, or special programmes.<br><br>
+        Parents and students must inform the Academy in advance whenever a student will miss a session, except in emergencies. The Academy may maintain attendance records for administration, planning, and player development purposes.</p>
+
+        <p><strong>Compensatory sessions</strong><br>
+        Compensatory sessions are not automatic and are subject to scheduling availability, batch capacity, and approval by the Academy. Compensatory sessions will be allowed only for the following reasons:<br>
+        Examinations.<br>
+        Planned Travel.<br>
+        School or college attendance conflicts.<br>
+        Medical issues, provided valid medical certificates or a doctor's letter are submitted.<br><br>
+        For examinations, travel, and school or college attendance conflicts, no more than 4 sessions, equivalent to two weeks of absence, may be compensated in any one quarter. Requests for compensatory sessions should be made within a reasonable time and may lapse if not scheduled within the period specified by the Academy.<br><br>
+        Medical-related compensatory sessions will be considered only on submission of satisfactory medical documentation. The Academy may request additional information where required to assess the request.</p>
+
+        <p><strong>Breaks and re-registration</strong><br>
+        If a student misses more than 4 sessions, equivalent to two weekends, in a row, the student will be considered to be on a break. During a break, the Academy is not obliged to hold the student's preferred slot, batch placement, coach allocation, or any promotional pricing unless expressly confirmed otherwise.<br><br>
+        If the break continues for more than one month, the student must pay the applicable re-registration fee before resuming sessions. Rejoining will be subject to seat availability, current fee structures, and any updated Academy policies in force at that time.</p>
+
+        <p><strong>Medical fitness and injury</strong><br>
+        Students should participate only when medically fit to train. Parents or guardians must disclose any injury, medical condition, allergy, medication requirement, or physical limitation that may affect safe participation.<br><br>
+        The Academy, its coaches, staff, and affiliates are not responsible for complications arising from undisclosed medical conditions. In the event of illness or injury during training, the Academy may provide basic first response and contact the parent or guardian or emergency contact as necessary.</p>
+
+        <p><strong>Safety and risk acknowledgement</strong><br>
+        Football is a physical sport that carries inherent risks, including accidental injury, falls, collisions, and other incidents that may occur during training, matches, travel, or related activities. By participating, the student and parent or guardian acknowledge these risks and agree to follow all safety instructions issued by coaches and staff.<br><br>
+        The Academy may remove any student from a session if, in the Academy's view, the student is injured, unwell, improperly equipped, or behaving in a manner that creates a safety risk. Use of Academy premises and equipment must always be in accordance with staff instructions.</p>
+
+        <p><strong>Code of conduct</strong><br>
+        Students are expected to behave respectfully toward coaches, teammates, opponents, referees, staff, and other parents at all times. Abuse, bullying, discrimination, harassment, violence, damage to property, use of foul language, or disruptive conduct may lead to warning, suspension, or termination of enrolment.<br><br>
+        Parents and guardians are also expected to maintain appropriate behaviour on the sidelines and in all Academy communications. Coaching instructions, player selection decisions, and administrative policies must be respected.</p>
+
+        <p><strong>Coaching and programme changes</strong><br>
+        The Academy may revise coaching groups, session schedules, venues, training plans, coaches, player pathways, and programme structures as reasonably required for operational, developmental, weather-related, safety, or logistical reasons. The Academy will try to communicate material changes in advance where practicable.<br><br>
+        Participation in training does not guarantee selection for matches, tournaments, trials, scholarships, or squads. Such decisions remain at the sole discretion of the Academy and coaching staff.</p>
+
+        <p><strong>Weather and unforeseen disruptions</strong><br>
+        Training sessions may be rescheduled, relocated, modified, or cancelled due to rain, unsafe ground conditions, force majeure events, public restrictions, facility issues, coach unavailability, or other circumstances beyond the Academy's reasonable control. In such cases, the Academy may decide whether any make-up session, adjustment, or alternative arrangement is appropriate.</p>
+
+        <p><strong>Photos, videos, and media</strong><br>
+        The Academy may take photographs or videos during training, matches, events, or related activities for coaching review, documentation, promotional use, and social media or website content, unless the parent or guardian has expressly notified the Academy in writing that consent is withheld. The Academy will use such content responsibly and in a manner consistent with the student's participation in Academy activities.</p>
+
+        <p><strong>Personal belongings</strong><br>
+        Students are responsible for their own belongings, including clothing, footwear, valuables, and equipment brought to the training venue. The Academy is not liable for loss, theft, or damage to personal property except where required by applicable law.</p>
+
+        <p><strong>Termination and suspension</strong><br>
+        The Academy may suspend or terminate a student's participation for non-payment of fees, repeated absence without communication, misconduct, unsafe behaviour, breach of these Terms and Conditions, or any situation where continued participation is not in the best interests of the student, other participants, or the Academy. In such cases, fees already paid may be forfeited unless the Academy decides otherwise.</p>
+
+        <p><strong>Communication</strong><br>
+        Parents and students must ensure that the Academy has current contact details, including phone numbers, email addresses, and emergency contacts. Notices, reminders, schedule updates, and fee communications sent to the last provided contact details will be treated as duly communicated.</p>
+
+        <p><strong>Governing interpretation</strong><br>
+        These Terms and Conditions are intended to support safe, fair, and orderly functioning of the Academy. The Academy reserves the right to interpret and apply these Terms and Conditions in good faith and to update them from time to time, with revised versions taking effect once communicated to students and parents.</p>
+    `;
+}
+
+function closeTermsModal() {
+    document.getElementById('termsModalOverlay').style.display = 'none';
+}
+
+function downloadTermsPDF() {
+    const btn = document.getElementById('downloadTermsBtn') || event.target;
+    const originalText = btn.innerText;
+    btn.innerText = 'Preparing PDF...';
+    btn.disabled = true;
+
+    google.script.run
+        .withSuccessHandler(function(res) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            if (!res.success) {
+                alert("Could not generate PDF: " + res.error);
+                return;
+            }
+            const byteChars = atob(res.base64Data);
+            const byteNumbers = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                byteNumbers[i] = byteChars.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = res.fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        })
+        .withFailureHandler(function(err) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            alert("Connection failed: " + err);
+        })
+        .getTermsAndConditionsPDF();
 }
 </script>
 

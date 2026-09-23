@@ -78,6 +78,16 @@
         <div class="title">Roster Import</div>
         <div class="badge-mini">Active</div>
     </div>
+    <div class="hub-card" id="hub_centers" onclick="switchStaffModule('centers')">
+        <div class="icon">🏢</div>
+        <div class="title">Manage Centers</div>
+        <div class="badge-mini">Active</div>
+    </div>
+    <div class="hub-card" id="hub_batches" onclick="switchStaffModule('batches')">
+        <div class="icon">📅</div>
+        <div class="title">Manage Batches</div>
+        <div class="badge-mini">Active</div>
+    </div>
 </div>
 
 <div id="notAdminNotice" style="display:none;" class="section-box">
@@ -172,6 +182,87 @@
 </div>
 <!-- closes module_rosterimport -->
 
+<div id="module_centers" style="display:none;">
+    <div id="addCenterFormWrapper" style="display:none;">
+        <div class="section-box">
+            <h3 style="margin-top:0;">🏢 Add New Center</h3>
+            <div class="form-group">
+                <label>Center ID *</label>
+                <input type="text" id="newCenterId" placeholder="e.g. CTR_NORTH">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Center Name *</label>
+                <input type="text" id="newCenterName" placeholder="e.g. North Bangalore Center">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>City / Region *</label>
+                <input type="text" id="newCenterCityRegion" placeholder="e.g. Bangalore">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Latitude</label>
+                <input type="text" id="newCenterLat" placeholder="e.g. 12.9790278">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Longitude</label>
+                <input type="text" id="newCenterLng" placeholder="e.g. 77.7114942">
+            </div>
+            <div style="font-size:11px; color:#94a3b8; margin-top:8px;">
+                Latitude/Longitude power the 500m attendance geofence for this center — optional but recommended.
+            </div>
+            <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewCenter()">✅ Add Center</button>
+        </div>
+    </div>
+    <div id="centersNotAdminNotice" style="display:none;" class="section-box">
+        <div style="text-align:center; padding:10px; color:#64748b; font-size:13px;">
+            🔒 Only Directors/Admins/Administrative Managers can add new centers.
+        </div>
+    </div>
+
+    <h3>Existing Centers</h3>
+    <div id="centersListContainer"></div>
+</div>
+<!-- closes module_centers -->
+
+<div id="module_batches" style="display:none;">
+    <div id="addBatchFormWrapper" style="display:none;">
+        <div class="section-box">
+            <h3 style="margin-top:0;">📅 Add New Batch</h3>
+            <div class="form-group">
+                <label>Batch ID *</label>
+                <input type="text" id="newBatchId" placeholder="e.g. B_NORTH_U14">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Center *</label>
+                <select id="newBatchCenterSelect">
+                    <option value="">-- Select Center --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Batch Name *</label>
+                <input type="text" id="newBatchName" placeholder="e.g. U14 Elite">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Scheduled Days</label>
+                <input type="text" id="newBatchDays" placeholder="e.g. Mon, Wed, Fri">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Target Age Group</label>
+                <input type="text" id="newBatchAgeGroup" placeholder="e.g. U14">
+            </div>
+            <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewBatch()">✅ Add Batch</button>
+        </div>
+    </div>
+    <div id="batchesNotAdminNotice" style="display:none;" class="section-box">
+        <div style="text-align:center; padding:10px; color:#64748b; font-size:13px;">
+            🔒 Only Directors/Admins/Administrative Managers can add new batches.
+        </div>
+    </div>
+
+    <h3>Existing Batches</h3>
+    <div id="batchesListContainer"></div>
+</div>
+<!-- closes module_batches -->
+
 <!-- Admin Sandbox Tray — page-level, visible regardless of active tab -->
 <div id="adminSandboxTray" style="display:none; text-align:center; padding:15px 0; margin-top:30px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
     <button id="sandboxToggleBtn" onclick="toggleDemoSandboxMode()" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; letter-spacing:0.5px; font-weight: 700;">
@@ -219,6 +310,122 @@
         </div>
         
 </div>
+</div>
+
+<!-- Edit Center Modal -->
+<div id="editCenterModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+        <h3 style="margin-top:0;">Edit Center</h3>
+        <input type="hidden" id="editCenterId">
+        <div class="form-group">
+            <label>Center Name *</label>
+            <input type="text" id="editCenterName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>City / Region *</label>
+            <input type="text" id="editCenterCityRegion">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Latitude</label>
+            <input type="text" id="editCenterLat">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Longitude</label>
+            <input type="text" id="editCenterLng">
+        </div>
+        <div class="btn-container" style="margin-top: 18px;">
+            <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditCenterModal()">Cancel</button>
+            <button class="master-action-btn btn-commit" onclick="submitCenterEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Batch Modal -->
+<div id="editBatchModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+        <h3 style="margin-top:0;">Edit Batch</h3>
+        <input type="hidden" id="editBatchId">
+        <div class="form-group">
+            <label>Center *</label>
+            <select id="editBatchCenterSelect">
+                <option value="">-- Select Center --</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Batch Name *</label>
+            <input type="text" id="editBatchName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Scheduled Days</label>
+            <input type="text" id="editBatchDays">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Target Age Group</label>
+            <input type="text" id="editBatchAgeGroup">
+        </div>
+        <div class="btn-container" style="margin-top: 18px;">
+            <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditBatchModal()">Cancel</button>
+            <button class="master-action-btn btn-commit" onclick="submitBatchEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Center Modal -->
+<div id="editCenterModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+        <h3 style="margin-top:0;">Edit Center</h3>
+        <input type="hidden" id="editCenterId">
+        <div class="form-group">
+            <label>Center Name *</label>
+            <input type="text" id="editCenterName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>City / Region *</label>
+            <input type="text" id="editCenterCityRegion">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Latitude</label>
+            <input type="text" id="editCenterLat">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Longitude</label>
+            <input type="text" id="editCenterLng">
+        </div>
+        <div class="btn-container" style="margin-top: 18px;">
+            <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditCenterModal()">Cancel</button>
+            <button class="master-action-btn btn-commit" onclick="submitCenterEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Batch Modal -->
+<div id="editBatchModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index: 99999; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:16px; padding:24px; width:100%; max-width:380px; box-sizing:border-box; margin: 16px;">
+        <h3 style="margin-top:0;">Edit Batch</h3>
+        <input type="hidden" id="editBatchId">
+        <div class="form-group">
+            <label>Center *</label>
+            <select id="editBatchCenterSelect">
+                <option value="">-- Select Center --</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Batch Name *</label>
+            <input type="text" id="editBatchName">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Scheduled Days</label>
+            <input type="text" id="editBatchDays">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Target Age Group</label>
+            <input type="text" id="editBatchAgeGroup">
+        </div>
+        <div class="btn-container" style="margin-top: 18px;">
+            <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditBatchModal()">Cancel</button>
+            <button class="master-action-btn btn-commit" onclick="submitBatchEdit()">Save Changes</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -379,10 +586,12 @@ function loadStaffBoardContext() {
             }
             if (ctx.isAdmin) {
                 document.getElementById('adminSandboxTray').style.display = 'block';
+                updateSandboxUI();
             }
 
             populateCenterDropdowns();
             renderStaffList();
+            loadCentersAndBatches();
         })
         .withFailureHandler(function() {
             alert("Failed to load data. Please refresh.");
@@ -726,7 +935,382 @@ function switchStaffModule(module) {
     document.getElementById('hub_' + module).classList.add('active-hub');
     document.getElementById('module_staffmgmt').style.display = module === 'staffmgmt' ? 'block' : 'none';
     document.getElementById('module_rosterimport').style.display = module === 'rosterimport' ? 'block' : 'none';
+    document.getElementById('module_centers').style.display = module === 'centers' ? 'block' : 'none';
+    document.getElementById('module_batches').style.display = module === 'batches' ? 'block' : 'none';
 }
+
+// 🏢 NEW: Centers & Batches management
+let centersBatchesPayload = null;
+
+let canManageCentersBatches = false;
+
+function loadCentersAndBatches() {
+    google.script.run
+        .withSuccessHandler(function(res) {
+            if (!res.success) return;
+            centersBatchesPayload = res;
+
+            canManageCentersBatches = (contextPayload && contextPayload.permissions && contextPayload.permissions.canManageStaff) || (contextPayload && contextPayload.isAdmin);
+            document.getElementById('addCenterFormWrapper').style.display = canManageCentersBatches ? 'block' : 'none';
+            document.getElementById('centersNotAdminNotice').style.display = canManageCentersBatches ? 'none' : 'block';
+            document.getElementById('addBatchFormWrapper').style.display = canManageCentersBatches ? 'block' : 'none';
+            document.getElementById('batchesNotAdminNotice').style.display = canManageCentersBatches ? 'none' : 'block';
+
+            populateBatchCenterDropdown();
+            renderCentersList();
+            renderBatchesList();
+        })
+        .withFailureHandler(function() {})
+        .getCentersAndBatches(currentSystemIsDemoMode);
+}
+
+function populateBatchCenterDropdown() {
+    const sel = document.getElementById('newBatchCenterSelect');
+    sel.innerHTML = '<option value="">-- Select Center --</option>';
+    (centersBatchesPayload.facilities || []).forEach(f => {
+        sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+    });
+}
+
+function renderCentersList() {
+    const container = document.getElementById('centersListContainer');
+    const facilities = (centersBatchesPayload && centersBatchesPayload.facilities) || [];
+    if (facilities.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No centers found.</div>';
+        return;
+    }
+    let html = '';
+    facilities.forEach((f, idx) => {
+        html += `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${f.Center_Name}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${f.Center_ID} &nbsp;|&nbsp; ${f.City_Region || ''}</div>
+                    ${f.Geographic_City_Boundary_Token ? `<div style="font-size:11px; color:#94a3b8; margin-top:4px;">📍 ${f.Geographic_City_Boundary_Token}</div>` : ''}
+                </div>
+                ${canManageCentersBatches ? `
+                <div style="position:relative;">
+                    <button onclick="toggleCenterMenu('centerMenu_${idx}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                    <div id="centerMenu_${idx}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
+                        <div onclick='openEditCenterModal(${JSON.stringify(f)})' style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">✏️ Edit</div>
+                        <div onclick="deleteCenterRow('${f.Center_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function toggleCenterMenu(menuId) {
+    document.querySelectorAll('[id^="centerMenu_"]').forEach(m => {
+        if (m.id !== menuId) m.style.display = 'none';
+    });
+    const menu = document.getElementById(menuId);
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderBatchesList() {
+    const container = document.getElementById('batchesListContainer');
+    const batches = (centersBatchesPayload && centersBatchesPayload.batches) || [];
+    const facilities = (centersBatchesPayload && centersBatchesPayload.facilities) || [];
+    if (batches.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No batches found.</div>';
+        return;
+    }
+    let html = '';
+    batches.forEach((b, idx) => {
+        const center = facilities.find(f => f.Center_ID === b.Center_ID);
+        const centerName = center ? center.Center_Name : b.Center_ID;
+        html += `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${b.Batch_Name}</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;">${b.Batch_ID} &nbsp;|&nbsp; ${centerName}</div>
+                    <div style="font-size:12px; color:#334155; margin-top:6px;">
+                        ${b.Target_Age_Group ? `<strong>${b.Target_Age_Group}</strong>` : ''} ${b.Scheduled_Days ? `&nbsp;|&nbsp; ${b.Scheduled_Days}` : ''}
+                    </div>
+                </div>
+                ${canManageCentersBatches ? `
+                <div style="position:relative;">
+                    <button onclick="toggleBatchMenu('batchMenu_${idx}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
+                    <div id="batchMenu_${idx}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
+                        <div onclick='openEditBatchModal(${JSON.stringify(b)})' style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">✏️ Edit</div>
+                        <div onclick="deleteBatchRow('${b.Batch_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                    </div>
+                </div>` : ''}
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function toggleBatchMenu(menuId) {
+    document.querySelectorAll('[id^="batchMenu_"]').forEach(m => {
+        if (m.id !== menuId) m.style.display = 'none';
+    });
+    const menu = document.getElementById(menuId);
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function submitNewCenter() {
+    const centerId = document.getElementById('newCenterId').value.trim();
+    const centerName = document.getElementById('newCenterName').value.trim();
+    const cityRegion = document.getElementById('newCenterCityRegion').value.trim();
+    const lat = document.getElementById('newCenterLat').value.trim();
+    const lng = document.getElementById('newCenterLng').value.trim();
+
+    if (!centerId || !centerName || !cityRegion) {
+        alert("Please fill Center ID, Center Name, and City/Region.");
+        return;
+    }
+
+    const btn = document.querySelector('#addCenterFormWrapper .btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Adding...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Add Center";
+            if (result.success) {
+                alert("Center added: " + result.centerId);
+                document.getElementById('newCenterId').value = '';
+                document.getElementById('newCenterName').value = '';
+                document.getElementById('newCenterCityRegion').value = '';
+                document.getElementById('newCenterLat').value = '';
+                document.getElementById('newCenterLng').value = '';
+                loadCentersAndBatches();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Add Center";
+            alert("Connection failed. Please try again.");
+        })
+        .addNewCenter({
+            centerId: centerId,
+            centerName: centerName,
+            cityRegion: cityRegion,
+            latitude: lat,
+            longitude: lng,
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
+        });
+}
+
+function submitNewBatch() {
+    const batchId = document.getElementById('newBatchId').value.trim();
+    const centerId = document.getElementById('newBatchCenterSelect').value;
+    const batchName = document.getElementById('newBatchName').value.trim();
+    const days = document.getElementById('newBatchDays').value.trim();
+    const ageGroup = document.getElementById('newBatchAgeGroup').value.trim();
+
+    if (!batchId || !centerId || !batchName) {
+        alert("Please fill Batch ID, Center, and Batch Name.");
+        return;
+    }
+
+    const btn = document.querySelector('#addBatchFormWrapper .btn-commit');
+    btn.disabled = true;
+    btn.innerText = "Adding...";
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerText = "✅ Add Batch";
+            if (result.success) {
+                alert("Batch added: " + result.batchId);
+                document.getElementById('newBatchId').value = '';
+                document.getElementById('newBatchCenterSelect').value = '';
+                document.getElementById('newBatchName').value = '';
+                document.getElementById('newBatchDays').value = '';
+                document.getElementById('newBatchAgeGroup').value = '';
+                loadCentersAndBatches();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            btn.disabled = false;
+            btn.innerText = "✅ Add Batch";
+            alert("Connection failed. Please try again.");
+        })
+        .addNewBatch({
+            batchId: batchId,
+            centerId: centerId,
+            batchName: batchName,
+            scheduledDays: days,
+            targetAgeGroup: ageGroup,
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
+        });
+}
+// ========== EDIT / DELETE CENTER ==========
+function openEditCenterModal(center) {
+    document.querySelectorAll('[id^="centerMenu_"]').forEach(m => m.style.display = 'none');
+    document.getElementById('editCenterId').value = center.Center_ID;
+    document.getElementById('editCenterName').value = center.Center_Name || '';
+    document.getElementById('editCenterCityRegion').value = center.City_Region || '';
+
+    let lat = '', lng = '';
+    if (center.Geographic_City_Boundary_Token) {
+        const parts = String(center.Geographic_City_Boundary_Token).split(',');
+        lat = parts[0] ? parts[0].trim() : '';
+        lng = parts[1] ? parts[1].trim() : '';
+    }
+    document.getElementById('editCenterLat').value = lat;
+    document.getElementById('editCenterLng').value = lng;
+
+    document.getElementById('editCenterModalOverlay').style.display = 'flex';
+}
+
+function closeEditCenterModal() {
+    document.getElementById('editCenterModalOverlay').style.display = 'none';
+}
+
+function submitCenterEdit() {
+    const centerId = document.getElementById('editCenterId').value;
+    const centerName = document.getElementById('editCenterName').value.trim();
+    const cityRegion = document.getElementById('editCenterCityRegion').value.trim();
+    const lat = document.getElementById('editCenterLat').value.trim();
+    const lng = document.getElementById('editCenterLng').value.trim();
+
+    if (!centerName || !cityRegion) {
+        alert("Please fill Center Name and City/Region.");
+        return;
+    }
+
+    const btn = document.querySelector('#editCenterModalOverlay .btn-commit');
+    if (btn) { btn.disabled = true; btn.innerText = "Saving..."; }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (btn) { btn.disabled = false; btn.innerText = "Save Changes"; }
+            if (result.success) {
+                closeEditCenterModal();
+                loadCentersAndBatches();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            if (btn) { btn.disabled = false; btn.innerText = "Save Changes"; }
+            alert("Connection failed. Please try again.");
+        })
+        .updateCenter({
+            centerId: centerId,
+            centerName: centerName,
+            cityRegion: cityRegion,
+            latitude: lat,
+            longitude: lng,
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
+        });
+}
+
+function deleteCenterRow(centerId) {
+    document.querySelectorAll('[id^="centerMenu_"]').forEach(m => m.style.display = 'none');
+    if (!confirm('Delete this center permanently? This cannot be undone.')) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) { loadCentersAndBatches(); }
+            else { alert("Error: " + result.error); }
+        })
+        .withFailureHandler(function() { alert("Connection failed."); })
+        .deleteCenter(centerId, verifiedStaffEmail, currentSystemIsDemoMode);
+}
+
+// ========== EDIT / DELETE BATCH ==========
+function populateEditBatchCenterDropdown() {
+    const sel = document.getElementById('editBatchCenterSelect');
+    sel.innerHTML = '<option value="">-- Select Center --</option>';
+    ((centersBatchesPayload && centersBatchesPayload.facilities) || []).forEach(f => {
+        sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
+    });
+}
+
+function openEditBatchModal(batch) {
+    document.querySelectorAll('[id^="batchMenu_"]').forEach(m => m.style.display = 'none');
+    populateEditBatchCenterDropdown();
+    document.getElementById('editBatchId').value = batch.Batch_ID;
+    document.getElementById('editBatchCenterSelect').value = batch.Center_ID || '';
+    document.getElementById('editBatchName').value = batch.Batch_Name || '';
+    document.getElementById('editBatchDays').value = batch.Scheduled_Days || '';
+    document.getElementById('editBatchAgeGroup').value = batch.Target_Age_Group || '';
+
+    document.getElementById('editBatchModalOverlay').style.display = 'flex';
+}
+
+function closeEditBatchModal() {
+    document.getElementById('editBatchModalOverlay').style.display = 'none';
+}
+
+function submitBatchEdit() {
+    const batchId = document.getElementById('editBatchId').value;
+    const centerId = document.getElementById('editBatchCenterSelect').value;
+    const batchName = document.getElementById('editBatchName').value.trim();
+    const days = document.getElementById('editBatchDays').value.trim();
+    const ageGroup = document.getElementById('editBatchAgeGroup').value.trim();
+
+    if (!centerId || !batchName) {
+        alert("Please fill Center and Batch Name.");
+        return;
+    }
+
+    const btn = document.querySelector('#editBatchModalOverlay .btn-commit');
+    if (btn) { btn.disabled = true; btn.innerText = "Saving..."; }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (btn) { btn.disabled = false; btn.innerText = "Save Changes"; }
+            if (result.success) {
+                closeEditBatchModal();
+                loadCentersAndBatches();
+            } else {
+                alert("Error: " + result.error);
+            }
+        })
+        .withFailureHandler(function() {
+            if (btn) { btn.disabled = false; btn.innerText = "Save Changes"; }
+            alert("Connection failed. Please try again.");
+        })
+        .updateBatch({
+            batchId: batchId,
+            centerId: centerId,
+            batchName: batchName,
+            scheduledDays: days,
+            targetAgeGroup: ageGroup,
+            staffEmail: verifiedStaffEmail,
+            isDemoMode: currentSystemIsDemoMode
+        });
+}
+
+function deleteBatchRow(batchId) {
+    document.querySelectorAll('[id^="batchMenu_"]').forEach(m => m.style.display = 'none');
+    if (!confirm('Delete this batch permanently? This cannot be undone.')) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) { loadCentersAndBatches(); }
+            else { alert("Error: " + result.error); }
+        })
+        .withFailureHandler(function() { alert("Connection failed."); })
+        .deleteBatch(batchId, verifiedStaffEmail, currentSystemIsDemoMode);
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="centerMenu_"]') && e.target.textContent !== '⋮') {
+        document.querySelectorAll('[id^="centerMenu_"]').forEach(m => m.style.display = 'none');
+    }
+    if (!e.target.closest('[id^="batchMenu_"]') && e.target.textContent !== '⋮') {
+        document.querySelectorAll('[id^="batchMenu_"]').forEach(m => m.style.display = 'none');
+    }
+});
 </script>
 
 </body>

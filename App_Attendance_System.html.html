@@ -350,6 +350,19 @@ function initAttendanceApp() {
         populateCenters();
         if (ctx.isAdmin) {
             document.getElementById("adminSandboxTray").style.display = "block";
+            const btn = document.getElementById('sandboxToggleBtn');
+            const tray = document.getElementById('adminSandboxTray');
+            if (currentSystemIsDemoMode) {
+                btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
+                tray.style.background = "#fef3c7";
+                tray.style.borderTopColor = "#f59e0b";
+                btn.style.color = "#92400e";
+            } else {
+                btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
+                tray.style.background = "#f8fafc";
+                tray.style.borderTopColor = "#cbd5e1";
+                btn.style.color = "#94a3b8";
+            }
         }
         applyAttendancePermissions(ctx.permissions || {});
     })

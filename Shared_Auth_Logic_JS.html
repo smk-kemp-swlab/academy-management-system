@@ -157,6 +157,79 @@ function handleIamSystemFailure(err) {
     showIamError("Fatal Master Vault Connection Exception: " + err.toString());
 }
 
+// 🔑 NEW: Forgot Password flow handlers
+
+function showForgotPasswordFlow() {
+    var email = document.getElementById('iamUserDropdown').value;
+    if (!email) {
+        showIamError("Please select your profile handle first.");
+        return;
+    }
+    document.getElementById('iamErrorAlert').style.display = "none";
+    document.getElementById('iamInputStateContainer').style.display = "none";
+    document.getElementById('iamForgotPasswordLinkRow').style.display = "none";
+    document.getElementById('iamForgotPasswordContainer').style.display = "block";
+    document.getElementById('iamForgotEmailStage').style.display = "block";
+    document.getElementById('iamForgotOtpStage').style.display = "none";
+}
+
+function backToLoginFromForgot() {
+    document.getElementById('iamForgotPasswordContainer').style.display = "none";
+    document.getElementById('iamInputStateContainer').style.display = "block";
+    document.getElementById('iamForgotPasswordLinkRow').style.display = "block";
+    document.getElementById('iamErrorAlert').style.display = "none";
+}
+
+function submitForgotPasswordEmailRequest() {
+    var email = document.getElementById('iamUserDropdown').value;
+    document.getElementById('iamErrorAlert').style.display = "none";
+    toggleIamLoadingState(true, "Sending reset code to your email...");
+
+    google.script.run
+        .withSuccessHandler(function(res) {
+            toggleIamLoadingState(false);
+            if (res.success) {
+                document.getElementById('iamForgotEmailStage').style.display = "none";
+                document.getElementById('iamForgotOtpStage').style.display = "block";
+            } else {
+                backToLoginFromForgot();
+                showIamError(res.error || "Could not send reset code.");
+            }
+        })
+        .withFailureHandler(handleIamSystemFailure)
+        .requestPasswordResetOTP(email);
+}
+
+function submitOTPAndNewPassword() {
+    var email = document.getElementById('iamUserDropdown').value;
+    var otp = document.getElementById('iamForgotOtpInput').value.trim();
+    var passA = document.getElementById('iamForgotNewPasswordA').value.trim();
+    var passB = document.getElementById('iamForgotNewPasswordB').value.trim();
+    document.getElementById('iamErrorAlert').style.display = "none";
+
+    if (!otp || !passA || !passB) {
+        showIamError("Please fill in all fields.");
+        return;
+    }
+    if (passA !== passB) {
+        showIamError("Passwords do not match.");
+        return;
+    }
+
+    toggleIamLoadingState(true, "Verifying code and updating password...");
+    google.script.run
+        .withSuccessHandler(function(res) {
+            if (res.isAuthenticated) {
+                handleAuthenticationClearancePass(res);
+            } else {
+                toggleIamLoadingState(false);
+                showIamError(res.error || "Reset failed.");
+            }
+        })
+        .withFailureHandler(handleIamSystemFailure)
+        .verifyOTPAndSetNewPassword(email, otp, passA);
+}
+
 // ⚡ AUTO-INITIALIZATION INVOCATION
 // Bypasses sandbox constraints by execution during direct module compilation
 autoTriggerEcosystemRegistrySync();

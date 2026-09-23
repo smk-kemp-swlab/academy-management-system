@@ -38,18 +38,59 @@
                 
                 <div style="margin-bottom: 14px;">
                     <label id="authPrimaryLabel" style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Your Access Password</label>
-                    <input type="password" id="authPrimaryPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                    <div style="position: relative;">
+                        <input type="password" id="authPrimaryPassword" style="display: block; width: 100%; padding: 10px; padding-right: 40px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                        <span onclick="togglePasswordVisibility('authPrimaryPassword', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; display: flex; align-items: center; color: #64748b;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 7 11 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 7 11 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+                        </span>
+                    </div>
                 </div>
 
                 <div id="authRegistrationFieldsWrapper" style="display: none; margin-bottom: 16px;">
                     <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm App Password</label>
-                    <input type="password" id="authConfirmPassword" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                    <div style="position: relative;">
+                        <input type="password" id="authConfirmPassword" style="display: block; width: 100%; padding: 10px; padding-right: 40px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                        <span onclick="togglePasswordVisibility('authConfirmPassword', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; display: flex; align-items: center; color: #64748b;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 7 11 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 7 11 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 🔑 NEW: Forgot Password link (Live mode only) -->
+                <div id="authForgotPasswordLinkRow" style="text-align: center; margin-bottom: 10px; display: none;">
+                    <a href="#" onclick="showAuthForgotPasswordFlow(); return false;" style="font-size: 12px; color: #64748b; text-decoration: underline;">Forgot Password?</a>
                 </div>
 
                 <button type="button" id="authSubmitActionBtn" onclick="processIdentityVerificationSubmission()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Verify Identity Credentials</button>
             </div>
         </div>
-        
+
+        <!-- 🔑 NEW: Forgot Password flow container (hidden by default) -->
+        <div id="authForgotPasswordContainer" style="display: none; margin-top: 16px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
+            <div id="authForgotEmailStage" style="display: block;">
+                <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">We'll email a 6-digit reset code to your selected profile.</p>
+                <button type="button" onclick="submitAuthForgotPasswordEmailRequest()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Send Reset Code</button>
+            </div>
+            <div id="authForgotOtpStage" style="display: none;">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Reset Code</label>
+                    <input type="text" id="authForgotOtpInput" maxlength="6" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">New Password</label>
+                    <input type="password" id="authForgotNewPasswordA" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm New Password</label>
+                    <input type="password" id="authForgotNewPasswordB" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <button type="button" onclick="submitAuthOTPAndNewPassword()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Reset Password</button>
+            </div>
+            <div style="text-align: center; margin-top: 12px;">
+                <a href="#" onclick="backToLoginFromAuthForgot(); return false;" style="font-size: 12px; color: #64748b; text-decoration: underline;">← Back to Login</a>
+            </div>
+        </div>
+
         <div id="authErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
 
         <div id="authDemoToggleTray" style="text-align:center; padding:12px 0; margin-top:16px; border-top:1px dashed #cbd5e1; background-color:#f8fafc;">
@@ -443,17 +484,20 @@ function evaluateSelectedProfileSecurityState() {
     const registrationWrapper = document.getElementById('authRegistrationFieldsWrapper');
     const primaryLabel = document.getElementById('authPrimaryLabel');
     const submitBtn = document.getElementById('authSubmitActionBtn');
+    const forgotLinkRow = document.getElementById('authForgotPasswordLinkRow');
     
     document.getElementById('authErrorAlert').style.display = "none";
     
     if (!selectedEmail) {
         actionBlock.style.display = "none";
+        forgotLinkRow.style.display = "none";
         return;
     }
     
     const userRecord = globalRosterCacheMatrix.find(u => u.email === selectedEmail);
     if (!userRecord) {
         actionBlock.style.display = "none";
+        forgotLinkRow.style.display = "none";
         showAuthenticationError("Exception: Profile record missing from secure memory cache.");
         return;
     }
@@ -464,11 +508,73 @@ function evaluateSelectedProfileSecurityState() {
         primaryLabel.textContent = "Create Account Password";
         registrationWrapper.style.display = "block";
         submitBtn.textContent = "🔐 Register My Coach Profile";
+        forgotLinkRow.style.display = "none";
     } else {
         primaryLabel.textContent = "Enter Your Access Password";
         registrationWrapper.style.display = "none";
         submitBtn.textContent = "🔓 Verify Credentials";
+        forgotLinkRow.style.display = authIsDemoMode ? "none" : "block";
     }
+}
+
+// 🔑 NEW: Forgot Password flow handlers (Live mode only)
+function showAuthForgotPasswordFlow() {
+    document.getElementById('authInteractionBlock').style.display = "none";
+    document.getElementById('authForgotPasswordContainer').style.display = "block";
+    document.getElementById('authForgotEmailStage').style.display = "block";
+    document.getElementById('authForgotOtpStage').style.display = "none";
+    document.getElementById('authErrorAlert').style.display = "none";
+}
+
+function backToLoginFromAuthForgot() {
+    document.getElementById('authForgotPasswordContainer').style.display = "none";
+    document.getElementById('authInteractionBlock').style.display = "block";
+    document.getElementById('authErrorAlert').style.display = "none";
+}
+
+function submitAuthForgotPasswordEmailRequest() {
+    const selectedEmail = document.getElementById('authCoachDropdown').value;
+    document.getElementById('authErrorAlert').style.display = "none";
+
+    google.script.run
+        .withSuccessHandler(function(res) {
+            if (res.success) {
+                document.getElementById('authForgotEmailStage').style.display = "none";
+                document.getElementById('authForgotOtpStage').style.display = "block";
+            } else {
+                showAuthenticationError(res.error || "Could not send reset code.");
+            }
+        })
+        .withFailureHandler(handleMasterSystemFaultException)
+        .requestPasswordResetOTP(selectedEmail);
+}
+
+function submitAuthOTPAndNewPassword() {
+    const selectedEmail = document.getElementById('authCoachDropdown').value;
+    const otp = document.getElementById('authForgotOtpInput').value.trim();
+    const passA = document.getElementById('authForgotNewPasswordA').value.trim();
+    const passB = document.getElementById('authForgotNewPasswordB').value.trim();
+    document.getElementById('authErrorAlert').style.display = "none";
+
+    if (!otp || !passA || !passB) {
+        showAuthenticationError("Please fill in all fields.");
+        return;
+    }
+    if (passA !== passB) {
+        showAuthenticationError("Passwords do not match.");
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(function(res) {
+            if (res.isAuthenticated) {
+                handleAuthenticationResponsePacket(res);
+            } else {
+                showAuthenticationError(res.error || "Reset failed.");
+            }
+        })
+        .withFailureHandler(handleMasterSystemFaultException)
+        .verifyOTPAndSetNewPassword(selectedEmail, otp, passA);
 }
 
 //logout
@@ -555,6 +661,21 @@ function showAuthenticationError(messageString) {
     const alertBox = document.getElementById('authErrorAlert');
     alertBox.innerText = messageString;
     alertBox.style.display = "block";
+}
+
+// 👁️ NEW: Password visibility toggle (professional SVG icons)
+const EYE_OPEN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+const EYE_CLOSED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 7 11 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 7 11 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>';
+
+function togglePasswordVisibility(inputId, iconEl) {
+    const input = document.getElementById(inputId);
+    if (input.type === "password") {
+        input.type = "text";
+        iconEl.innerHTML = EYE_OPEN_SVG;
+    } else {
+        input.type = "password";
+        iconEl.innerHTML = EYE_CLOSED_SVG;
+    }
 }
 
 function handleMasterSystemFaultException(serverError) {
