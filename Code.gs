@@ -920,7 +920,8 @@ function submitOnboardingApplication(formData) {
       formData.paymentStrategy || "Pay_Later",   // Selected_Payment_Strategy
       "",                                        // Transaction_Reference_Token
       "Pending_Review",                          // Review_Status
-      ""                                         // Processed_By_Staff_ID
+      "",                                         // Processed_By_Staff_ID
+      formData.preferredJoiningDate || ""        // Preferred_Joining_Date
     ];
 
     sheet.appendRow(row);
@@ -1176,6 +1177,7 @@ function updateApplicationDetails(payload) {
     var kitShirtIdx = headers.indexOf("Kit_Shirt");
     var kitShortsIdx = headers.indexOf("Kit_Shorts");
     var medicalIdx = headers.indexOf("Medical_Alert_Flags");
+    var joiningDateIdx = headers.indexOf("Preferred_Joining_Date");
 
     var matchedApp = null;
 
@@ -1510,7 +1512,6 @@ function saveFeeConfiguration(payload) {
       configId,
       payload.centerId,
       payload.ageGroup,
-      payload.programType,
       payload.billingIntervalDays,
       Number(payload.baseFeeAmount) || 0,
       Number(payload.kitFeeAmount) || 0,

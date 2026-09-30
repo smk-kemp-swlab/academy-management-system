@@ -124,9 +124,6 @@
             🔄 Verifying coach profile credentials...
         </div>
         <div id="identityActionDeck" style="display: flex; flex-direction: column; gap: 10px;">
-            <button type="button" id="identityConfirmSyncBtn" class="master-action-btn btn-sync" style="margin-top:0; padding: 14px;" onclick="triggerExplicitDataSync()" disabled>
-                ⚡ Confirm Profile & Sync Data
-            </button>
             <a id="identitySwitchAccountLink" href="#" target="_top" style="display: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; padding: 10px; border: 1px solid var(--primary); border-radius: 8px; background: #fef2f2;">
                 🔄 Switch Google Account
             </a>
@@ -162,6 +159,10 @@
     <button type="button" id="globalViewToggler" class="toggle-guide-btn" onclick="handleViewStateToggle()">📖 Open Operational User Guide</button>
 
         <div id="workspacePanel_evals" class="workspace-panel fade-element">
+
+        <button type="button" id="identityConfirmSyncBtn" class="master-action-btn btn-sync" style="width:100%; margin-bottom:16px; padding: 14px;" onclick="triggerExplicitDataSync()" disabled>
+            ⚡ Confirm Profile & Sync Data
+        </button>
 
         <button type="button" class="master-action-btn btn-sync" style="width:100%; margin-bottom:16px;" onclick="navigateToApp('eval_report')">
             📄 View / Download Evaluation Reports

@@ -122,7 +122,7 @@
         </div>
         <div class="form-group">
             <label>SELECT STUDENT *</label>
-            <select id="studentSelect">
+            <select id="studentSelect" onchange="prefillCycleStartFromJoiningDate()">
                 <option value="">-- Select Student --</option>
             </select>
         </div>
@@ -287,20 +287,14 @@
     <h3 style="margin-top:0;">Add New Fee Configuration</h3>
         <div class="form-group">
             <label>Center *</label>
-            <select id="fcCenterSelect">
+            <select id="fcCenterSelect" onchange="populateFcBatchDropdown()">
                 <option value="">-- Select Center --</option>
             </select>
         </div>
         <div class="form-group" style="margin-top:12px;">
-            <label>Age Group *</label>
-            <input type="text" id="fcAgeGroup" placeholder="e.g. U12, U14, U17">
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-            <label>Program Type *</label>
-            <select id="fcProgramType">
-                <option value="Standard">Standard</option>
-                <option value="AfterSchool">AfterSchool</option>
-                <option value="Elite">Elite</option>
+            <label>Batch *</label>
+            <select id="fcBatchSelect">
+                <option value="">-- Select Center First --</option>
             </select>
         </div>
         <div class="form-group" style="margin-top:12px;">
@@ -382,8 +376,8 @@
                 </div>
             </div>
             <div class="form-group" style="margin-top:12px;">
-                <label>Transaction Reference No. *</label>
-                <input type="text" id="paymentTxRefInput" placeholder="Optional">
+                <label id="paymentTxRefLabel">Transaction Reference No.</label>
+                <input type="text" id="paymentTxRefInput" placeholder="Optional for Cash">
             </div>
             <div class="btn-container" style="margin-top: 18px;">
                 <button class="master-action-btn" style="background:#475569; color:white;" onclick="closePaymentModal()">Cancel</button>
@@ -437,6 +431,10 @@
             <label>Batch *</label>
             <select id="editAppBatchSelect"></select>
         </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Preferred Joining Date</label>
+            <input type="date" id="editAppJoiningDate">
+        </div>
        <div class="form-group" style="margin-top:12px;">
     <label>Parent Name</label>
     <input type="text" id="editAppParentName">
@@ -481,6 +479,19 @@ let verifiedStaffEmail = "";
 let activeInvoiceIdForPayment = null;
 let currentSystemIsDemoMode = false;
 const DEPLOYED_BASE_URL = '<?!= deployedUrl ?>';
+
+// 📅 NEW: Safely converts a date (string or Date-like) into yyyy-MM-dd using LOCAL date parts,
+// avoiding the UTC-shift bug that toISOString() causes for midnight-IST timestamps.
+function toDateInputValue(raw) {
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw; // already clean
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 function navigateToApp(appName) {
     const currentApp = '<?!= currentAppName ?>' || 'eval';
@@ -761,6 +772,28 @@ function filterInvoiceStudents() {
     });
 }
 
+// 📅 NEW: Auto-fill Billing Cycle Start Date from the student's original Preferred Joining Date (if one exists)
+function prefillCycleStartFromJoiningDate() {
+    const studentId = document.getElementById('studentSelect').value;
+    if (!studentId) return;
+    const student = (contextPayload.students || []).find(s => s.Student_ID === studentId);
+    if (!student || !student.Parent_Email) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) return;
+            const matchedApp = (result.applications || []).find(a =>
+                (a.Parent_Email || '').toLowerCase().trim() === student.Parent_Email.toLowerCase().trim() &&
+                a.Preferred_Joining_Date
+            );
+            if (matchedApp) {
+                document.getElementById('cycleStartDate').value = toDateInputValue(matchedApp.Preferred_Joining_Date);
+            }
+        })
+        .withFailureHandler(function() {})
+        .getOnboardingApplications(currentSystemIsDemoMode);
+}
+
 function populateFeeConfigDropdown() {
     const sel = document.getElementById('feeConfigSelect');
     sel.innerHTML = '<option value="">-- Select Fee Config --</option>';
@@ -768,7 +801,9 @@ function populateFeeConfigDropdown() {
     (contextPayload.feeConfigs || []).forEach(c => {
         const center = facilities.find(f => f.Center_ID === c.Center_ID);
         const centerName = center ? center.Center_Name : c.Center_ID;
-        const label = `${centerName} | ${c.Age_Group} | ${c.Program_Type} | ₹${c.Base_Fee_Amount} / ${c.Billing_Interval_Days} days`;
+        const batchForConfig = (contextPayload.batches || []).find(b => b.Batch_ID === c.Age_Group);
+        const batchLabelForConfig = batchForConfig ? batchForConfig.Batch_Name : c.Age_Group;
+        const label = `${centerName} | ${batchLabelForConfig} | ₹${c.Base_Fee_Amount} / ${c.Billing_Interval_Days} days`;
         sel.innerHTML += `<option value="${c.Config_ID}">${label}</option>`;
     });
 }
@@ -923,6 +958,16 @@ function sendBulkReminders() {
 function togglePaymentQrDisplay() {
     const mode = document.getElementById('paymentModeSelect').value;
     document.getElementById('paymentQrSection').style.display = mode === 'UPI' ? 'block' : 'none';
+
+    const label = document.getElementById('paymentTxRefLabel');
+    const input = document.getElementById('paymentTxRefInput');
+    if (mode === 'Cash') {
+        label.innerText = 'Transaction Reference No.';
+        input.placeholder = 'Optional for Cash';
+    } else {
+        label.innerText = 'Transaction Reference No. *';
+        input.placeholder = 'Required';
+    }
 }
 // ========== INVOICE LEDGER ==========
 function renderInvoiceList() {
@@ -1001,6 +1046,7 @@ function openPaymentModal(invoiceId, balance) {
     document.getElementById('paymentTxRefInput').value = '';
     document.getElementById('paymentModeSelect').value = 'Cash';
     document.getElementById('paymentQrSection').style.display = 'none';
+    togglePaymentQrDisplay();
     document.getElementById('paymentModalOverlay').style.display = 'flex';
 }
 function closePaymentModal() {
@@ -1014,7 +1060,7 @@ function submitPayment() {
     const txRef = document.getElementById('paymentTxRefInput').value.trim();
 
     if (!amount || amount <= 0) { alert("Please enter a valid payment amount."); return; }
-    if (!txRef) { alert("Please enter a Transaction Reference No."); return; }
+    if (mode !== 'Cash' && !txRef) { alert("Please enter a Transaction Reference No."); return; }
 
     google.script.run
         .withSuccessHandler(function(result) {
@@ -1268,6 +1314,20 @@ function populateFcCenterDropdown() {
     (contextPayload.facilities || []).forEach(f => {
         sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
     });
+    document.getElementById('fcBatchSelect').innerHTML = '<option value="">-- Select Center First --</option>';
+}
+
+function populateFcBatchDropdown() {
+    const centerId = document.getElementById('fcCenterSelect').value;
+    const batchSel = document.getElementById('fcBatchSelect');
+    if (!centerId) {
+        batchSel.innerHTML = '<option value="">-- Select Center First --</option>';
+        return;
+    }
+    batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+    (contextPayload.batches || []).filter(b => b.Center_ID === centerId).forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+    });
 }
 
 function renderFeeConfigList() {
@@ -1285,11 +1345,13 @@ function renderFeeConfigList() {
     configs.forEach((c, idx) => {
         const center = facilities.find(f => f.Center_ID === c.Center_ID);
         const centerName = center ? center.Center_Name : c.Center_ID;
+        const fcBatch = (contextPayload.batches || []).find(b => b.Batch_ID === c.Age_Group);
+        const fcBatchName = fcBatch ? fcBatch.Batch_Name : c.Age_Group;
         html += `
         <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
-                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${centerName} — ${c.Age_Group} — ${c.Program_Type}</div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${centerName} — ${fcBatchName}</div>
                     <div style="font-size:12px; color:#64748b; margin-top:4px;">Billing: Every ${c.Billing_Interval_Days} days</div>
                     <div style="display:flex; gap:16px; margin-top:8px; font-size:13px;">
                         <div>Base: <strong>₹${c.Base_Fee_Amount}</strong></div>
@@ -1311,15 +1373,14 @@ function renderFeeConfigList() {
 }
 function saveFeeConfig() {
     const centerId = document.getElementById('fcCenterSelect').value;
-    const ageGroup = document.getElementById('fcAgeGroup').value.trim();
-    const programType = document.getElementById('fcProgramType').value;
+    const batchId = document.getElementById('fcBatchSelect').value;
     const billingInterval = document.getElementById('fcBillingInterval').value;
     const baseFee = document.getElementById('fcBaseFee').value;
     const kitFee = document.getElementById('fcKitFee').value || 0;
     const regFee = document.getElementById('fcRegFee').value || 0;
 
-    if (!centerId || !ageGroup || !baseFee) {
-        alert("Please fill Center, Age Group and Base Fee Amount.");
+    if (!centerId || !batchId || !baseFee) {
+        alert("Please fill Center, Batch and Base Fee Amount.");
         return;
     }
 
@@ -1334,7 +1395,7 @@ function saveFeeConfig() {
             if (result.success) {
                 alert("Fee configuration saved successfully!");
                 document.getElementById('fcCenterSelect').value = '';
-                document.getElementById('fcAgeGroup').value = '';
+                document.getElementById('fcBatchSelect').innerHTML = '<option value="">-- Select Center First --</option>';
                 document.getElementById('fcBaseFee').value = '';
                 document.getElementById('fcKitFee').value = '';
                 document.getElementById('fcRegFee').value = '';
@@ -1350,8 +1411,8 @@ function saveFeeConfig() {
         })
         .saveFeeConfiguration({
             centerId: centerId,
-            ageGroup: ageGroup,
-            programType: programType,
+            ageGroup: batchId,
+            programType: "",
             billingIntervalDays: billingInterval,
             baseFeeAmount: baseFee,
             kitFeeAmount: kitFee,
@@ -1755,6 +1816,7 @@ function openEditApplicationModal(appId) {
             document.getElementById('editAppKitShirt').value = app.Kit_Shirt || '';
             document.getElementById('editAppKitShorts').value = app.Kit_Shorts || '';
             document.getElementById('editAppMedical').value = (app.Medical_Alert_Flags === 'None' ? '' : app.Medical_Alert_Flags) || '';
+            document.getElementById('editAppJoiningDate').value = toDateInputValue(app.Preferred_Joining_Date);
 
             // Populate Center dropdown
             const centerSel = document.getElementById('editAppCenterSelect');
@@ -1804,6 +1866,7 @@ function submitApplicationEdit() {
     const kitShirt = document.getElementById('editAppKitShirt').value.trim();
     const kitShorts = document.getElementById('editAppKitShorts').value.trim();
     const medicalAlerts = document.getElementById('editAppMedical').value.trim();
+    const preferredJoiningDate = document.getElementById('editAppJoiningDate').value;
 
     if (!centerId || !batchId) { alert("Please select Center and Batch."); return; }
 
@@ -1836,6 +1899,7 @@ function submitApplicationEdit() {
             kitShirt: kitShirt,
             kitShorts: kitShorts,
             medicalAlerts: medicalAlerts || "None",
+            preferredJoiningDate: preferredJoiningDate || "",
             isDemoMode: currentSystemIsDemoMode
         });
 }

@@ -247,7 +247,7 @@
             </div>
             <div class="form-group" style="margin-top:12px;">
                 <label>Target Age Group</label>
-                <input type="text" id="newBatchAgeGroup" placeholder="e.g. U14">
+                <input type="text" id="newBatchAgeGroup" placeholder="e.g. U14, O12, 14-15">
             </div>
             <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewBatch()">✅ Add Batch</button>
         </div>
@@ -584,9 +584,9 @@ function loadStaffBoardContext() {
                 document.getElementById('notAdminNotice').style.display = 'block';
                 document.getElementById('rosterImportNotAdminNotice').style.display = 'block';
             }
-            if (ctx.isAdmin) {
+                       if (ctx.isAdmin) {
                 document.getElementById('adminSandboxTray').style.display = 'block';
-                updateSandboxUI();
+                updateSandboxUI(); // silently reflect the actual demo/live state we're already in — no popup
             }
 
             populateCenterDropdowns();
@@ -602,6 +602,10 @@ function loadStaffBoardContext() {
 function toggleDemoSandboxMode() {
     currentSystemIsDemoMode = !currentSystemIsDemoMode;
     updateSandboxUI();
+    // Alert only here — this function only ever runs from an explicit click on the toggle button.
+    if (currentSystemIsDemoMode) {
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
+    }
     loadStaffBoardContext();
 }
 
@@ -828,12 +832,14 @@ function updateSandboxUI() {
     const tray = document.getElementById('adminSandboxTray');
     if (!btn || !tray) return;
 
+    // Purely visual sync — no alert here. This lets it be called safely on
+    // initial page load (to reflect the real state we logged in with) without
+    // popping a notification the person never asked for.
     if (currentSystemIsDemoMode) {
         btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
         tray.style.background = "#fef3c7";
         tray.style.borderTopColor = "#f59e0b";
         btn.style.color = "#92400e";
-        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     } else {
         btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
         tray.style.background = "#f8fafc";
