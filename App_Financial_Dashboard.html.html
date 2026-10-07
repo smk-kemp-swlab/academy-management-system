@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Kemp Financial Dashboard</title>
+    <title>Kemp Academy Administration</title>
     <?!= include('Styled_Branding_CSS'); ?>
    
 </head>
@@ -13,7 +13,7 @@
     <div style="background: white; padding: 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; box-sizing: border-box; border: 1px solid #e2e8f0;">
         <div style="text-align: center; margin-bottom: 24px;">
             <div style="font-size: 32px; margin-bottom: 8px;">🛡️</div>
-            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Financial Portal</h2>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Kemp FC Academy Administration Portal</h2>
             <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Identity Access Control Gate</p>
         </div>
         <div id="authLocalSpinner" style="display: block; text-align: center; margin: 20px 0;">
@@ -59,7 +59,7 @@
       <img src="<?!= brandLogoUrl ?>" alt="<?!= brandAcademyName ?>" style="max-height:48px; margin-bottom:8px;">
     <? } ?>
     <h1 class="brand-name"></h1>
-    <h2>Financial Dashboard</h2>
+    <h2>Academy Administration</h2>
 </div>
 
 <div id="dashboardLoadingIndicator" style="text-align:center; padding:16px; color:#64748b; font-size:13px; font-weight:600;">
@@ -120,11 +120,13 @@
                 <option value="">-- Select Batch --</option>
             </select>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="position:relative;">
             <label>SELECT STUDENT *</label>
-            <select id="studentSelect">
-                <option value="">-- Select Student --</option>
-            </select>
+            <input type="text" id="studentSearchDisplay" placeholder="Type student name..." autocomplete="off"
+                oninput="handleInvoiceStudentSearchInput()" onfocus="handleInvoiceStudentSearchInput()"
+                style="display:block; width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box;">
+            <input type="hidden" id="studentSelect">
+            <div id="studentSearchSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:9999; background:white; border:1px solid #cbd5e1; border-radius:8px; margin-top:4px; max-height:240px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
         </div>
             <div class="form-group" style="margin-top: 12px;">
                 <label>Select Fee Configuration *</label>
@@ -287,20 +289,14 @@
     <h3 style="margin-top:0;">Add New Fee Configuration</h3>
         <div class="form-group">
             <label>Center *</label>
-            <select id="fcCenterSelect">
+            <select id="fcCenterSelect" onchange="populateFcBatchDropdown()">
                 <option value="">-- Select Center --</option>
             </select>
         </div>
         <div class="form-group" style="margin-top:12px;">
-            <label>Age Group *</label>
-            <input type="text" id="fcAgeGroup" placeholder="e.g. U12, U14, U17">
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-            <label>Program Type *</label>
-            <select id="fcProgramType">
-                <option value="Standard">Standard</option>
-                <option value="AfterSchool">AfterSchool</option>
-                <option value="Elite">Elite</option>
+            <label>Batch *</label>
+            <select id="fcBatchSelect">
+                <option value="">-- Select Center First --</option>
             </select>
         </div>
         <div class="form-group" style="margin-top:12px;">
@@ -368,13 +364,22 @@
                 </select>
             </div>
 
-            <div id="paymentQrSection" style="display:none; text-align:center; margin-top:14px; padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
+                <div id="paymentQrSection" style="display:none; text-align:center; margin-top:14px; padding:14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
                 <div style="font-size:12px; font-weight:700; color:#15803d; margin-bottom:8px;">Scan to Pay via UPI</div>
                 <img src="https://lh3.googleusercontent.com/d/1HCS6RVqiAhDIlK4pTTtoVZ3oJj7GBKSt" alt="Payment QR Code" style="max-width:220px; width:100%; border-radius:8px; border:1px solid #e2e8f0;">
+                <div style="margin-top:12px; font-size:11px; font-weight:700; color:#15803d;">UPI ID</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:6px; background:white; border:1px solid #bbf7d0; border-radius:8px; padding:8px 10px;">
+                    <input type="text" id="upiIdDisplay" value="KEMPF9902.09@cmsidfc" readonly
+                        style="flex:1; border:none; background:transparent; font-size:13px; font-weight:600; color:#1e293b; text-align:center;">
+                    <button type="button" onclick="copyUpiId()"
+                        style="padding:6px 12px; border-radius:6px; border:none; background:#16a34a; color:white; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap;">
+                        📋 Copy
+                    </button>
+                </div>
             </div>
             <div class="form-group" style="margin-top:12px;">
-                <label>Transaction Reference No. *</label>
-                <input type="text" id="paymentTxRefInput" placeholder="Optional">
+                <label id="paymentTxRefLabel">Transaction Reference No.</label>
+                <input type="text" id="paymentTxRefInput" placeholder="Optional for Cash">
             </div>
             <div class="btn-container" style="margin-top: 18px;">
                 <button class="master-action-btn" style="background:#475569; color:white;" onclick="closePaymentModal()">Cancel</button>
@@ -428,6 +433,10 @@
             <label>Batch *</label>
             <select id="editAppBatchSelect"></select>
         </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Preferred Joining Date</label>
+            <input type="date" id="editAppJoiningDate">
+        </div>
        <div class="form-group" style="margin-top:12px;">
     <label>Parent Name</label>
     <input type="text" id="editAppParentName">
@@ -472,6 +481,19 @@ let verifiedStaffEmail = "";
 let activeInvoiceIdForPayment = null;
 let currentSystemIsDemoMode = false;
 const DEPLOYED_BASE_URL = '<?!= deployedUrl ?>';
+
+// 📅 NEW: Safely converts a date (string or Date-like) into yyyy-MM-dd using LOCAL date parts,
+// avoiding the UTC-shift bug that toISOString() causes for midnight-IST timestamps.
+function toDateInputValue(raw) {
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw; // already clean
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 function navigateToApp(appName) {
     const currentApp = '<?!= currentAppName ?>' || 'eval';
@@ -653,7 +675,7 @@ function loadDashboardContext() {
             feeConfigCard.style.cursor = 'pointer';
             document.getElementById('feeConfigBadge').innerText = 'Admin Only';
             document.getElementById('addFeeConfigFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
-            document.getElementById('addDiscountFormWrapper').style.display = perms.canManageFeeConfig ? 'block' : 'none';
+            document.getElementById('addDiscountFormWrapper').style.display = perms.canManageDiscounts ? 'block' : 'none';
             if (!perms.canGenerateInvoice) {
               const genBadge = document.querySelector('#hub_generate .badge-mini');
               if (genBadge) {
@@ -664,8 +686,9 @@ function loadDashboardContext() {
           }
 
            if (perms.canUseDemoToggle) {
-                document.getElementById('adminSandboxTray').style.display = 'block';
-            }
+            document.getElementById('adminSandboxTray').style.display = 'block';
+            updateSandboxUI();
+}
 
             const bulkBtn = document.getElementById('bulkReminderBtn');
             if (bulkBtn) {
@@ -679,21 +702,28 @@ function loadDashboardContext() {
 .getBillingDashboardContext(currentSystemIsDemoMode, verifiedStaffEmail);
 }
 
-function toggleDemoSandboxMode() {
-    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+function updateSandboxUI() {
     const btn = document.getElementById('sandboxToggleBtn');
     const tray = document.getElementById('adminSandboxTray');
+    if (!btn || !tray) return;
     if (currentSystemIsDemoMode) {
         btn.innerText = "🧪 Demo Sandbox Mode ACTIVE (Tap to Return to Normal Use)";
         tray.style.background = "#fef3c7";
         tray.style.borderTopColor = "#f59e0b";
         btn.style.color = "#92400e";
-        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     } else {
         btn.innerText = "🔒 Normal Use Mode (Tap to Change to Demo Sandbox)";
         tray.style.background = "#f8fafc";
         tray.style.borderTopColor = "#cbd5e1";
         btn.style.color = "#94a3b8";
+    }
+}
+
+function toggleDemoSandboxMode() {
+    currentSystemIsDemoMode = !currentSystemIsDemoMode;
+    updateSandboxUI();
+    if (currentSystemIsDemoMode) {
+        alert("🧪 Demo Sandbox Mode Activated — you are now viewing demo data only.");
     }
     loadDashboardContext();
 }
@@ -712,6 +742,15 @@ function switchModule(module) {
     if (module === 'leave') { populateLeaveStudentDropdown(); renderLeaveList(); }
 }
 // ========== DROPDOWNS ==========
+function resetInvoiceStudentSearch() {
+    window.invoiceStudentSearchOptions = [];
+    document.getElementById('studentSelect').value = '';
+    const searchEl = document.getElementById('studentSearchDisplay');
+    if (searchEl) searchEl.value = '';
+    const suggestionsEl = document.getElementById('studentSearchSuggestions');
+    if (suggestionsEl) suggestionsEl.style.display = 'none';
+}
+
 function populateStudentDropdown() {
     if (!contextPayload) return;
     const centerSel = document.getElementById('invoiceCenterSelect');
@@ -720,14 +759,14 @@ function populateStudentDropdown() {
         centerSel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
     });
     document.getElementById('invoiceBatchSelect').innerHTML = '<option value="">-- Select Batch --</option>';
-    document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+    resetInvoiceStudentSearch();
 }
 
 function filterInvoiceBatches() {
     const centerId = document.getElementById('invoiceCenterSelect').value;
     const batchSel = document.getElementById('invoiceBatchSelect');
     batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
-    document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+    resetInvoiceStudentSearch();
     if (!centerId) return;
     (contextPayload.batches || []).filter(b => b.Center_ID === centerId).forEach(b => {
         batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
@@ -736,14 +775,86 @@ function filterInvoiceBatches() {
 
 function filterInvoiceStudents() {
     const batchId = document.getElementById('invoiceBatchSelect').value;
-    const studentSel = document.getElementById('studentSelect');
-    studentSel.innerHTML = '<option value="">-- Select Student --</option>';
+    resetInvoiceStudentSearch();
     if (!batchId) return;
     (contextPayload.students || []).filter(s => s.Academy_Batch_ID === batchId && s.Status === 'Active').forEach(s => {
-        studentSel.innerHTML += `<option value="${s.Student_ID}">${s.First_Name} ${s.Last_Name} (${s.Student_ID})</option>`;
+        window.invoiceStudentSearchOptions.push({
+            label: `${s.First_Name} ${s.Last_Name} (${s.Student_ID})`,
+            id: s.Student_ID
+        });
     });
 }
 
+// 📅 NEW: Auto-fill Billing Cycle Start Date from the student's original Preferred Joining Date (if one exists)
+function prefillCycleStartFromJoiningDate() {
+    const studentId = document.getElementById('studentSelect').value;
+    if (!studentId) return;
+    const student = (contextPayload.students || []).find(s => s.Student_ID === studentId);
+    if (!student || !student.Parent_Email) return;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (!result.success) return;
+            const matchedApp = (result.applications || []).find(a =>
+                (a.Parent_Email || '').toLowerCase().trim() === student.Parent_Email.toLowerCase().trim() &&
+                a.Preferred_Joining_Date
+            );
+            if (matchedApp) {
+                document.getElementById('cycleStartDate').value = toDateInputValue(matchedApp.Preferred_Joining_Date);
+            }
+        })
+        .withFailureHandler(function() {})
+        .getOnboardingApplications(currentSystemIsDemoMode);
+}
+function handleInvoiceStudentSearchInput() {
+    const searchEl = document.getElementById('studentSearchDisplay');
+    const hiddenEl = document.getElementById('studentSelect');
+    const suggestionsEl = document.getElementById('studentSearchSuggestions');
+    const query = searchEl.value.trim().toLowerCase();
+
+    hiddenEl.value = '';
+
+    const options = window.invoiceStudentSearchOptions || [];
+    if (options.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">Select a Center and Batch first.</div>';
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    const matches = query
+        ? options.filter(opt => opt.label.toLowerCase().includes(query))
+        : options;
+
+    if (matches.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">No students found.</div>';
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    suggestionsEl.innerHTML = matches.map(opt =>
+        `<div onmousedown="selectInvoiceStudentResult('${opt.id}', '${opt.label.replace(/'/g, "\\'")}')"
+            style="padding:10px 14px; font-size:13px; color:#1e293b; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            ${opt.label}
+        </div>`
+    ).join('');
+
+    suggestionsEl.style.display = 'block';
+}
+
+function selectInvoiceStudentResult(studentId, label) {
+    document.getElementById('studentSearchDisplay').value = label;
+    document.getElementById('studentSelect').value = studentId;
+    document.getElementById('studentSearchSuggestions').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('studentSearchDisplay');
+    const suggestionsEl = document.getElementById('studentSearchSuggestions');
+    if (wrapper && suggestionsEl && !wrapper.contains(e.target) && !suggestionsEl.contains(e.target)) {
+        suggestionsEl.style.display = 'none';
+    }
+});
 function populateFeeConfigDropdown() {
     const sel = document.getElementById('feeConfigSelect');
     sel.innerHTML = '<option value="">-- Select Fee Config --</option>';
@@ -751,7 +862,9 @@ function populateFeeConfigDropdown() {
     (contextPayload.feeConfigs || []).forEach(c => {
         const center = facilities.find(f => f.Center_ID === c.Center_ID);
         const centerName = center ? center.Center_Name : c.Center_ID;
-        const label = `${centerName} | ${c.Age_Group} | ${c.Program_Type} | ₹${c.Base_Fee_Amount} / ${c.Billing_Interval_Days} days`;
+        const batchForConfig = (contextPayload.batches || []).find(b => b.Batch_ID === c.Age_Group);
+        const batchLabelForConfig = batchForConfig ? batchForConfig.Batch_Name : c.Age_Group;
+        const label = `${centerName} | ${batchLabelForConfig} | ₹${c.Base_Fee_Amount} / ${c.Billing_Interval_Days} days`;
         sel.innerHTML += `<option value="${c.Config_ID}">${label}</option>`;
     });
 }
@@ -906,6 +1019,16 @@ function sendBulkReminders() {
 function togglePaymentQrDisplay() {
     const mode = document.getElementById('paymentModeSelect').value;
     document.getElementById('paymentQrSection').style.display = mode === 'UPI' ? 'block' : 'none';
+
+    const label = document.getElementById('paymentTxRefLabel');
+    const input = document.getElementById('paymentTxRefInput');
+    if (mode === 'Cash') {
+        label.innerText = 'Transaction Reference No.';
+        input.placeholder = 'Optional for Cash';
+    } else {
+        label.innerText = 'Transaction Reference No. *';
+        input.placeholder = 'Required';
+    }
 }
 // ========== INVOICE LEDGER ==========
 function renderInvoiceList() {
@@ -949,12 +1072,12 @@ function renderInvoiceList() {
                   <div style="background:${colors.bg}; color:${colors.color}; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; white-space:nowrap;">
                       ${(inv.Payment_Status || '').replace('_', ' ')}
                   </div>
-            ${contextPayload.isAdmin ? `
+              ${contextPayload.permissions.canViewInvoices ? `
             <div style="position:relative;">
                     <button onclick="toggleInvoiceMenu('${inv.Invoice_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                   <div id="menu_${inv.Invoice_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:140px;">
-                <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; border-bottom:1px solid #f1f5f9;">📄 Download</div>
-                <div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>
+                <div onclick="downloadInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#1e293b; ${contextPayload.isAdmin ? 'border-bottom:1px solid #f1f5f9;' : ''}">📄 Download</div>
+                ${contextPayload.isAdmin ? `<div onclick="deleteInvoice('${inv.Invoice_ID}')" style="padding:10px 14px; font-size:13px; cursor:pointer; color:#dc2626;">🗑️ Delete</div>` : ''}
 
                     </div>
                 </div>` : ''}
@@ -984,6 +1107,7 @@ function openPaymentModal(invoiceId, balance) {
     document.getElementById('paymentTxRefInput').value = '';
     document.getElementById('paymentModeSelect').value = 'Cash';
     document.getElementById('paymentQrSection').style.display = 'none';
+    togglePaymentQrDisplay();
     document.getElementById('paymentModalOverlay').style.display = 'flex';
 }
 function closePaymentModal() {
@@ -997,7 +1121,7 @@ function submitPayment() {
     const txRef = document.getElementById('paymentTxRefInput').value.trim();
 
     if (!amount || amount <= 0) { alert("Please enter a valid payment amount."); return; }
-    if (!txRef) { alert("Please enter a Transaction Reference No."); return; }
+    if (mode !== 'Cash' && !txRef) { alert("Please enter a Transaction Reference No."); return; }
 
     google.script.run
         .withSuccessHandler(function(result) {
@@ -1087,7 +1211,7 @@ function renderApplicationsList() {
                     </div>
                     <button class="master-action-btn btn-sync" style="margin-top:10px; padding:8px; font-size:12px;" onclick="toggleDocumentsPanel('${app.Application_ID}')">📁 View Documents</button>
                     <div id="docsPanel_${app.Application_ID}" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border-radius:8px;"></div>
-                ${app.Review_Status === 'Pending_Review' && contextPayload.isAdmin ? `
+                ${app.Review_Status === 'Pending_Review' && contextPayload.permissions.canManageApplications ? `
                         <div style="display:flex;gap:8px;margin-top:12px;">
                             <button onclick="updateAppStatus('${app.Application_ID}','Approved')"
                                 style="flex:1;padding:10px;border-radius:8px;border:none;background:#16a34a;color:white;font-weight:700;font-size:13px;cursor:pointer;">✅ Approve</button>
@@ -1096,7 +1220,7 @@ function renderApplicationsList() {
                             <button onclick="updateAppStatus('${app.Application_ID}','Waitlisted')"
                                 style="flex:1;padding:10px;border-radius:8px;border:none;background:#d97706;color:white;font-weight:700;font-size:13px;cursor:pointer;">⏳ Waitlist</button>
                         </div>` : ''}
-                ${app.Review_Status === 'Waitlisted' && contextPayload.isAdmin ? `
+                ${app.Review_Status === 'Waitlisted' && contextPayload.permissions.canManageApplications ? `
                         <div style="display:flex;gap:8px;margin-top:12px;">
                             <button onclick="updateAppStatus('${app.Application_ID}','Approved')"
                                 style="flex:1;padding:10px;border-radius:8px;border:none;background:#16a34a;color:white;font-weight:700;font-size:13px;cursor:pointer;">✅ Approve</button>
@@ -1251,6 +1375,20 @@ function populateFcCenterDropdown() {
     (contextPayload.facilities || []).forEach(f => {
         sel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
     });
+    document.getElementById('fcBatchSelect').innerHTML = '<option value="">-- Select Center First --</option>';
+}
+
+function populateFcBatchDropdown() {
+    const centerId = document.getElementById('fcCenterSelect').value;
+    const batchSel = document.getElementById('fcBatchSelect');
+    if (!centerId) {
+        batchSel.innerHTML = '<option value="">-- Select Center First --</option>';
+        return;
+    }
+    batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
+    (contextPayload.batches || []).filter(b => b.Center_ID === centerId).forEach(b => {
+        batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
+    });
 }
 
 function renderFeeConfigList() {
@@ -1268,11 +1406,13 @@ function renderFeeConfigList() {
     configs.forEach((c, idx) => {
         const center = facilities.find(f => f.Center_ID === c.Center_ID);
         const centerName = center ? center.Center_Name : c.Center_ID;
+        const fcBatch = (contextPayload.batches || []).find(b => b.Batch_ID === c.Age_Group);
+        const fcBatchName = fcBatch ? fcBatch.Batch_Name : c.Age_Group;
         html += `
         <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
-                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${centerName} — ${c.Age_Group} — ${c.Program_Type}</div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b;">${centerName} — ${fcBatchName}</div>
                     <div style="font-size:12px; color:#64748b; margin-top:4px;">Billing: Every ${c.Billing_Interval_Days} days</div>
                     <div style="display:flex; gap:16px; margin-top:8px; font-size:13px;">
                         <div>Base: <strong>₹${c.Base_Fee_Amount}</strong></div>
@@ -1280,7 +1420,7 @@ function renderFeeConfigList() {
                         <div>Reg: <strong>₹${c.Registration_Fee_Amount || 0}</strong></div>
                     </div>
                 </div>
-                ${contextPayload.isAdmin ? `
+                ${contextPayload.permissions.canManageFeeConfig ? `
                 <div style="position:relative;">
                     <button onclick="toggleMenu('feeMenu_${idx}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                     <div id="feeMenu_${idx}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
@@ -1294,15 +1434,14 @@ function renderFeeConfigList() {
 }
 function saveFeeConfig() {
     const centerId = document.getElementById('fcCenterSelect').value;
-    const ageGroup = document.getElementById('fcAgeGroup').value.trim();
-    const programType = document.getElementById('fcProgramType').value;
+    const batchId = document.getElementById('fcBatchSelect').value;
     const billingInterval = document.getElementById('fcBillingInterval').value;
     const baseFee = document.getElementById('fcBaseFee').value;
     const kitFee = document.getElementById('fcKitFee').value || 0;
     const regFee = document.getElementById('fcRegFee').value || 0;
 
-    if (!centerId || !ageGroup || !baseFee) {
-        alert("Please fill Center, Age Group and Base Fee Amount.");
+    if (!centerId || !batchId || !baseFee) {
+        alert("Please fill Center, Batch and Base Fee Amount.");
         return;
     }
 
@@ -1317,7 +1456,7 @@ function saveFeeConfig() {
             if (result.success) {
                 alert("Fee configuration saved successfully!");
                 document.getElementById('fcCenterSelect').value = '';
-                document.getElementById('fcAgeGroup').value = '';
+                document.getElementById('fcBatchSelect').innerHTML = '<option value="">-- Select Center First --</option>';
                 document.getElementById('fcBaseFee').value = '';
                 document.getElementById('fcKitFee').value = '';
                 document.getElementById('fcRegFee').value = '';
@@ -1333,8 +1472,8 @@ function saveFeeConfig() {
         })
         .saveFeeConfiguration({
             centerId: centerId,
-            ageGroup: ageGroup,
-            programType: programType,
+            ageGroup: batchId,
+            programType: "",
             billingIntervalDays: billingInterval,
             baseFeeAmount: baseFee,
             kitFeeAmount: kitFee,
@@ -1364,7 +1503,7 @@ function renderDiscountList() {
                 <div style="background:#f0fdf4; color:#166534; font-size:12px; font-weight:700; padding:4px 10px; border-radius:6px;">
                     ${d.Discount_ID}
                 </div>
-                ${contextPayload.isAdmin ? `
+                ${contextPayload.permissions.canManageDiscounts ? `
                 <div style="position:relative;">
                     <button onclick="toggleMenu('discMenu_${d.Discount_ID}')" style="background:none; border:none; cursor:pointer; font-size:18px; color:#64748b; padding:0 4px; line-height:1;">⋮</button>
                     <div id="discMenu_${d.Discount_ID}" style="display:none; position:absolute; right:0; top:24px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:999; min-width:120px;">
@@ -1406,7 +1545,7 @@ function saveDiscount() {
             btn.innerText = "✅ Save Discount";
             alert("Connection failed.");
         })
-        .saveDiscountConfiguration({ name: name, percentage: pct, isDemoMode: currentSystemIsDemoMode });
+        .saveDiscountConfiguration({ name: name, percentage: pct, staffEmail: verifiedStaffEmail, isDemoMode: currentSystemIsDemoMode });
 }
 // ========== LEAVE REQUESTS ==========
 function populateLeaveStudentDropdown() {
@@ -1540,7 +1679,7 @@ function renderLeaveList() {
                         </div>
                     </div>
                     <div style="margin-top:8px; font-size:12px; color:#475569;">Reason: ${lv.Leave_Reason}</div>
-                    ${lv.Approval_Status === 'Pending' && contextPayload.isAdmin ? `
+                    ${lv.Approval_Status === 'Pending' && contextPayload.permissions.canApproveLeave ? `
                     <div style="display:flex; gap:8px; margin-top:12px;">
                         <button class="master-action-btn btn-commit" style="flex:1; padding:8px; font-size:12px;" onclick="updateLeave('${lv.Leave_ID}', 'Approved')">✅ Approve</button>
                         <button class="master-action-btn" style="flex:1; padding:8px; font-size:12px; background:#dc2626; color:white;" onclick="updateLeave('${lv.Leave_ID}', 'Rejected')">❌ Reject</button>
@@ -1738,6 +1877,7 @@ function openEditApplicationModal(appId) {
             document.getElementById('editAppKitShirt').value = app.Kit_Shirt || '';
             document.getElementById('editAppKitShorts').value = app.Kit_Shorts || '';
             document.getElementById('editAppMedical').value = (app.Medical_Alert_Flags === 'None' ? '' : app.Medical_Alert_Flags) || '';
+            document.getElementById('editAppJoiningDate').value = toDateInputValue(app.Preferred_Joining_Date);
 
             // Populate Center dropdown
             const centerSel = document.getElementById('editAppCenterSelect');
@@ -1787,6 +1927,7 @@ function submitApplicationEdit() {
     const kitShirt = document.getElementById('editAppKitShirt').value.trim();
     const kitShorts = document.getElementById('editAppKitShorts').value.trim();
     const medicalAlerts = document.getElementById('editAppMedical').value.trim();
+    const preferredJoiningDate = document.getElementById('editAppJoiningDate').value;
 
     if (!centerId || !batchId) { alert("Please select Center and Batch."); return; }
 
@@ -1819,6 +1960,7 @@ function submitApplicationEdit() {
             kitShirt: kitShirt,
             kitShorts: kitShorts,
             medicalAlerts: medicalAlerts || "None",
+            preferredJoiningDate: preferredJoiningDate || "",
             isDemoMode: currentSystemIsDemoMode
         });
 }
@@ -2123,6 +2265,22 @@ function downloadInvoiceReportPDF() {
     const win = window.open('', '_blank');
     win.document.write(html);
     win.document.close();
+}
+// to get the id of the qr image 
+function copyUpiId() {
+    const input = document.getElementById('upiIdDisplay');
+    input.select();
+    input.setSelectionRange(0, 99999); // for mobile
+    navigator.clipboard.writeText(input.value).then(function() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = '✓ Copied';
+        setTimeout(function() { btn.innerText = originalText; }, 1500);
+    }).catch(function() {
+        // Fallback for older browsers
+        document.execCommand('copy');
+        alert('UPI ID copied to clipboard.');
+    });
 }
 </script>
 

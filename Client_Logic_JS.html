@@ -247,6 +247,9 @@
                 document.getElementById('identityBridgeCard').style.padding = "8px 12px";
                 document.getElementById('identityActionDeck').style.display = "none";
                 document.getElementById('identityStatusAlert').style.display = "none";
+                document.getElementById('identityConfirmSyncBtn').style.display = "none";
+
+                applyEvaluationPermissions(context.permissions || {});
             })
             .withFailureHandler(function() {
                 alert("Database Mapping Error: Connection failed. Bypassing to standalone offline mode.");
@@ -334,7 +337,7 @@
                     alert("Could not load evaluation sessions: " + result.error + (currentSystemIsDemoMode ? "\n\n(This may be a Demo Sandbox data access issue.)" : ""));
                     return;
                 }
-                const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '';
+                const select = document.getElementById('evalSessionTabSelect'); select.innerHTML = '<option value="">-- Select Session --</option>';
                 result.tabs.forEach(tabName => { select.innerHTML += `<option value="${tabName}">${tabName}</option>`; });
                 updateBadgeTrackerDisplay();
             })
@@ -346,8 +349,6 @@
     }
 }
     function handleFrameworkLayoutShift(selectedFramework) {
-        refreshActiveInstanceTabs();
-
         const cascadeContainer = document.getElementById('cascadingWrapperBox');
         const identityCard = document.getElementById('playerIdentityInformationCard');
 
@@ -359,8 +360,13 @@
                     ℹ️ Please select an evaluation session framework above to inflate data fields.
                 </div>
             `;
+            // Reset the session dropdown too, matching the "-- Select Type First --" pattern
+            const sessionSel = document.getElementById('evalSessionTabSelect');
+            if (sessionSel) sessionSel.innerHTML = '<option value="">-- Select Type First --</option>';
             return; // Halt execution early
-        }      
+        }
+
+        refreshActiveInstanceTabs();    
         
         if (selectedFramework === "Trial") {
             cascadeContainer.style.display = 'none';
@@ -458,9 +464,13 @@
                 <div class="form-group" style="margin-top:10px;"><label>Trial Number / Bib Target *</label><input type="text" id="p_macro_bib"></div>
             </div>
             ` : `
-            <div class="form-group">
+            <div class="form-group" style="position:relative;">
                 <label>Select Target Roster Player Profile *</label>
-                <select id="p_macro_student_lookup"><option value="">-- Select Center/Batch First --</option></select>
+                <input type="text" id="p_macro_student_search" placeholder="Type player name..." autocomplete="off"
+                    oninput="handleStudentSearchInput()" onfocus="handleStudentSearchInput()"
+                    style="display:block; width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box;">
+                <input type="hidden" id="p_macro_student_lookup">
+                <div id="p_macro_student_suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:9999; background:white; border:1px solid #cbd5e1; border-radius:8px; margin-top:4px; max-height:240px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
             </div>
             <div id="playerContextDataCard" style="margin-top:12px; font-size:13px; font-weight:500; display:none; background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></div>
             `}
@@ -506,18 +516,71 @@
         if (currentSelectedBatchVal) batchSel.value = currentSelectedBatchVal;
         const finalBatchVal = batchSel.value;
         
-        if (playerLookup) {
-            if (!finalBatchVal) {
-                playerLookup.innerHTML = '<option value="">-- Select Batch Next --</option>';
-            } else {
-                playerLookup.innerHTML = '<option value="">-- Choose Player --</option>';
-                
+        const searchEl = document.getElementById('p_macro_student_search');
+        if (searchEl) {
+            window.studentSearchOptions = [];
+            searchEl.value = '';
+            document.getElementById('p_macro_student_lookup').value = '';
+            document.getElementById('p_macro_student_suggestions').style.display = 'none';
+
+            if (finalBatchVal) {
                 masterContextPayload.players.filter(p => p.Academy_Center_ID === centerVal && p.Academy_Batch_ID === finalBatchVal && p.Status === "Active").forEach(p => {
-                    playerLookup.innerHTML += `<option value="${p.Student_ID}">${p.First_Name} ${p.Last_Name} (${p.Student_ID})</option>`;
+                    window.studentSearchOptions.push({
+                        label: `${p.First_Name} ${p.Last_Name} (${p.Student_ID})`,
+                        id: p.Student_ID
+                    });
                 });
             }
         }
     }
+    function handleStudentSearchInput() {
+    const searchEl = document.getElementById('p_macro_student_search');
+    const hiddenEl = document.getElementById('p_macro_student_lookup');
+    const suggestionsEl = document.getElementById('p_macro_student_suggestions');
+    const query = searchEl.value.trim().toLowerCase();
+
+    hiddenEl.value = '';
+
+    const options = window.studentSearchOptions || [];
+    if (options.length === 0) {
+        suggestionsEl.style.display = 'none';
+        return;
+    }
+
+    const matches = query
+        ? options.filter(opt => opt.label.toLowerCase().includes(query))
+        : options;
+
+    if (matches.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">No players found.</div>';
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    suggestionsEl.innerHTML = matches.map(opt =>
+        `<div onmousedown="selectStudentSearchResult('${opt.id}', '${opt.label.replace(/'/g, "\\'")}')"
+            style="padding:10px 14px; font-size:13px; color:#1e293b; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            ${opt.label}
+        </div>`
+    ).join('');
+
+    suggestionsEl.style.display = 'block';
+}
+
+function selectStudentSearchResult(studentId, label) {
+    document.getElementById('p_macro_student_search').value = label;
+    document.getElementById('p_macro_student_lookup').value = studentId;
+    document.getElementById('p_macro_student_suggestions').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('p_macro_student_search');
+    const suggestionsEl = document.getElementById('p_macro_student_suggestions');
+    if (wrapper && suggestionsEl && !wrapper.contains(e.target) && !suggestionsEl.contains(e.target)) {
+        suggestionsEl.style.display = 'none';
+    }
+});
 
     function buildSupersetCardMatrix(targetId, attributeList, prefix, hasPressureSplit) {
         const container = document.getElementById(targetId); if (!container) return;
@@ -586,7 +649,7 @@
             document.getElementById('newTabCreationBtn').disabled = false;
             if(res.success) { alert("Session sheet deployed successfully."); refreshActiveInstanceTabs(); }
             else { alert("Deployment Error: " + res.error); }
-        }).provisionNewEvaluationTab(name, selectedType, currentSystemIsDemoMode);
+        }).provisionNewEvaluationTab(name, selectedType, currentSystemIsDemoMode, undefined, undefined, localStorage.getItem('kemp_suite_verified_session_email'));
     }
 }
 
@@ -664,10 +727,10 @@
                     if(!packet["Player_Name"] || !packet["Trial_Number_Or_Bib"]) { alert("Player Name and Bib are mandatory."); return; }
                 }
             } else {
-                const lookupEl = document.getElementById('p_macro_student_lookup'); 
-                if(!lookupEl.value) { alert("Roster assignment is mandatory."); return; }
-                const rawText = lookupEl.options[lookupEl.selectedIndex].text;
-                packet["Player_Name"] = rawText.replace(/\s*\(.*\)\s*$/, '').trim();
+                const lookupEl = document.getElementById('p_macro_student_lookup');
+                const searchEl = document.getElementById('p_macro_student_search');
+                if(!lookupEl.value) { alert("Roster assignment is mandatory. Please pick a name from the suggestions."); return; }
+                packet["Player_Name"] = searchEl.value.replace(/\s*\(.*\)\s*$/, '').trim();
                 packet["Trial_Number_Or_Bib"] = lookupEl.value;
             }
         }
@@ -697,7 +760,7 @@
             return;
         }
 
-        localTransmissionQueue.push({ 
+                localTransmissionQueue.push({ 
             tab: sessionTabSel.value, 
             payload: packet, 
             txId: packet["TX_Signature_Token"],
@@ -705,6 +768,8 @@
         });
         localStorage.setItem('kemp_suite_eval_queue', JSON.stringify(localTransmissionQueue));
         updateBadgeTrackerDisplay();
+
+        alert("✅ Evaluation saved successfully!"); // shows immediately — data is queued locally right here, cloud sync happens in the background
 
         clearFormLayoutInterface(frameworkSel.value);
         executeNextQueueTransmission();
@@ -752,7 +817,7 @@ function clearFormLayoutInterface(currentFramework) {
                     }
                 })
                 .withFailureHandler(function() { handleFallbackFailureState(); })
-                .streamEvaluationToSpoke(targetPackage.payload, targetPackage.tab, targetPackage.txId, targetPackage.isDemo || false);
+                .streamEvaluationToSpoke(targetPackage.payload, targetPackage.tab, targetPackage.txId, targetPackage.isDemo || false, localStorage.getItem('kemp_suite_verified_session_email'));
         } else {
             handleFallbackFailureState();
         }
@@ -965,6 +1030,27 @@ function toggleDemoSandboxMode() {
     // Reload everything under the new mode
     triggerExplicitDataSync();
 }
+// Shows the Evaluation module read-only for roles without canConductEvaluations —
+// matches the "visible tabs, restricted actions" pattern used elsewhere in the suite.
+function applyEvaluationPermissions(permissions) {
+    const canAct = !!permissions.canConductEvaluations;
+    const saveBtn = document.getElementById('commitFormBtn');
+    const createSessionBtns = document.querySelectorAll('[onclick="openSessionCreationModal()"]');
+
+    if (!canAct) {
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; saveBtn.title = 'You do not have permission to save evaluations.'; }
+        createSessionBtns.forEach(btn => { btn.disabled = true; btn.style.opacity = '0.5'; btn.title = 'You do not have permission to create sessions.'; });
+
+        const consolePanel = document.getElementById('evaluationConsolePanel');
+        if (consolePanel && !document.getElementById('evalReadOnlyNotice')) {
+            const notice = document.createElement('div');
+            notice.id = 'evalReadOnlyNotice';
+            notice.style.cssText = 'text-align:center; padding:10px; color:#64748b; font-size:13px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px;';
+            notice.innerText = '🔒 You have view-only access to Evaluations. You cannot save or create sessions.';
+            consolePanel.insertBefore(notice, consolePanel.firstChild);
+        }
+    }
+}
 // ========== SESSION CREATION MODAL ==========
 let selectedSessionTemplate = 'standard';
 let customColumns = [];
@@ -1158,7 +1244,8 @@ function confirmCreateSession() {
             frameworkSel ? frameworkSel.value : 'Trial',
             currentSystemIsDemoMode,
             selectedSessionTemplate,
-            customColumns
+            customColumns,
+            localStorage.getItem('kemp_suite_verified_session_email')
         );
 }
 function switchSessionTab(tab) {

@@ -89,6 +89,11 @@
                     </div>
                 </div>
 
+                <!-- 🔑 NEW: Forgot Password link, shown under the normal login view -->
+                <div id="iamForgotPasswordLinkRow" style="text-align: center; margin-bottom: 10px;">
+                    <a href="#" onclick="showForgotPasswordFlow(); return false;" style="font-size: 12px; color: #64748b; text-decoration: underline;">Forgot Password?</a>
+                </div>
+
                 <button type="button" id="iamSubmitActionBtn" onclick="processIdentityFormSubmission()" style="
                     display: block;
                     width: 100%;
@@ -105,7 +110,36 @@
                 ">Verify Identity Credentials</button>
             </div>
         </div>
-        
+
+        <!-- 🔑 NEW: Forgot Password flow container (hidden by default) -->
+        <div id="iamForgotPasswordContainer" style="display: none; margin-top: 16px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
+
+            <div id="iamForgotEmailStage" style="display: block;">
+                <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">We'll email a 6-digit reset code to your selected profile.</p>
+                <button type="button" onclick="submitForgotPasswordEmailRequest()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Send Reset Code</button>
+            </div>
+
+            <div id="iamForgotOtpStage" style="display: none;">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Enter Reset Code</label>
+                    <input type="text" id="iamForgotOtpInput" maxlength="6" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">New Password</label>
+                    <input type="password" id="iamForgotNewPasswordA" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Confirm New Password</label>
+                    <input type="password" id="iamForgotNewPasswordB" style="display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box;">
+                </div>
+                <button type="button" onclick="submitOTPAndNewPassword()" style="display: block; width: 100%; background: #0f172a; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;">Reset Password</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 12px;">
+                <a href="#" onclick="backToLoginFromForgot(); return false;" style="font-size: 12px; color: #64748b; text-decoration: underline;">← Back to Login</a>
+            </div>
+        </div>
+
         <div id="iamErrorAlert" style="display: none; background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 13px; color: #991b1b; text-align: center;"></div>
     </div>
 </div>
