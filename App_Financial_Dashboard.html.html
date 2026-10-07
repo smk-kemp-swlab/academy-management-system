@@ -120,11 +120,13 @@
                 <option value="">-- Select Batch --</option>
             </select>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="position:relative;">
             <label>SELECT STUDENT *</label>
-            <select id="studentSelect" onchange="prefillCycleStartFromJoiningDate()">
-                <option value="">-- Select Student --</option>
-            </select>
+            <input type="text" id="studentSearchDisplay" placeholder="Type student name..." autocomplete="off"
+                oninput="handleInvoiceStudentSearchInput()" onfocus="handleInvoiceStudentSearchInput()"
+                style="display:block; width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box;">
+            <input type="hidden" id="studentSelect">
+            <div id="studentSearchSuggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:9999; background:white; border:1px solid #cbd5e1; border-radius:8px; margin-top:4px; max-height:240px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
         </div>
             <div class="form-group" style="margin-top: 12px;">
                 <label>Select Fee Configuration *</label>
@@ -740,6 +742,15 @@ function switchModule(module) {
     if (module === 'leave') { populateLeaveStudentDropdown(); renderLeaveList(); }
 }
 // ========== DROPDOWNS ==========
+function resetInvoiceStudentSearch() {
+    window.invoiceStudentSearchOptions = [];
+    document.getElementById('studentSelect').value = '';
+    const searchEl = document.getElementById('studentSearchDisplay');
+    if (searchEl) searchEl.value = '';
+    const suggestionsEl = document.getElementById('studentSearchSuggestions');
+    if (suggestionsEl) suggestionsEl.style.display = 'none';
+}
+
 function populateStudentDropdown() {
     if (!contextPayload) return;
     const centerSel = document.getElementById('invoiceCenterSelect');
@@ -748,14 +759,14 @@ function populateStudentDropdown() {
         centerSel.innerHTML += `<option value="${f.Center_ID}">${f.Center_Name}</option>`;
     });
     document.getElementById('invoiceBatchSelect').innerHTML = '<option value="">-- Select Batch --</option>';
-    document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+    resetInvoiceStudentSearch();
 }
 
 function filterInvoiceBatches() {
     const centerId = document.getElementById('invoiceCenterSelect').value;
     const batchSel = document.getElementById('invoiceBatchSelect');
     batchSel.innerHTML = '<option value="">-- Select Batch --</option>';
-    document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+    resetInvoiceStudentSearch();
     if (!centerId) return;
     (contextPayload.batches || []).filter(b => b.Center_ID === centerId).forEach(b => {
         batchSel.innerHTML += `<option value="${b.Batch_ID}">${b.Batch_Name}</option>`;
@@ -764,11 +775,13 @@ function filterInvoiceBatches() {
 
 function filterInvoiceStudents() {
     const batchId = document.getElementById('invoiceBatchSelect').value;
-    const studentSel = document.getElementById('studentSelect');
-    studentSel.innerHTML = '<option value="">-- Select Student --</option>';
+    resetInvoiceStudentSearch();
     if (!batchId) return;
     (contextPayload.students || []).filter(s => s.Academy_Batch_ID === batchId && s.Status === 'Active').forEach(s => {
-        studentSel.innerHTML += `<option value="${s.Student_ID}">${s.First_Name} ${s.Last_Name} (${s.Student_ID})</option>`;
+        window.invoiceStudentSearchOptions.push({
+            label: `${s.First_Name} ${s.Last_Name} (${s.Student_ID})`,
+            id: s.Student_ID
+        });
     });
 }
 
@@ -793,7 +806,55 @@ function prefillCycleStartFromJoiningDate() {
         .withFailureHandler(function() {})
         .getOnboardingApplications(currentSystemIsDemoMode);
 }
+function handleInvoiceStudentSearchInput() {
+    const searchEl = document.getElementById('studentSearchDisplay');
+    const hiddenEl = document.getElementById('studentSelect');
+    const suggestionsEl = document.getElementById('studentSearchSuggestions');
+    const query = searchEl.value.trim().toLowerCase();
 
+    hiddenEl.value = '';
+
+    const options = window.invoiceStudentSearchOptions || [];
+    if (options.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">Select a Center and Batch first.</div>';
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    const matches = query
+        ? options.filter(opt => opt.label.toLowerCase().includes(query))
+        : options;
+
+    if (matches.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">No students found.</div>';
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    suggestionsEl.innerHTML = matches.map(opt =>
+        `<div onmousedown="selectInvoiceStudentResult('${opt.id}', '${opt.label.replace(/'/g, "\\'")}')"
+            style="padding:10px 14px; font-size:13px; color:#1e293b; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            ${opt.label}
+        </div>`
+    ).join('');
+
+    suggestionsEl.style.display = 'block';
+}
+
+function selectInvoiceStudentResult(studentId, label) {
+    document.getElementById('studentSearchDisplay').value = label;
+    document.getElementById('studentSelect').value = studentId;
+    document.getElementById('studentSearchSuggestions').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('studentSearchDisplay');
+    const suggestionsEl = document.getElementById('studentSearchSuggestions');
+    if (wrapper && suggestionsEl && !wrapper.contains(e.target) && !suggestionsEl.contains(e.target)) {
+        suggestionsEl.style.display = 'none';
+    }
+});
 function populateFeeConfigDropdown() {
     const sel = document.getElementById('feeConfigSelect');
     sel.innerHTML = '<option value="">-- Select Fee Config --</option>';

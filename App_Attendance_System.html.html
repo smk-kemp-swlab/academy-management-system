@@ -473,18 +473,20 @@ function buildRosterGrid(students) {
     let html = '';
     students.forEach(s => {
         html += `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 8px;">
-            <div>
+        <div data-student-id="${s.Student_ID}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;">
+            <div style="min-width: 0; flex: 1 1 140px;">
                 <div style="font-weight: 700; font-size: 14px; color: #1e293b;">${s.First_Name} ${s.Last_Name}</div>
                 <div style="font-size: 12px; color: #64748b;">${s.Student_ID}</div>
             </div>
-            <div style="display: flex; gap: 6px;">
-                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Present', this)" 
-                    style="padding: 8px 12px; border-radius: 8px; border: 2px solid #16a34a; background: #16a34a; color: white; font-weight: 700; font-size: 13px; cursor: pointer;">P</button>
-                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Absent', this)" 
-                    style="padding: 8px 12px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer;">A</button>
-                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Injured', this)" 
-                    style="padding: 8px 12px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer;">I</button>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(40px, 1fr)); gap: 4px; max-width: 220px;">
+                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Present', this)" title="Present"
+                    style="padding: 10px 4px; border-radius: 8px; border: 2px solid #16a34a; background: #16a34a; color: white; font-weight: 700; font-size: 13px; cursor: pointer; min-height: 40px;">P</button>
+                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Absent', this)" title="Absent"
+                    style="padding: 10px 4px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; min-height: 40px;">A</button>
+                <button ${disabledAttr} onclick="toggleInjuredPopup(event, this)" title="Informed / Injured"
+                    style="padding: 10px 4px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; min-height: 40px; position: relative;">I</button>
+                <button ${disabledAttr} onclick="setStatus('${s.Student_ID}', 'Trial', this)" title="Trial"
+                    style="padding: 10px 4px; border-radius: 8px; border: 2px solid #cbd5e1; background: white; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; min-height: 40px;">T</button>
             </div>
         </div>`;
     });
@@ -494,8 +496,9 @@ function buildRosterGrid(students) {
 }
 
 function setStatus(studentId, status, clickedBtn) {
-    const row = clickedBtn.parentElement;
-    const buttons = row.querySelectorAll('button');
+    const buttonGroup = clickedBtn.parentElement;
+    const row = clickedBtn.closest('div[data-student-id]');
+    const buttons = buttonGroup.querySelectorAll('button');
     
     // Reset all buttons
     buttons.forEach(btn => {
@@ -505,15 +508,64 @@ function setStatus(studentId, status, clickedBtn) {
     });
 
     // Highlight selected
-    const colors = { 'Present': '#16a34a', 'Absent': '#cc0000', 'Injured': '#d97706' };
+    const colors = { 'Present': '#16a34a', 'Absent': '#cc0000', 'Informed': '#d97706', 'Injured': '#d97706', 'Trial': '#2563eb' };
     clickedBtn.style.background = colors[status];
     clickedBtn.style.color = 'white';
     clickedBtn.style.borderColor = colors[status];
+    if (status === 'Informed' || status === 'Injured') {
+        clickedBtn.innerText = status === 'Informed' ? 'IN' : 'INJ';
+    }
 
     // Store status on parent row
     row.setAttribute('data-student-id', studentId);
     row.setAttribute('data-status', status);
 }
+
+// ===== "I" button popup: Informed / Injured =====
+function closeAllInjuredPopups() {
+    document.querySelectorAll('.injured-popup').forEach(p => p.remove());
+}
+
+function toggleInjuredPopup(evt, btn) {
+    evt.stopPropagation();
+    const existing = btn.querySelector('.injured-popup');
+    if (existing) { existing.remove(); return; }
+    closeAllInjuredPopups();
+
+    const row = btn.closest('div[data-student-id]');
+    const studentId = row.getAttribute('data-student-id');
+
+    const popup = document.createElement('div');
+    popup.className = 'injured-popup';
+    popup.style.cssText = 'position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:6px; background:white; border:1px solid #cbd5e1; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.18); z-index:1000; min-width:140px; overflow:hidden;';
+    popup.innerHTML = `
+        <div class="injured-popup-opt" data-choice="Informed" style="padding:12px 14px; font-size:13px; font-weight:700; color:#1e293b; cursor:pointer; border-bottom:1px solid #f1f5f9;">🟡 Informed</div>
+        <div class="injured-popup-opt" data-choice="Injured" style="padding:12px 14px; font-size:13px; font-weight:700; color:#1e293b; cursor:pointer;">🩹 Injured</div>
+    `;
+
+    popup.querySelectorAll('.injured-popup-opt').forEach(opt => {
+        opt.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const choice = opt.getAttribute('data-choice');
+            setStatus(studentId, choice, btn);
+            popup.remove();
+        });
+        opt.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            opt.click();
+        }, { passive: false });
+    });
+
+    btn.appendChild(popup);
+}
+
+document.addEventListener('click', closeAllInjuredPopups);
+document.addEventListener('touchstart', function(e) {
+    if (!e.target.closest('.injured-popup') && !e.target.closest('button[title="Informed / Injured"]')) {
+        closeAllInjuredPopups();
+    }
+}, { passive: true });
 
 // Collects the attendance records and submits them to the backend.
 function submitAttendance() {
@@ -554,12 +606,8 @@ function submitAttendance() {
     );
 
     const finalRecords = allStudents.map(s => {
-        const row = document.querySelector(`#rosterGrid > div [data-student-id="${s.Student_ID}"]`);
-        let status = 'Present'; // default
-        if (row) {
-            const parentRow = row.closest('div[data-status]');
-            if (parentRow) status = parentRow.getAttribute('data-status') || 'Present';
-        }
+        const row = document.querySelector(`#rosterGrid > div[data-student-id="${s.Student_ID}"]`);
+        const status = row ? (row.getAttribute('data-status') || 'Present') : 'Present';
         return {
             studentId: s.Student_ID,
             status: status,
@@ -945,7 +993,7 @@ function renderReportTable(records, centerVal, batchVal) {
             name: `${s.First_Name} ${s.Last_Name}`,
             batchId: s.Academy_Batch_ID,
             batchName: batchNameLookup[s.Academy_Batch_ID] || s.Academy_Batch_ID,
-            Present: 0, Absent: 0, Injured: 0
+            Present: 0, Absent: 0, Injured: 0, Trial: 0
         };
     });
 
@@ -955,7 +1003,7 @@ function renderReportTable(records, centerVal, batchVal) {
                 name: r.studentId + " (not in active roster)",
                 batchId: r.batchId,
                 batchName: batchNameLookup[r.batchId] || r.batchId,
-                Present: 0, Absent: 0, Injured: 0
+                Present: 0, Absent: 0, Injured: 0, Trial: 0
             };
         }
         if (summary[r.studentId][r.status] !== undefined) summary[r.studentId][r.status]++;
@@ -978,26 +1026,30 @@ function renderReportTable(records, centerVal, batchVal) {
 
     Object.keys(byBatch).forEach(batchName => {
         html += `<div style="font-weight:700; margin:12px 0 6px; color:#1e293b;">Batch: ${batchName}</div>
+        <div style="overflow-x:auto;">
         <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:8px;">
             <thead><tr style="background:#f1f5f9; text-align:left;">
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Student</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Present</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Absent</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Injured</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Trial</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Total Logged</th>
             </tr></thead><tbody>`;
 
         byBatch[batchName].forEach(s => {
-            const total = s.Present + s.Absent + s.Injured;
+            const total = s.Present + s.Absent + s.Injured + s.Trial;
             html += `<tr>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.name}<br><span style="color:#94a3b8; font-size:11px;">${s.id}</span></td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Present}</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Absent}</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Injured}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Trial}</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${total}</td>
             </tr>`;
         });
-        html += `</tbody></table>`;
+        html += `</tbody></table>
+        </div>`;
     });
 
     document.getElementById('reportTableWrapper').innerHTML = html;
@@ -1006,11 +1058,11 @@ function renderReportTable(records, centerVal, batchVal) {
 
 function downloadReportCSV() {
     if (!lastReportData || !lastReportMeta) { alert("No attendance data to download for this period."); return; }
-    let csv = "Center,Period,Batch,Student_ID,Student_Name,Present,Absent,Injured,Total_Logged\n";
+    let csv = "Center,Period,Batch,Student_ID,Student_Name,Present,Absent,Injured,Trial,Total_Logged\n";
     Object.keys(lastReportData).forEach(id => {
         const s = lastReportData[id];
-        const total = s.Present + s.Absent + s.Injured;
-        csv += `"${lastReportMeta.centerName}","${lastReportMeta.periodLabel}","${s.batchName}",${id},"${s.name}",${s.Present},${s.Absent},${s.Injured},${total}\n`;
+        const total = s.Present + s.Absent + s.Injured + s.Trial;
+        csv += `"${lastReportMeta.centerName}","${lastReportMeta.periodLabel}","${s.batchName}",${id},"${s.name}",${s.Present},${s.Absent},${s.Injured},${s.Trial},${total}\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1046,16 +1098,18 @@ function downloadReportPDF() {
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Present</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Absent</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Injured</th>
+                <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Trial</th>
                 <th style="padding:8px; border-bottom:1px solid #e2e8f0;">Total Logged</th>
             </tr></thead><tbody>`;
 
         byBatch[batchName].forEach(s => {
-            const total = s.Present + s.Absent + s.Injured;
+            const total = s.Present + s.Absent + s.Injured + s.Trial;
             tablesHtml += `<tr>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.name} (${s.id})</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Present}</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Absent}</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Injured}</td>
+                <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${s.Trial}</td>
                 <td style="padding:8px; border-bottom:1px solid #f1f5f9;">${total}</td>
             </tr>`;
         });

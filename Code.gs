@@ -2683,19 +2683,25 @@ function validateCoachLocation(centerId, latitude, longitude, isDemoMode) {
     return { allowed: false, reason: "No centers with valid coordinates found in Facilities_Matrix." };
   }
 
+  // Radius is configurable per center (set when the center is created/edited) —
+  // falls back to 500m if a center predates this feature or was left blank.
+  var allowedRadius = Number(nearest.center.Geofence_Radius_Meters);
+  if (isNaN(allowedRadius) || allowedRadius <= 0) allowedRadius = 500;
+
   // Every staff member — including "ALL"-assigned roaming staff — must be within
-  // 500m of SOME real center. "ALL" only means they're not locked to one fixed
-  // center; it should never mean the geofence is skipped entirely.
-  var allowed = nearest.distance <= 500;
+  // that center's configured radius of SOME real center. "ALL" only means they're
+  // not locked to one fixed center; it should never mean the geofence is skipped entirely.
+  var allowed = nearest.distance <= allowedRadius;
   var isAssignedCenter = !centerId || centerId === "ALL" ? true : String(nearest.center.Center_ID).trim() === String(centerId).trim();
 
   return {
     allowed: allowed,
     distanceMeters: Math.round(nearest.distance),
+    allowedRadiusMeters: allowedRadius,
     centerId: nearest.center.Center_ID,
     centerName: nearest.center.Center_Name,
     isAssignedCenter: isAssignedCenter,
-    reason: allowed ? "" : "You are approximately " + Math.round(nearest.distance) + " meters from your nearest center (" + nearest.center.Center_Name + "). You must be within 500 meters of a center to mark attendance."
+    reason: allowed ? "" : "You are approximately " + Math.round(nearest.distance) + " meters from your nearest center (" + nearest.center.Center_Name + "). You must be within " + allowedRadius + " meters of a center to mark attendance."
   };
 }
 //for new academy to automatically enter all there data
@@ -3134,12 +3140,16 @@ function addNewCenter(payload) {
       boundaryToken = payload.latitude + "," + payload.longitude;
     }
 
+    var radiusMeters = Number(payload.geofenceRadiusMeters);
+    if (isNaN(radiusMeters) || radiusMeters <= 0) radiusMeters = 500; // sensible default if left blank
+
     sheet.appendRow([
       centerId,
       payload.centerName || "",
       payload.cityRegion || "",
       payload.staticIpGateway || "",
-      boundaryToken
+      boundaryToken,
+      radiusMeters
     ]);
 
     return { success: true, centerId: centerId };
@@ -3222,11 +3232,15 @@ function updateCenter(payload) {
     var cityIdx = headers.indexOf("City_Region");
     var ipIdx = headers.indexOf("Static_IP_Gateway");
     var tokenIdx = headers.indexOf("Geographic_City_Boundary_Token");
+    var radiusIdx = headers.indexOf("Geofence_Radius_Meters");
 
     var boundaryToken = "";
     if (payload.latitude && payload.longitude) {
       boundaryToken = payload.latitude + "," + payload.longitude;
     }
+
+    var radiusMeters = Number(payload.geofenceRadiusMeters);
+    if (isNaN(radiusMeters) || radiusMeters <= 0) radiusMeters = 500;
 
     for (var r = 1; r < data.length; r++) {
       if (String(data[r][idIdx]) === String(payload.centerId)) {
@@ -3235,6 +3249,7 @@ function updateCenter(payload) {
         if (cityIdx !== -1) sheet.getRange(rowNum, cityIdx + 1).setValue(payload.cityRegion || "");
         if (ipIdx !== -1) sheet.getRange(rowNum, ipIdx + 1).setValue(payload.staticIpGateway || "");
         if (tokenIdx !== -1) sheet.getRange(rowNum, tokenIdx + 1).setValue(boundaryToken);
+        if (radiusIdx !== -1) sheet.getRange(rowNum, radiusIdx + 1).setValue(radiusMeters);
         return { success: true };
       }
     }

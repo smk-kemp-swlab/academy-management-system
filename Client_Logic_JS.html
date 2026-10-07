@@ -464,9 +464,13 @@
                 <div class="form-group" style="margin-top:10px;"><label>Trial Number / Bib Target *</label><input type="text" id="p_macro_bib"></div>
             </div>
             ` : `
-            <div class="form-group">
+            <div class="form-group" style="position:relative;">
                 <label>Select Target Roster Player Profile *</label>
-                <select id="p_macro_student_lookup"><option value="">-- Select Center/Batch First --</option></select>
+                <input type="text" id="p_macro_student_search" placeholder="Type player name..." autocomplete="off"
+                    oninput="handleStudentSearchInput()" onfocus="handleStudentSearchInput()"
+                    style="display:block; width:100%; padding:10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; box-sizing:border-box;">
+                <input type="hidden" id="p_macro_student_lookup">
+                <div id="p_macro_student_suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:9999; background:white; border:1px solid #cbd5e1; border-radius:8px; margin-top:4px; max-height:240px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
             </div>
             <div id="playerContextDataCard" style="margin-top:12px; font-size:13px; font-weight:500; display:none; background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></div>
             `}
@@ -512,18 +516,71 @@
         if (currentSelectedBatchVal) batchSel.value = currentSelectedBatchVal;
         const finalBatchVal = batchSel.value;
         
-        if (playerLookup) {
-            if (!finalBatchVal) {
-                playerLookup.innerHTML = '<option value="">-- Select Batch Next --</option>';
-            } else {
-                playerLookup.innerHTML = '<option value="">-- Choose Player --</option>';
-                
+        const searchEl = document.getElementById('p_macro_student_search');
+        if (searchEl) {
+            window.studentSearchOptions = [];
+            searchEl.value = '';
+            document.getElementById('p_macro_student_lookup').value = '';
+            document.getElementById('p_macro_student_suggestions').style.display = 'none';
+
+            if (finalBatchVal) {
                 masterContextPayload.players.filter(p => p.Academy_Center_ID === centerVal && p.Academy_Batch_ID === finalBatchVal && p.Status === "Active").forEach(p => {
-                    playerLookup.innerHTML += `<option value="${p.Student_ID}">${p.First_Name} ${p.Last_Name} (${p.Student_ID})</option>`;
+                    window.studentSearchOptions.push({
+                        label: `${p.First_Name} ${p.Last_Name} (${p.Student_ID})`,
+                        id: p.Student_ID
+                    });
                 });
             }
         }
     }
+    function handleStudentSearchInput() {
+    const searchEl = document.getElementById('p_macro_student_search');
+    const hiddenEl = document.getElementById('p_macro_student_lookup');
+    const suggestionsEl = document.getElementById('p_macro_student_suggestions');
+    const query = searchEl.value.trim().toLowerCase();
+
+    hiddenEl.value = '';
+
+    const options = window.studentSearchOptions || [];
+    if (options.length === 0) {
+        suggestionsEl.style.display = 'none';
+        return;
+    }
+
+    const matches = query
+        ? options.filter(opt => opt.label.toLowerCase().includes(query))
+        : options;
+
+    if (matches.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">No players found.</div>';
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    suggestionsEl.innerHTML = matches.map(opt =>
+        `<div onmousedown="selectStudentSearchResult('${opt.id}', '${opt.label.replace(/'/g, "\\'")}')"
+            style="padding:10px 14px; font-size:13px; color:#1e293b; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            ${opt.label}
+        </div>`
+    ).join('');
+
+    suggestionsEl.style.display = 'block';
+}
+
+function selectStudentSearchResult(studentId, label) {
+    document.getElementById('p_macro_student_search').value = label;
+    document.getElementById('p_macro_student_lookup').value = studentId;
+    document.getElementById('p_macro_student_suggestions').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('p_macro_student_search');
+    const suggestionsEl = document.getElementById('p_macro_student_suggestions');
+    if (wrapper && suggestionsEl && !wrapper.contains(e.target) && !suggestionsEl.contains(e.target)) {
+        suggestionsEl.style.display = 'none';
+    }
+});
 
     function buildSupersetCardMatrix(targetId, attributeList, prefix, hasPressureSplit) {
         const container = document.getElementById(targetId); if (!container) return;
@@ -670,10 +727,10 @@
                     if(!packet["Player_Name"] || !packet["Trial_Number_Or_Bib"]) { alert("Player Name and Bib are mandatory."); return; }
                 }
             } else {
-                const lookupEl = document.getElementById('p_macro_student_lookup'); 
-                if(!lookupEl.value) { alert("Roster assignment is mandatory."); return; }
-                const rawText = lookupEl.options[lookupEl.selectedIndex].text;
-                packet["Player_Name"] = rawText.replace(/\s*\(.*\)\s*$/, '').trim();
+                const lookupEl = document.getElementById('p_macro_student_lookup');
+                const searchEl = document.getElementById('p_macro_student_search');
+                if(!lookupEl.value) { alert("Roster assignment is mandatory. Please pick a name from the suggestions."); return; }
+                packet["Player_Name"] = searchEl.value.replace(/\s*\(.*\)\s*$/, '').trim();
                 packet["Trial_Number_Or_Bib"] = lookupEl.value;
             }
         }

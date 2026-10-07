@@ -206,8 +206,12 @@
                 <label>Longitude</label>
                 <input type="text" id="newCenterLng" placeholder="e.g. 77.7114942">
             </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label>Attendance Geofence Radius (meters)</label>
+                <input type="number" id="newCenterRadius" placeholder="e.g. 100" min="10">
+            </div>
             <div style="font-size:11px; color:#94a3b8; margin-top:8px;">
-                Latitude/Longitude power the 500m attendance geofence for this center — optional but recommended.
+                Latitude/Longitude power the attendance geofence for this center. The radius controls how close a staff member must be to check in — defaults to 500m if left blank.
             </div>
             <button class="master-action-btn btn-commit" style="margin-top:16px;" onclick="submitNewCenter()">✅ Add Center</button>
         </div>
@@ -333,6 +337,10 @@
             <label>Longitude</label>
             <input type="text" id="editCenterLng">
         </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Attendance Geofence Radius (meters)</label>
+            <input type="number" id="editCenterRadius" min="10">
+        </div>
         <div class="btn-container" style="margin-top: 18px;">
             <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditCenterModal()">Cancel</button>
             <button class="master-action-btn btn-commit" onclick="submitCenterEdit()">Save Changes</button>
@@ -390,6 +398,10 @@
         <div class="form-group" style="margin-top:12px;">
             <label>Longitude</label>
             <input type="text" id="editCenterLng">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>Attendance Geofence Radius (meters)</label>
+            <input type="number" id="editCenterRadius" min="10">
         </div>
         <div class="btn-container" style="margin-top: 18px;">
             <button class="master-action-btn" style="background:#475569; color:white;" onclick="closeEditCenterModal()">Cancel</button>
@@ -993,7 +1005,7 @@ function renderCentersList() {
                 <div>
                     <div style="font-weight:700; font-size:14px; color:#1e293b;">${f.Center_Name}</div>
                     <div style="font-size:12px; color:#64748b; margin-top:2px;">${f.Center_ID} &nbsp;|&nbsp; ${f.City_Region || ''}</div>
-                    ${f.Geographic_City_Boundary_Token ? `<div style="font-size:11px; color:#94a3b8; margin-top:4px;">📍 ${f.Geographic_City_Boundary_Token}</div>` : ''}
+                    ${f.Geographic_City_Boundary_Token ? `<div style="font-size:11px; color:#94a3b8; margin-top:4px;">📍 ${f.Geographic_City_Boundary_Token} &nbsp;|&nbsp; Geofence: ${f.Geofence_Radius_Meters || 500}m</div>` : ''}
                 </div>
                 ${canManageCentersBatches ? `
                 <div style="position:relative;">
@@ -1067,6 +1079,7 @@ function submitNewCenter() {
     const cityRegion = document.getElementById('newCenterCityRegion').value.trim();
     const lat = document.getElementById('newCenterLat').value.trim();
     const lng = document.getElementById('newCenterLng').value.trim();
+    const radius = document.getElementById('newCenterRadius').value.trim();
 
     if (!centerId || !centerName || !cityRegion) {
         alert("Please fill Center ID, Center Name, and City/Region.");
@@ -1088,6 +1101,7 @@ function submitNewCenter() {
                 document.getElementById('newCenterCityRegion').value = '';
                 document.getElementById('newCenterLat').value = '';
                 document.getElementById('newCenterLng').value = '';
+                document.getElementById('newCenterRadius').value = '';
                 loadCentersAndBatches();
             } else {
                 alert("Error: " + result.error);
@@ -1104,6 +1118,7 @@ function submitNewCenter() {
             cityRegion: cityRegion,
             latitude: lat,
             longitude: lng,
+            geofenceRadiusMeters: radius,
             staffEmail: verifiedStaffEmail,
             isDemoMode: currentSystemIsDemoMode
         });
@@ -1159,18 +1174,21 @@ function submitNewBatch() {
 // ========== EDIT / DELETE CENTER ==========
 function openEditCenterModal(center) {
     document.querySelectorAll('[id^="centerMenu_"]').forEach(m => m.style.display = 'none');
-    document.getElementById('editCenterId').value = center.Center_ID;
+
+    document.getElementById('editCenterId').value = center.Center_ID || '';
     document.getElementById('editCenterName').value = center.Center_Name || '';
     document.getElementById('editCenterCityRegion').value = center.City_Region || '';
 
+    // Geographic_City_Boundary_Token is stored as "lat,lon" — split it back into the two fields
     let lat = '', lng = '';
     if (center.Geographic_City_Boundary_Token) {
         const parts = String(center.Geographic_City_Boundary_Token).split(',');
-        lat = parts[0] ? parts[0].trim() : '';
-        lng = parts[1] ? parts[1].trim() : '';
+        lat = (parts[0] || '').trim();
+        lng = (parts[1] || '').trim();
     }
     document.getElementById('editCenterLat').value = lat;
     document.getElementById('editCenterLng').value = lng;
+    document.getElementById('editCenterRadius').value = center.Geofence_Radius_Meters || '';
 
     document.getElementById('editCenterModalOverlay').style.display = 'flex';
 }
@@ -1178,25 +1196,22 @@ function openEditCenterModal(center) {
 function closeEditCenterModal() {
     document.getElementById('editCenterModalOverlay').style.display = 'none';
 }
-
 function submitCenterEdit() {
     const centerId = document.getElementById('editCenterId').value;
     const centerName = document.getElementById('editCenterName').value.trim();
     const cityRegion = document.getElementById('editCenterCityRegion').value.trim();
     const lat = document.getElementById('editCenterLat').value.trim();
     const lng = document.getElementById('editCenterLng').value.trim();
+    const radius = document.getElementById('editCenterRadius').value.trim();
 
-    if (!centerName || !cityRegion) {
-        alert("Please fill Center Name and City/Region.");
-        return;
-    }
+    if (!centerName || !cityRegion) { alert("Please fill Center Name and City/Region."); return; }
 
-    const btn = document.querySelector('#editCenterModalOverlay .btn-commit');
-    if (btn) { btn.disabled = true; btn.innerText = "Saving..."; }
+    const saveBtn = document.querySelector('#editCenterModalOverlay .btn-commit');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "Saving..."; }
 
     google.script.run
         .withSuccessHandler(function(result) {
-            if (btn) { btn.disabled = false; btn.innerText = "Save Changes"; }
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "Save Changes"; }
             if (result.success) {
                 closeEditCenterModal();
                 loadCentersAndBatches();
@@ -1205,7 +1220,7 @@ function submitCenterEdit() {
             }
         })
         .withFailureHandler(function() {
-            if (btn) { btn.disabled = false; btn.innerText = "Save Changes"; }
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "Save Changes"; }
             alert("Connection failed. Please try again.");
         })
         .updateCenter({
@@ -1214,11 +1229,11 @@ function submitCenterEdit() {
             cityRegion: cityRegion,
             latitude: lat,
             longitude: lng,
+            geofenceRadiusMeters: radius,
             staffEmail: verifiedStaffEmail,
             isDemoMode: currentSystemIsDemoMode
         });
 }
-
 function deleteCenterRow(centerId) {
     document.querySelectorAll('[id^="centerMenu_"]').forEach(m => m.style.display = 'none');
     if (!confirm('Delete this center permanently? This cannot be undone.')) return;
